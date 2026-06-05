@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>QuickStatsPanel — Flat Render (for PNG capture)</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; }
+  * { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  /* Flat layout: stack sections vertically, no pan/zoom canvas. */
+  #root { width: max-content; }
+  /* Hide the per-artboard editor chrome (grip / label / ⋯ export menu). */
+  .dc-header { display: none !important; }
+  @keyframes qsPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.78); } }
+  .qs-rec-dot { animation: qsPulse 1.1s ease-in-out infinite; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design_handoff_quickstatspanel/tokens.jsx"></script>
+<script type="text/babel" src="design_handoff_quickstatspanel/icons.jsx"></script>
+<script type="text/babel" src="design_handoff_quickstatspanel/design-canvas.jsx"></script>
+<script type="text/babel" src="design_handoff_quickstatspanel/hud.jsx"></script>
+<script type="text/babel" src="design_handoff_quickstatspanel/popovers.jsx"></script>
+<script type="text/babel" src="design_handoff_quickstatspanel/sec-hero.jsx"></script>
+<script type="text/babel" src="design_handoff_quickstatspanel/sec-popovers.jsx"></script>
+<script type="text/babel" src="design_handoff_quickstatspanel/sec-color.jsx"></script>
+<script type="text/babel" src="design_handoff_quickstatspanel/sec-settings.jsx"></script>
+<script type="text/babel" src="design_handoff_quickstatspanel/sec-icon.jsx"></script>
+<script type="text/babel" src="design_handoff_quickstatspanel/sec-firstrun.jsx"></script>
+<script type="text/babel">
+  function FlatApp() {
+    const [active, setActive] = React.useState(null);
+    const sectionStyle = { padding: '32px 0', borderBottom: '1px solid rgba(0,0,0,0.08)' };
+    return (
+      <div style={{ padding: 40 }} data-flat-root="">
+        <div data-flat-section="hero" style={sectionStyle}>
+          <SecHero active={active}
+            onTile={(k) => setActive((a) => (a === k ? null : k))}
+            onGear={() => setActive((a) => (a === 'gear' ? null : 'gear'))} />
+        </div>
+        {window.SecPopovers && <div data-flat-section="popovers" style={sectionStyle}><SecPopovers /></div>}
+        {window.SecColor && <div data-flat-section="color" style={sectionStyle}><SecColor /></div>}
+        {window.SecSettings && <div data-flat-section="settings" style={sectionStyle}><SecSettings /></div>}
+        {window.SecIcon && <div data-flat-section="icon" style={sectionStyle}><SecIcon /></div>}
+        {window.SecFirstRun && <div data-flat-section="firstrun" style={sectionStyle}><SecFirstRun /></div>}
+      </div>
+    );
+  }
+  // Babel compiles all the type=text/babel scripts; render once they're defined.
+  function boot() {
+    if (!window.SecHero) { setTimeout(boot, 50); return; }
+    ReactDOM.createRoot(document.getElementById('root')).render(<FlatApp />);
+    // Signal "ready" for the headless capture once a frame has painted.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      document.body.setAttribute('data-render-ready', '1');
+    }));
+  }
+  boot();
+</script>
+</body>
+</html>
