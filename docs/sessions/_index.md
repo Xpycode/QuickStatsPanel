@@ -1,0 +1,12 @@
+# Session Index — QuickStatsPanel
+
+| Date | Session | Summary |
+|------|---------|---------|
+| [2026-06-04](2026-06-04.md) | Setup + v0 scaffold | New project → Directions + folders + swift MCP profile; design locked (D-001–D-007); scaffolded `01_Project`, builds clean, smoke-launched OK |
+| [2026-06-04](2026-06-04.md) | Visual verify + Disk sampler | Panel verified on screen; content-driven + fixed-width tiles (D-008, Penumbra TC pattern); added permission-free DiskSampler (statfs + IOKit), capacity + live I/O |
+| [2026-06-04](2026-06-04.md) | v1.1 stats: Network + Battery | NetworkSampler (getifaddrs, count-everything filter) + BatterySampler (IOKit Power Sources, hidden on desktop, inverted color); all 5 tiles verified live on screen |
+| [2026-06-04](2026-06-04.md) | Data-driven strip refactor | StatKind + StatDescriptor + StatsStore.visibleStats; StatsStripView collapsed to a ForEach (75→12 lines); fixed type-checker strain, no behavior change; unblocks stat selection |
+| [2026-06-04](2026-06-04.md) | In-panel settings (all five) | AppSettings singleton (UserDefaults) + PanelAnchor; gear→self-managed Settings NSWindow (D-009, fixed showSettingsWindow: no-op under LSUIElement); SettingsView form: stat reorder/toggle, interval, anchor, height, hotkey recorder (reject Shift-only). Verified on screen |
+| [2026-06-05](2026-06-05.md) | Esc-to-dismiss (D-010) | Bare Escape as a 2nd Carbon hotkey scoped to panel-visible (permission-free, no focus theft); new PanelWindowController.onVisibilityChanged drives teardown across all hide paths; HotKeyService made ID-filtered (latent multi-handler bug fixed). Builds clean |
+| [2026-06-05](2026-06-05.md) | Phase A stats (D-011/D-012) | Agent-researched + built 3 permission-free tiles: Load Avg (getloadavg), Uptime (kern.boottime not systemUptime), Top Process (libproc, top *user* process by memory — XNU same-user gate, no root helper). knownStats migration defaults new tiles on safely; SettingsView height scales. Zero view changes. Builds clean; all 8 tiles verified live on screen |
+| [2026-06-05](2026-06-05.md) | Top-process lists in popovers (D-013) | iStat-Menus style: rewrote TopProcessSampler → top-5 by CPU%/memory/disk-I/O from one rusage_info_v4 pass; folded into CPU/Mem/Disk popovers, retired standalone Top Process tile (auto-migrates). Verified mach-unit CPU% math (XNU/osquery#7459 — ri_*_time is mach ticks not ns). Network per-proc excluded (no permission-free API). Builds clean, runs; on-screen click-through + Activity Monitor cross-check pending |

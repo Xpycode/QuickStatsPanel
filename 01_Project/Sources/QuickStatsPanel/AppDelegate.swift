@@ -1,0 +1,114 @@
+import AppKit
+
+/// Wires the app together: starts sampling, registers the global hotkey, and
+/// toggles the panel. No menu bar, no Dock icon (decision D-003) — the hotkey
+/// and the panel itself are the entire UI surface.
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+
+    private let store = StatsStore()
+    private let panel = PanelWindowController()
+    private let hotKey = HotKeyService(id: 1)
+    private let settingsWindow = SettingsWindowController()
+
+    /// Esc-to-dismiss. Registered as a bare-Escape Carbon hotkey *only while the
+    /// panel is visible* (and torn down on hide), so Escape behaves normally for
+    /// every other app the rest of the time. Carbon is permission-free and fires
+    /// regardless of focus — the only such option for a non-activating panel that
+    /// never becomes key. (id: 2 keeps it distinct from the toggle hotkey.)
+    private let dismissHotKey = HotKeyService(id: 2)
+
+    /// Global mouse monitor for click-away dismissal. A *mouse* monitor needs no
+    /// special permission (unlike a keyboard one), keeping us permission-free.
+    private var clickAwayMonitor: Any?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        wireSettings()
+        store.start()
+        registerHotKey()
+        installClickAwayMonitor()
+        installEscToDismiss()
+
+        // First-run discoverability: an agent app with no Dock/menu-bar presence
+        // is invisible until summoned, so show the panel once on launch.
+        togglePanel()
+    }
+
+    /// Connect settings changes that need an *imperative* reaction. Declarative
+    /// settings (anchor, strip height, stat set) are read where they're used and
+    /// need no hook here.
+    private func wireSettings() {
+        let settings = AppSettings.shared
+        settings.onHotKeyChanged = { [weak self] in self?.registerHotKey() }
+        settings.onIntervalChanged = { [weak self] in self?.store.restart() }
+    }
+
+    /// (Re)register the global hotkey from the current setting.
+    private func registerHotKey() {
+        hotKey.register(AppSettings.shared.hotKey) { [weak self] in
+            self?.togglePanel()
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        store.stop()
+        hotKey.unregister()
+        dismissHotKey.unregister()
+        removeClickAwayMonitor()
+    }
+
+    private func togglePanel() {
+        // Width is content-driven (PanelWindowController measures the SwiftUI
+        // content); anchor + height come from settings.
+        panel.toggle(anchor: AppSettings.shared.anchor) { [store] in
+            StatsStripView(store: store, onOpenSettings: { [weak self] in
+                self?.openSettings()
+            })
+        }
+    }
+
+    /// Open our settings window. Uses a self-managed `NSWindow` rather than the
+    /// SwiftUI `Settings` scene, which is unreliable in an `LSUIElement` app.
+    private func openSettings() {
+        settingsWindow.show()
+    }
+
+    // MARK: - Esc-to-dismiss
+
+    /// Capture Escape only while the panel is on screen. Driven by the panel's
+    /// own visibility signal so it covers *every* hide path (toggle, click-away,
+    /// Esc itself) — registering in `togglePanel()` alone would leave Escape
+    /// captured after a click-away dismissal.
+    private func installEscToDismiss() {
+        panel.onVisibilityChanged = { [weak self] visible in
+            guard let self else { return }
+            if visible {
+                self.dismissHotKey.register(.escape) { [weak self] in
+                    self?.panel.hide()
+                }
+            } else {
+                self.dismissHotKey.unregister()
+            }
+        }
+    }
+
+    // MARK: - Click-away dismissal
+
+    private func installClickAwayMonitor() {
+        clickAwayMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown]
+        ) { [weak self] _ in
+            // A global monitor only fires for clicks in *other* apps, i.e. outside
+            // our panel — exactly the click-away case. Hide if visible.
+            Task { @MainActor in
+                guard let self, self.panel.isVisible else { return }
+                self.panel.hide()
+            }
+        }
+    }
+
+    private func removeClickAwayMonitor() {
+        if let clickAwayMonitor { NSEvent.removeMonitor(clickAwayMonitor) }
+        clickAwayMonitor = nil
+    }
+}

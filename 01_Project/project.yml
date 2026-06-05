@@ -1,0 +1,44 @@
+name: QuickStatsPanel
+options:
+  bundleIdPrefix: com.sim
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    GENERATE_INFOPLIST_FILE: NO
+    INFOPLIST_FILE: Sources/QuickStatsPanel/Resources/Info.plist
+    CODE_SIGN_ENTITLEMENTS: Sources/QuickStatsPanel/Resources/QuickStatsPanel.entitlements
+    ENABLE_HARDENED_RUNTIME: YES
+    DEAD_CODE_STRIPPING: YES
+    SWIFT_STRICT_CONCURRENCY: complete
+    CODE_SIGN_STYLE: Automatic
+
+configs:
+  Debug: debug
+  Release: release
+
+targets:
+  QuickStatsPanel:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/QuickStatsPanel
+        excludes:
+          - "Resources/Info.plist"
+          - "Resources/QuickStatsPanel.entitlements"
+    resources:
+      - path: Sources/QuickStatsPanel/Resources
+        excludes:
+          - "Info.plist"
+          - "QuickStatsPanel.entitlements"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sim.QuickStatsPanel
+        PRODUCT_NAME: QuickStatsPanel
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

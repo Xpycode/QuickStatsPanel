@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+.fastembed_cache/
+
+# Xcode / build
+build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcuserstate
+*.profraw
+default.profraw
+
+# xcodegen output (regenerable from project.yml)
+01_Project/*.xcodeproj
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Per-machine signing override
+**/Debug.local.xcconfig
+
+# Secrets / local
+.env
+*.local.json
