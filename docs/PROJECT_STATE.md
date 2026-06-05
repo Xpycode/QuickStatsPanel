@@ -12,7 +12,7 @@
 ## Current Position
 - **Funnel:** build
 - **Phase:** Implementation — v0 shell running
-- **Focus:** **D-013 top-process lists built** (iStat-style: top-5 by CPU / memory / disk-I/O folded into the CPU/Mem/Disk popovers from one rusage pass; standalone Top Process tile retired; mach-unit CPU% math). Builds clean, launches & runs. ⚠ Awaiting visual click-through (open the 3 popovers via ⌃⌥⌘Q) + Activity-Monitor cross-check of CPU%/disk rates. Then: app icon / first-run hint / signing.
+- **Focus:** **D-013 top-process lists built** (iStat-style: top-5 by CPU / memory / disk-I/O folded into the CPU/Mem/Disk popovers from one rusage pass; standalone Top Process tile retired; mach-unit CPU% math). Builds clean, launches & runs. ⚠ Awaiting visual click-through (open the 3 popovers via ⌃⌥⌘Q) + Activity-Monitor cross-check of CPU%/disk rates. **App icon ✅ done** (parallel track): "Abstract bars" `AppIcon.appiconset` generated from the design handoff (native CG generator, build-verified). Next: **first-run hint / signing.**
 - **Status:** ✅ `** BUILD SUCCEEDED **` (clean, no warnings), launches & runs. All 5 stats live; gear tile → standard Settings window (D-009); Esc / toggle-hotkey / click-away all dismiss. Settings persist via `UserDefaults`. ✅ **Esc + click-away dismissal verified** (2026-06-05, CGEvent-tap test): Esc captured only while visible, dismisses panel, released after hide; click-away exercised literally (empty-desktop click → dismiss + Esc released). ⚠️ Settings UI **not yet visually clicked-through** by user.
 - **Last updated:** 2026-06-05
 
