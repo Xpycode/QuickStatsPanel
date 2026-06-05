@@ -82,6 +82,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func installEscToDismiss() {
         panel.onVisibilityChanged = { [weak self] visible in
             guard let self else { return }
+            // Run the costly top-processes sampler only while the panel is shown.
+            self.store.setPanelVisible(visible)
             if visible {
                 self.dismissHotKey.register(.escape) { [weak self] in
                     self?.panel.hide()

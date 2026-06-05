@@ -63,19 +63,24 @@ struct StatTileView: View {
                 Text(section.title)
                     .font(Theme.Fonts.detailTitle)
                     .foregroundStyle(Theme.Colors.secondaryText)
-                // Index-keyed: process names can repeat (e.g. helper procs).
-                ForEach(Array(section.rows.enumerated()), id: \.offset) { _, row in
+                // Reserve a constant `reservedRows` slots so the popover height never
+                // changes as the active-app count varies tick-to-tick (rate lists
+                // like CPU fluctuate). Real rows render; missing slots render an
+                // invisible row of identical height. Cookbook 67, applied vertically.
+                ForEach(0..<section.reservedRows, id: \.self) { i in
+                    let row: (String, String)? = i < section.rows.count ? section.rows[i] : nil
                     HStack {
-                        Text(row.0)                              // process name leads
+                        Text(row?.0 ?? " ")                      // process name leads
                             .font(Theme.Fonts.detailValue)
                             .foregroundStyle(Theme.Colors.primaryText)
                             .lineLimit(1)
                             .truncationMode(.middle)
                         Spacer(minLength: 24)
-                        Text(row.1)                              // its metric value
+                        Text(row?.1 ?? " ")                      // its metric value
                             .font(Theme.Fonts.detailValue)
                             .foregroundStyle(Theme.Colors.secondaryText)
                     }
+                    .opacity(row == nil ? 0 : 1)                 // pad slots stay invisible
                 }
             }
         }

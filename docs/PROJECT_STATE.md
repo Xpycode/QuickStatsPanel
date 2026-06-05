@@ -12,8 +12,8 @@
 ## Current Position
 - **Funnel:** build
 - **Phase:** Implementation — v0 shell running
-- **Focus:** **D-013 top-process lists built** (iStat-style: top-5 by CPU / memory / disk-I/O folded into the CPU/Mem/Disk popovers from one rusage pass; standalone Top Process tile retired; mach-unit CPU% math). Builds clean, launches & runs. ⚠ Awaiting visual click-through (open the 3 popovers via ⌃⌥⌘Q) + Activity-Monitor cross-check of CPU%/disk rates. **App icon ✅ done** (parallel track): "Abstract bars" `AppIcon.appiconset` generated from the design handoff (native CG generator, build-verified). Next: **first-run hint / signing.**
-- **Status:** ✅ `** BUILD SUCCEEDED **` (clean, no warnings), launches & runs. All 5 stats live; gear tile → standard Settings window (D-009); Esc / toggle-hotkey / click-away all dismiss. Settings persist via `UserDefaults`. ✅ **Esc + click-away dismissal verified** (2026-06-05, CGEvent-tap test): Esc captured only while visible, dismisses panel, released after hide; click-away exercised literally (empty-desktop click → dismiss + Esc released). ⚠️ Settings UI **not yet visually clicked-through** by user.
+- **Focus:** **D-014 top-process lists now sourced from `/usr/bin/top`** (replaces D-013's in-process rusage engine — proven this session that XNU same-user-gates *all* per-proc CPU/mem APIs, so in-process can never see WindowServer/kernel_task). CPU + Memory popover lists now look like Activity Monitor (system processes included, grouped by app, 1-decimal locale %, fixed-height popover). Disk-I/O per-process list dropped (top can't provide it). `top` gated to panel-visible; our own probe PID filtered. ✅ Verified on screen vs Activity Monitor. **App icon ✅ done** (parallel track): "Abstract bars" `AppIcon.appiconset` generated from the design handoff (native CG generator, build-verified). Next: **first-run hint / signing.**
+- **Status:** ✅ `** BUILD SUCCEEDED **` (clean, no warnings), launches & runs. All 5 stats live; gear tile → standard Settings window (D-009); Esc / toggle-hotkey / click-away all dismiss. Settings persist via `UserDefaults`. ✅ **Esc + click-away dismissal verified** (2026-06-05, CGEvent-tap test): Esc captured only while visible, dismisses panel, released after hide; click-away exercised literally. ✅ **Top-process lists (D-014) verified on screen**: CPU list shows WindowServer/kernel_task with sane per-core % matching Activity Monitor; app-grouping correct; spawned-`top` probe filtered out. ⚠️ Settings UI **not yet visually clicked-through** by user.
 - **Last updated:** 2026-06-05
 
 ## What we're building
@@ -44,68 +44,34 @@ item** — settings & quit live in the panel. Small corner radius (NOT "Tahoe").
 | Battery / power | `BatterySampler` (new: IOKit Power Sources) | **v1.1 ✅** |
 | Load average | `LoadAverageSampler` (new: `getloadavg`, permission-free) | **Phase A ✅** |
 | Uptime | `UptimeSampler` (new: `kern.boottime`, permission-free) | **Phase A ✅** |
-| Top process (mem/CPU/disk) | `TopProcessSampler` → lists in CPU/Mem/Disk popovers (D-013, iStat-style); standalone tile retired | **✅ built** |
+| Top process (CPU/mem) | `TopProcessSampler` parses `/usr/bin/top` → lists in CPU/Mem popovers (D-014; system-inclusive, app-grouped, panel-visible-gated). Disk-I/O per-proc dropped (top has no column). | **✅ built + verified** |
 | GPU / temps / fans | new, SMC (⚠ private-ish APIs, risky) | v2 |
 
-## Done (v0 scaffold, 2026-06-04)
-- [x] `01_Project/project.yml` (macOS 15, `LSUIElement` via Info.plist, id `com.sim.QuickStatsPanel`).
-- [x] `QuickStatsPanelApp` + `AppDelegate` (agent app, no menu bar; first-run shows panel once).
-- [x] `PanelWindowController` (NSPanel, thin strip, small radius, `anchor: .cursor | .fixed`, screen-clamped).
-- [x] `HotKeyService` (Carbon RegisterEventHotKey, default ⌃⌥⌘Q) → toggles panel.
-- [x] `CPUSampler` + `MemorySampler` ported + `StatsStore` (`@Observable @MainActor`).
-- [x] `StatsStripView` + `StatTileView` (HStack of tiles; **click tile → detail popover**).
-- [x] Click-away dismissal via permission-free global *mouse* monitor.
-- Builds clean (Swift-6-ready), smoke-launched OK.
+## Done — history digest (full detail in `sessions/`)
+- **v0 scaffold (06-04):** xcodegen `project.yml`, `QuickStatsPanelApp`+`AppDelegate` (agent app), `PanelWindowController` (NSPanel thin strip), `HotKeyService` (Carbon ⌃⌥⌘Q toggle), CPU+Mem samplers + `StatsStore`, `StatsStripView`/`StatTileView` (click→popover), mouse-monitor click-away.
+- **Content-driven strip + Disk (06-04):** width hugs tiles via `fittingSize` (killed 620pt dead space); fixed-width monospaced tiles (Penumbra pattern, no jitter); `DiskSampler` (`statfs` + IOKit `IOBlockStorageDriver`, permission-free).
+- **v1.1 stats (06-04):** `NetworkSampler` (`getifaddrs`/`AF_LINK`, cumulative→delta) + `BatterySampler` (IOKit Power Sources, hidden on desktops, inverted color band).
+- **Data-driven strip refactor (06-04):** `StatKind` enum + `StatDescriptor` + `StatsStore.visibleStats` (single `descriptor(for:)` chokepoint); `StatsStripView` 75→12-line `ForEach`; fixed type-checker strain.
+- **In-panel settings (06-04):** `AppSettings` (`@Observable` UserDefaults singleton) + `PanelAnchor` enum; gear→self-managed Settings `NSWindow` (D-009); `SettingsView` form (reorder/toggle stats, interval/height sliders, anchor, hotkey recorder, Reset/Quit); `HotKeyRecorderView` (rejects Shift-only).
+- **Esc-to-dismiss (06-05, D-010):** bare Esc as a 2nd scoped Carbon hotkey; `PanelWindowController.onVisibilityChanged` covers every hide path; `HotKeyService` made ID-filtered (latent multi-handler bug fixed).
+- **Phase A stats (06-05, D-011/D-012):** `LoadAverageSampler` (`getloadavg`), `UptimeSampler` (`kern.boottime`, not `systemUptime`), first `TopProcessSampler` (libproc, "top user proc by memory"); `AppSettings.knownStats` migration defaults new stats ON safely.
+- **Top-process lists in popovers (06-05, D-013 — data source later superseded by D-014):** folded CPU/mem/disk rankings into the tile popovers, retired the standalone tile, app-grouping introduced. The popover/grouping design stands; the in-process `rusage` engine was replaced — see D-014.
 
-## Done (afternoon, 2026-06-04)
-- [x] **Visually verified** the panel on screen (⌃⌥⌘Q) — all v1 stats + popovers + toggle.
-- [x] Strip width **content-driven** (`fittingSize`) — killed the 620pt dead space; `.fixedSize` fixes the wrap.
-- [x] **Fixed-width tiles + monospaced digits** (Penumbra TimecodeView pattern) → no per-summon jitter.
-- [x] **`DiskSampler`** (new): capacity via `statfs`, live I/O via IOKit `IOBlockStorageDriver`; permission-free. Disk tile + popover (Used/Free/Total + Read/Write). "Zero KB/s" → "0 KB/s".
-
-## Done (v1.1 stats, 2026-06-04)
-- [x] **`NetworkSampler`** (new): up/down throughput via `getifaddrs` (`AF_LINK` → `if_data`), cumulative→per-tick delta like Disk. Permission-free. Interface filter = pluggable `shouldCount` (currently count-everything; loopback inflates idle reading slightly).
-- [x] **`BatterySampler`** (new): IOKit Power Sources (`IOKit.ps`), absolute snapshot (not delta). Tile **hidden on desktop Macs** (`isPresent`). Color band **inverted** (`100 - percent`). Dynamic charge/charging SF Symbol.
-- [x] Both wired into `StatsStore`; **verified on screen** (all 5 tiles ticking).
-
-## Done (in-panel settings, 2026-06-04)
-- [x] **`AppSettings`** (new): `@Observable` singleton, `UserDefaults`-backed; single source of truth for both `AppDelegate` and the `Settings` scene. Passive reads (anchor/height/stats) + active `didSet` hooks (`onIntervalChanged`→`store.restart()`, `onHotKeyChanged`→re-register).
-- [x] **`PanelAnchor`** (new) enum: cursor / screenCenter / topCenter / bottomCenter; origin math in `PanelWindowController`.
-- [x] **Gear tile** in strip → `NSApp.activate` + `showSettingsWindow:` (D-009; window can become key so the hotkey recorder works).
-- [x] **`SettingsView`** real form: drag-reorder + toggle stats, interval slider (0.25–5s), anchor picker, height slider (22–44pt), hotkey recorder, Reset, Quit.
-- [x] **`HotKeyRecorderView`** + **`HotKeyBinding+Display.swift`** (new): local `keyDown` monitor records a combo; `displayString` (⌃⌥⌘Q); **validation = reject Shift-only, require ≥1 of ⌘/⌥/⌃**.
-- [x] `visibleStats` now composes order → enabled → availability. Builds clean.
-
-## Done (Esc-to-dismiss, 2026-06-05)
-- [x] **D-010**: bare Escape via a **second `HotKeyService`** (`id: 2`), registered only while the panel is visible, unregistered on hide. Permission-free, never steals focus; toggle-hotkey stays the primary dismiss.
-- [x] **`PanelWindowController.onVisibilityChanged`** (new): fired in `show`/`hide` (guarded against redundant hides) so Esc teardown covers **every** dismiss path (toggle / click-away / Esc) — not just `togglePanel()`.
-- [x] **`HotKeyService` made ID-filtered**: callback now reads the fired `EventHotKeyID` and matches per-instance `id` (Carbon dispatches every press to all handlers). Fixes a latent bug + unblocks multiple scoped hotkeys. Builds clean.
-
-## Done (Phase A stats, 2026-06-05)
-- [x] **D-011 `LoadAverageSampler`** (new): `getloadavg(3)`, absolute snapshot. Headline = 1-min load; color band = load÷activeCores; popover = 1/5/15 + cores.
-- [x] **D-011 `UptimeSampler`** (new): `kern.boottime` (NOT `systemUptime` — that drops sleep time). Headline = compact "3d 4h"; always-calm tint; popover = uptime + boot date.
-- [x] **D-012 `TopProcessSampler`** (new): memory-first via `libproc` (`proc_listallpids` + `proc_pid_rusage` `ri_phys_footprint`, EPERM-skip). Honestly "top *user* process" — no privileged helper (keeps zero-permission). Value headline, process name in popover (preserves D-008 fixed-width). Hidden until first readable proc.
-- [x] **`AppSettings.knownStats`** migration: new `StatKind`s default ON for existing users without re-enabling deliberately-disabled stats.
-- [x] **`SettingsView`** stat-list height now scales with stat count (was hardcoded 170). All wired via the data-driven `StatKind`/`descriptor(for:)` chokepoint — zero view changes. Builds clean, launches & runs.
-
-## Done (D-013 top-process lists, 2026-06-05)
-- [x] **Rewrote `TopProcessSampler`** → top-5 by **CPU% / memory / disk-I/O** from one `rusage_info_v4` pass per tick. `TopProcessSample`→`TopProcessesSample` (`byCPU`/`byMemory`/`byDiskIO`). CPU%/disk are two-tick rates (per-PID `prevCPU`/`prevDisk` + `prevWall`); memory stays a snapshot. Names resolved only for the top-8 winners/list (no per-PID `proc_pidpath` storm).
-- [x] **mach-unit CPU% fix** (researched vs XNU + osquery#7459): `ri_user_time`/`ri_system_time` are mach ticks, not ns → convert via `mach_timebase_info`, wall via `mach_absolute_time()`.
-- [x] **Lists fold into CPU/Mem/Disk popovers** (iStat-style); **standalone `.topProcess` tile retired** (auto-migrates — `compactMap` drops the stale rawValue). `StatDescriptor.ProcessSection` (optional, auto-hidden empty) rendered by `StatTileView`.
-- [x] **Grouped by app**: helper PIDs roll up to the outermost `.app` bundle in their path (Activity-Monitor-style), summed then ranked — so N Chrome helpers show as one "Google Chrome" row. Per-PID `nameCache` (pruned each tick) keeps `proc_pidpath` to once-per-process. `ProcStat` now keyed by app name (no `pid`).
-- [x] **Network excluded by platform limit**: no permission-free per-process bandwidth API (private `NetworkStatistics.framework` / root only). Net tile stays Down/Up.
-- [x] Builds clean (no warnings), launches & runs. See D-013.
+## Done (D-014 top-process via `top`, 2026-06-05)
+- [x] **Proved the limit with two throwaway probes**: `proc_pid_rusage` *and* `proc_pidinfo(PROC_PIDTASKINFO)` both fail for foreign-UID procs (kernel_task pid 0, WindowServer) — XNU same-user-gates all per-proc CPU/mem. So D-013's in-process engine could never show system processes. `top`/Activity Monitor see them only via Apple's private `com.apple.private.proc_info-list` entitlement.
+- [x] **Rewrote `TopProcessSampler` to parse `/usr/bin/top`** (`-l 2 -s 1 -o cpu -stats pid,cpu,mem,command`, command last). Parses the **2nd** sample (top's instantaneous %CPU — no rate math, mach-unit conversion retired). CPU + Memory rank from one parse; `TopProcessesSample` lost `byDiskIO`.
+- [x] **App-grouping kept** (`proc_pidpath` is permission-free for any PID — verified on WindowServer), fallback to top's COMMAND for pathless procs (kernel_task). **Disk-I/O per-proc list removed** (top has no column) — Disk popover shows aggregate Read/Write only.
+- [x] **Gated to panel-visible**: `StatsStore.setPanelVisible()` ↔ `PanelWindowController.onVisibilityChanged` starts/stops the costly `top` sampler + clears the stale list on hide. Cadence `max(2s, interval)`.
+- [x] **Observer-effect fix**: our spawned `top` reported itself (~8%) — filtered by the exact spawned PID (`Process.processIdentifier`), so a user's terminal `top` still shows.
+- [x] **Earlier same-session polish** (carried in): thresholds dropped (no more 2-3-item lists), rows 5→10, fixed-height popover (no tick-to-tick resize), 1-decimal locale CPU%.
+- [x] Builds clean, verified on screen vs Activity Monitor (WindowServer/kernel_task present, per-core % sane, grouping correct). See D-014.
 
 ## Next (in order)
-1. **Visual click-through of D-013** (⌃⌥⌘Q): open CPU / Memory / Disk popovers — each shows a "Top by …" list of 5 procs; names readable, values sane. CPU/disk lists appear from the **2nd** tick (rates need two samples), memory list immediately. Cross-check a couple of CPU% / disk-rate numbers against Activity Monitor (validates the mach-unit math).
-2. App icon, first-run hint UI, signing (`Debug.local.xcconfig`).
-3. Live click-through verify: Settings UI (reorder/sliders/recorder persistence across relaunch); confirm no stray "Top Process" row remains.
-4. Optional: per-app CPU/disk smoothing if grouped readings flicker tick-to-tick; revisit grouping edge cases (e.g. apps outside an `.app` bundle).
+1. **First-run hint UI + signing** (`Debug.local.xcconfig`). App icon ✅ done.
+2. Live click-through verify: Settings UI (reorder/sliders/recorder persistence across relaunch).
+3. ⚠ **MAS caveat (from D-014):** `top` can't be spawned under the App Sandbox — if Mac App Store distribution is ever pursued, the top-process lists must fall back to D-013's user-only `rusage` engine (or be dropped). Fine for direct/notarized distribution.
+4. Optional: per-app CPU smoothing if grouped readings flicker; revisit grouping edge cases (apps outside an `.app` bundle).
 5. Hover-to-expand tile detail (later enhancement; needs tracking-area work).
-
-## Done (data-driven strip refactor, 2026-06-04)
-- [x] **`StatDescriptor.swift`** (new): `StatKind` enum (stable identity + display order) + `StatDescriptor` struct + `StatsStore.visibleStats` builder (`descriptor(for:)` — single mapping chokepoint; battery filtered by `isPresent`).
-- [x] `StatsStripView` collapsed from 5 hardcoded tiles (~75 lines) to a ~12-line `ForEach` with `if index > 0 { divider }`. No behavior change; fixed SwiftUI type-checker strain. Builds clean.
 
 ### Design
 - **Claude Designer prompts:** `02_Design/design-prompts.md` — 6 paste-ready briefs (strip, tile+popover, color language, settings, icon, first-run hint) + locked design-values table.

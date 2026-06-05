@@ -29,6 +29,11 @@ final class StatsStore {
     private var uptimeSampler: UptimeSampler?
     private var topProcessSampler: TopProcessSampler?
 
+    /// The top-processes sampler spawns `top`, which is costly, so it runs ONLY
+    /// while the panel is on screen (set via `setPanelVisible`). The cheap
+    /// in-process samplers run continuously; this one is gated.
+    private var panelVisible = false
+
     func start() {
         guard !isRunning else { return }
         isRunning = true
@@ -68,7 +73,7 @@ final class StatsStore {
         battery.start()
         load.start()
         uptime.start()
-        topProc.start()
+        if panelVisible { topProc.start() }   // gated; the others run continuously
         self.cpuSampler = cpu
         self.memorySampler = mem
         self.diskSampler = disk
@@ -104,5 +109,19 @@ final class StatsStore {
     func restart() {
         stop()
         start()
+    }
+
+    /// Drive the (costly) top-processes sampler from the panel's visibility: start
+    /// it when the panel appears, stop it and clear the stale list when it hides.
+    /// Called from `AppDelegate`'s panel visibility hook.
+    func setPanelVisible(_ visible: Bool) {
+        guard visible != panelVisible else { return }
+        panelVisible = visible
+        if visible {
+            topProcessSampler?.start()
+        } else {
+            topProcessSampler?.stop()
+            topProcesses = .empty   // don't show last session's processes next summon
+        }
     }
 }

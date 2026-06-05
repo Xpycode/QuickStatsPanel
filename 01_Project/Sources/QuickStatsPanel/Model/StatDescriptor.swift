@@ -61,6 +61,10 @@ struct StatDescriptor: Identifiable {
     struct ProcessSection {
         let title: String
         let rows: [(String, String)]   // (process name, formatted value)
+        /// Constant slot count the view reserves height for, so the popover never
+        /// resizes as the active-app count varies tick-to-tick (rate lists like CPU
+        /// fluctuate). Cookbook 67's "reserve worst-case" pattern, applied to height.
+        let reservedRows: Int
     }
 
     init(kind: StatKind, symbol: String, value: String, widestValue: String,
@@ -95,12 +99,13 @@ extension StatsStore {
     }
 
     /// Top-N count shown in each tile's "top processes" popover section.
-    private static let topProcessRows = 5
+    private static let topProcessRows = 10
 
     /// Build a process section, or nil when there's nothing to show yet (e.g.
     /// before the second tick has seeded CPU/disk rates) so the divider is hidden.
     private func section(_ title: String, _ rows: [(String, String)]) -> StatDescriptor.ProcessSection? {
-        rows.isEmpty ? nil : StatDescriptor.ProcessSection(title: title, rows: rows)
+        rows.isEmpty ? nil : StatDescriptor.ProcessSection(title: title, rows: rows,
+                                                           reservedRows: Self.topProcessRows)
     }
 
     private func descriptor(for kind: StatKind) -> StatDescriptor? {
@@ -145,9 +150,10 @@ extension StatsStore {
                     ("Total", disk.totalFormatted),
                     ("Read", disk.readFormatted),       // live I/O throughput
                     ("Write", disk.writeFormatted),
-                ],
-                processSection: section("Top by disk I/O",
-                                        topProcesses.diskRows(Self.topProcessRows)))
+                ])
+                // No per-process "Top by disk I/O": `top` has no per-process disk
+                // column, and the entitled API behind Activity Monitor's Disk tab
+                // isn't available to us. Disk shows aggregate Read/Write only.
 
         case .network:
             return StatDescriptor(
