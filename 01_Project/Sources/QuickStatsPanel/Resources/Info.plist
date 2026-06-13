@@ -30,5 +30,11 @@
     <string>NSApplication</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <!-- Opt into AppKit's automatic @Observable tracking on macOS 15 (default-on
+         in the 2026 OSes). The live theme switch flows through SwiftUI body reads
+         in NSHostingView and already updates without this; the key future-proofs
+         any AppKit-side observation (NSView draw/layout reads of the model). -->
+    <key>NSObservationTrackingEnabled</key>
+    <true/>
 </dict>
 </plist>
