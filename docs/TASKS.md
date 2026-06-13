@@ -20,7 +20,7 @@
 <!-- When done: /log moves to tasks-archive.md -->
 <!-- Themes feature — full breakdown in IMPLEMENTATION_PLAN.md (5 waves, 12 tasks). -->
 
-- [ ] **W1 — Theme foundation types** (1.1 ColorCodable, 1.2 ThemePreset+ThemeData, 1.3 StatusBand+hysteresis)
+- [x] **W1 — Theme foundation types** (1.1 ColorCodable, 1.2 ThemePreset+ThemeData, 1.3 StatusBand+hysteresis) ✅ `3fe3bb4`
 - [ ] **W2 — Chokepoint** (2.1 `Theme` static→struct + facade, 2.2 wire into `AppSettings` + reduce-transparency)
 - [ ] **W3 — Migrate consumers** (3.1 strip, 3.2 tile+severity-cue, 3.3 detail, 3.4 hint, 3.5 store-tint + drop battery hack)
 - [ ] **W4 — Settings UI** (4.1 theme picker, 4.2 Customize… + reset)

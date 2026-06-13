@@ -38,20 +38,20 @@ and a unified hysteresis-backed status-color function — all updating the panel
 
 ## Tasks
 
-### Wave 1 (parallel — new standalone files, no deps)
+### Wave 1 ✅ (parallel — new standalone files, no deps) — done 2026-06-13, commit `3fe3bb4`
 
-- [ ] **1.1**: Color ↔ Codable helpers → `Model/Theme/ColorCodable.swift`
+- [x] **1.1**: Color ↔ Codable helpers → `Model/Theme/ColorCodable.swift`
   - `Color.Resolved` (sRGB-pinned) ↔ `Codable` round-trip + `Color(hex:)`/`toHex` convenience.
   - Success: a `ThemeData` payload can encode/decode a color losslessly in sRGB; unit-checkable in a `#Preview` or a tiny `assert`.
   - Backpressure: builds; round-trips a known color (e.g. `#000000D1` ≈ black 0.82) within 1/255.
 
-- [ ] **1.2**: Preset + custom-payload types → `Model/Theme/ThemePreset.swift`
+- [x] **1.2**: Preset + custom-payload types → `Model/Theme/ThemePreset.swift`
   - `enum ThemePreset: String, CaseIterable, Codable, Identifiable { default, mono, vitals, neon, custom }` + `displayName`.
   - `struct ThemeData: Codable, Sendable` — accent, background, opacity, cornerRadius, density (the custom payload).
   - Success: types compile; `ThemePreset.allCases` excludes nothing; `.custom` carries a `ThemeData`.
   - Backpressure: builds.
 
-- [ ] **1.3**: Status band + hysteresis (pure logic) → `Model/Theme/StatusBand.swift`
+- [x] **1.3**: Status band + hysteresis (pure logic) → `Model/Theme/StatusBand.swift`
   - `enum Band { calm, busy, hot }`; `func band(forPercent:reversed:zones:previous:) -> Band` applying ~±5% hysteresis against `previous`.
   - Success: a value oscillating 79–81% around an 80% boundary does **not** change band without crossing ±5%; battery `reversed:true` inverts.
   - Backpressure: builds; inline asserts for the oscillation + reversed cases pass.
@@ -147,7 +147,7 @@ and a unified hysteresis-backed status-color function — all updating the panel
 ## Execution Log
 | Wave | Started | Completed | Commits |
 |------|---------|-----------|---------|
-| 1 | | | |
+| 1 | 2026-06-13 | 2026-06-13 | 3fe3bb4 |
 | 2 | | | |
 | 3 | | | |
 | 4 | | | |
