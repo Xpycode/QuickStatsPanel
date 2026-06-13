@@ -9,17 +9,17 @@ exposing four named presets (Default/Mono/Vitals/Neon) + a Custom theme, follow-
 and a unified hysteresis-backed status-color function — all updating the panel live.
 
 ## Acceptance Criteria (from spec — abbreviated; see specs/themes.md for Given/When/Then)
-- [ ] AC-1 Preset selection applies panel-wide, live, across strip + detail card + hint
-- [ ] AC-2 Selection persists across relaunch (store preset id, not the struct)
-- [ ] AC-3 Follow system light+dark; **no** manual appearance toggle
-- [ ] AC-4 Primary text ≥ 4.5:1 contrast in every preset/appearance; high-translucency dims
-- [ ] AC-5 Severity conveyed by more than color alone (works in Mono / color-blind)
-- [ ] AC-6 One `usageColor(zones:reversed:)` covers CPU/mem/disk/net **and** battery; `100-percent` hack gone
-- [ ] AC-7 Hysteresis (~±5%) prevents band-flicker
-- [ ] AC-8 Mono suppresses status color (keeps the non-color cue)
-- [ ] AC-9 Custom theme round-trips (Color.Resolved sRGB)
-- [ ] AC-10 Compact density floor: text ≥ 10pt, controls ≥ 20×20pt
-- [ ] AC-11 Honors Reduce Transparency / Increase Contrast
+- [ ] AC-1 Preset selection applies panel-wide, live, across strip + detail card + hint — *built (4.1); USER on-screen 5.2*
+- [x] AC-2 Selection persists across relaunch (store preset id, not the struct) — *data-layer verified 5.2*
+- [ ] AC-3 Follow system light+dark; **no** manual appearance toggle — *built (Wave 3); USER on-screen 5.2*
+- [ ] AC-4 Primary text ≥ 4.5:1 contrast in every preset/appearance; high-translucency dims — *USER eyeball 5.2*
+- [ ] AC-5 Severity conveyed by more than color alone (works in Mono / color-blind) — *built (Wave 3 weight ramp); USER 5.2*
+- [x] AC-6 One `usageColor(zones:reversed:)` covers CPU/mem/disk/net **and** battery; `100-percent` hack gone — *Wave 3 `332bbbe`*
+- [x] AC-7 Hysteresis (~±5%) prevents band-flicker — *Wave 3 (oscillation asserts)*
+- [ ] AC-8 Mono suppresses status color (keeps the non-color cue) — *built (Wave 3 `statusStyle`); USER 5.2*
+- [x] AC-9 Custom theme round-trips (Color.Resolved sRGB) — *data-layer verified 5.2 + codec self-check*
+- [ ] AC-10 Compact density floor: text ≥ 10pt, controls ≥ 20×20pt — *built (≥10pt fonts); USER 5.2*
+- [ ] AC-11 Honors Reduce Transparency / Increase Contrast — *built (Wave 2 observer + `bgOpacity`); USER 5.2*
 
 ## Locked design decisions (don't re-litigate)
 - **Singleton, not `@Environment`** — theme rides `AppSettings.shared` (`@Observable`); views read
@@ -114,19 +114,27 @@ and a unified hysteresis-backed status-color function — all updating the panel
   - Depends on: 2.2, 4.1 — Success: AC-9 round-trips; reset returns to Default.
   - Backpressure: build clean; edit custom → relaunch → restored.
 
-### Wave 5 (verification)
+### Wave 5 (verification) — 5.1 ✅ + 5.3 ✅ done 2026-06-13; 5.2 = on-screen, USER
 
-- [ ] **5.1**: macOS 15 observation + clean build → `01_Project/project.yml` (Info.plist)
-  - Add `NSObservationTrackingEnabled=YES` (hosting-view redraw on singleton mutation on 15.x); `xcodegen generate`; full clean build, no warnings.
-  - Backpressure: `xcodebuild clean build` → `** BUILD SUCCEEDED **`, 0 warnings.
+- [x] **5.1**: macOS 15 observation + clean build → Info.plist (commit `7e2ee79`)
+  - Added `NSObservationTrackingEnabled=YES` to the hand-authored `Resources/Info.plist` (NOT project.yml — Info.plist is hand-written here, `GENERATE_INFOPLIST_FILE=NO`). Web-verified it's the Apple-documented macOS-15 opt-in for AppKit auto-observation (default-on in the 2026 OSes); the live theme switch already works via SwiftUI `body` reads in `NSHostingView`, so this future-proofs AppKit-side reads rather than fixing a bug.
+  - Backpressure: ✅ `xcodebuild clean build` from a wiped DerivedData → `** BUILD SUCCEEDED **`, **0 Swift warnings** (only non-code `xcodebuild` destination-ambiguity + AppIntents-metadata notes). Key confirmed present in the built `.app/Contents/Info.plist`.
 
-- [ ] **5.2**: Manual verification of user flows (signed run)
+- [ ] **5.2**: Manual verification of user flows (signed run) — **USER, on screen**
   - Live-switch all 4 presets + Custom (AC-1); relaunch persistence (AC-2/9); toggle system Light/Dark (AC-3); contrast eyeball over bright + dark desktop (AC-4); Mono greyscale severity (AC-5/8); battery low = hot (AC-6); hover a value at a band edge for flicker (AC-7); compact density legibility (AC-10); System Settings → Reduce Transparency (AC-11).
+  - **Automated derisk done:** AC-2/AC-9 persistence verified at the data layer — wrote a known `ThemeData` JSON + `themePreset=custom` to the app's `UserDefaults`, relaunched, app ran cleanly under the stored custom theme (init's `JSONDecoder` path non-fatal; JSON shape matches the `Codable` keys; prefs then restored to pristine). The *visual* confirmation (does it look pink/compact/light?) is the remaining USER step.
   - Backpressure: each AC visually confirmed; note results in session log.
 
-- [ ] **5.3**: Adversarial review (2–3 passes)
-  - Stale-panel check (does every one of the 3 hosting roots update live?); Observation-tracking check (no theme snapshot captured outside `body`); color round-trip precision; hysteresis edge cases; light-mode-upgrade surprise for existing light-mode users.
-  - Backpressure: `/code-review` on the diff; findings triaged.
+- [x] **5.3**: Adversarial review (2–3 passes) — done 2026-06-13, commit `46b87d6`
+  - Ran `feature-dev:code-reviewer` over `1d94961..HEAD` against the supporting types. **No critical/data-correctness bugs**: binding write-back, color round-trip precision, observation tracking (reads inside `body`), reset path, slider ranges, and `ForEach id:\.self` all sound. One consistency nit applied (readout `Text` now reads a `customData` accessor, matching the other sections). Reviewer's "plist key undocumented" flag was stale knowledge (web-verified documented; kept the key).
+  - Backpressure: ✅ findings triaged; polish committed.
+
+#### Acceptance Criteria — verified so far
+- [x] **AC-2** persists across relaunch (preset id + custom JSON) — data-layer verified in 5.2 probe.
+- [x] **AC-6** one `usageColor`/`tint` covers all stats incl. battery (`reversed:true`); `100-percent` hack gone — Wave 3 (`332bbbe`).
+- [x] **AC-7** hysteresis (~±5%) prevents band-flicker — Wave 3 (oscillation asserts + `@ObservationIgnored` in-body band cache).
+- [x] **AC-9** Custom round-trips (`CodableColor` sRGB) — data-layer verified in 5.2 + `_debugCodableColorSelfCheck`.
+- [ ] AC-1/3/4/5/8/10/11 — require on-screen eyes; settle in the USER 5.2 pass.
 
 ---
 
@@ -160,7 +168,7 @@ and a unified hysteresis-backed status-color function — all updating the panel
 | 2 | 2026-06-13 | 2026-06-13 | caf5694 |
 | 3 | 2026-06-13 | 2026-06-13 | 332bbbe |
 | 4 | 2026-06-13 | 2026-06-13 | 8ad4324, 00d9880 |
-| 5 | | | |
+| 5 | 2026-06-13 | 5.1+5.3 done; 5.2 USER | 7e2ee79, 46b87d6 |
 
 ---
 *Delete when all tasks complete; archive to sessions/ if useful.*
