@@ -10,6 +10,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             statsSection
+            appearanceSection
             samplingSection
             panelSection
             hotkeySection
@@ -46,6 +47,23 @@ struct SettingsView: View {
             // don't clip the list — was a hardcoded 170 sized for the original five.
             .frame(height: CGFloat(settings.statOrder.count) * 34)
             Text("Drag to reorder · toggle to show or hide")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - Appearance (theme preset + custom)
+
+    /// Theme selection. Picking a preset rebuilds `AppSettings.theme` in its
+    /// `didSet`; the three panels read `theme` in their `body`, so the switch is
+    /// live (AC-1) with no glue here. `.custom` reveals the Customize editor below.
+    private var appearanceSection: some View {
+        Section("Appearance") {
+            Picker("Theme", selection: $settings.themePreset) {
+                ForEach(ThemePreset.allCases) { preset in
+                    Text(preset.displayName).tag(preset)
+                }
+            }
+            Text("Theme applies live across the strip, detail card, and hint.")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
