@@ -102,14 +102,14 @@ and a unified hysteresis-backed status-color function — all updating the panel
   - Depends on: 2.2 — Success: AC-6 (one function) + AC-7 (hysteresis) hold; battery still reads "low = hot".
   - Backpressure: build clean; battery + CPU both resolve via the same call.
 
-### Wave 4 (Settings UI — depends on Wave 2)
+### Wave 4 ✅ (Settings UI — depends on Wave 2) — done 2026-06-13, commits `8ad4324` + `00d9880`
 
-- [ ] **4.1**: Theme picker section → `Views/SettingsView.swift`
+- [x] **4.1**: Theme picker section → `Views/SettingsView.swift` (commit `8ad4324`)
   - New "Appearance" `Section` with a `Picker` bound to `settings.themePreset` (presets + Custom); live preview swatch optional.
   - Depends on: 2.2 — Success: switching the picker changes the live panel (AC-1).
   - Backpressure: build clean; pick each preset → panel updates.
 
-- [ ] **4.2**: Customize… disclosure + reset → `Views/SettingsView.swift`
+- [x] **4.2**: Customize… disclosure + reset → `Views/SettingsView.swift` (commit `00d9880`)
   - `DisclosureGroup("Customize…")` shown when `.custom` (or always, selecting `.custom` on edit): `ColorPicker` accent + background, opacity `Slider`, corner-radius `Slider`, density `Picker`; writes `settings.customTheme`. Extend `resetToDefaults()` to reset theme.
   - Depends on: 2.2, 4.1 — Success: AC-9 round-trips; reset returns to Default.
   - Backpressure: build clean; edit custom → relaunch → restored.
@@ -138,7 +138,10 @@ and a unified hysteresis-backed status-color function — all updating the panel
 - **Wave 3 — in-body band cache is safe:** the per-`StatKind` hysteresis map (`lastBands`) is written inside `visibleStats` (a `body` read). Marking it `@ObservationIgnored` means the write triggers no Observation invalidation → no re-render loop; verified empirically by a synthetic-summon probe that completed (a loop would freeze the run loop). Do NOT make `lastBands` an observed `var`.
 - **Wave 3 — width-neutral weight ramp:** the AC-5 severity cue ramps font weight (calm/busy/hot → regular/semibold/heavy). To keep the jitter-free strip, the hidden width-template reserves `.heavy` always and the icon sits in a `.frame(width: 16)`, so a band change never changes tile width.
 - **Wave 3 — parallel-agent split:** delegated the two *independent* mechanical view migrations (3.3 detail, 3.4 hint) to parallel `developer` agents (edit-only, no build — concurrent `xcodebuild` collides); kept the coupled core (3.1 strip ⇄ 3.2 tile API contract ⇄ 3.5 store tint) in the orchestrator. Worked cleanly.
-- **Deferred to Wave 4 (from 2.2):** the model-side reset of `themePreset`/`customTheme` was NOT added (no `resetToDefaults` exists on `AppSettings` yet). Wire it into the Settings "Reset" path in **4.2**.
+- **Deferred to Wave 4 (from 2.2):** the model-side reset of `themePreset`/`customTheme` was NOT added (no `resetToDefaults` exists on `AppSettings` yet). Wire it into the Settings "Reset" path in **4.2**. → **DONE in 4.2**: `SettingsView.resetToDefaults()` now also sets `themePreset = .default` and `customTheme = nil` (reset lives in the view, not the model — matches the existing pattern for the other prefs).
+- **Wave 4 — one generic binding collapses five custom-theme controls:** `customBinding<T>(_ keyPath: WritableKeyPath<ThemeData, T>) -> Binding<T>` reads `(customTheme ?? .default)[keyPath:]` and, on set, copies that baseline, mutates the one field, and **reassigns the whole `customTheme` struct** — the reassignment is the only thing Observation's `didSet` sees (JSON-persist + live rebuild). `colorBinding` composes on top to bridge `Color` ↔ `CodableColor` (sRGB) for the two `ColorPicker`s. The `?? .default` baseline means the *first* edit to any knob silently materializes a full `ThemeData` (intentional — user starts from the familiar look, AC-9).
+- **Wave 4 — same SourceKit staleness, build clean:** the indexer again flagged every cross-file symbol in `SettingsView.swift` (`AppSettings`, `ThemePreset`, `ThemeDensity`, `PanelAnchor`, `StatKind`, `HotKeyRecorderView`) as "not found"; `xcodebuild` compiled clean both commits. Trust the build.
+- **Wave 4 — done in-orchestrator, not parallel:** 4.1 and 4.2 both edit `SettingsView.swift` and 4.2 depends on 4.1's section, so parallel `developer` agents would collide on the file + race concurrent `xcodebuild`s (same reason the Wave 3 coupled core stayed in-orchestrator). Sequential was correct.
 
 ## Blocked Tasks / Notes
 - **Light-mode upgrade nuance:** today the panel is force-dark even in Light mode. Removing
@@ -156,7 +159,7 @@ and a unified hysteresis-backed status-color function — all updating the panel
 | 1 | 2026-06-13 | 2026-06-13 | 3fe3bb4 |
 | 2 | 2026-06-13 | 2026-06-13 | caf5694 |
 | 3 | 2026-06-13 | 2026-06-13 | 332bbbe |
-| 4 | | | |
+| 4 | 2026-06-13 | 2026-06-13 | 8ad4324, 00d9880 |
 | 5 | | | |
 
 ---
