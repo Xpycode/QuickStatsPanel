@@ -17,7 +17,10 @@ settings:
     ENABLE_HARDENED_RUNTIME: YES
     DEAD_CODE_STRIPPING: YES
     SWIFT_STRICT_CONCURRENCY: complete
-    CODE_SIGN_STYLE: Automatic
+    # Signing is NOT set here on purpose: settings declared in project.yml land in
+    # the .pbxproj, which overrides xcconfig values. Debug signing comes from
+    # Config/Debug.xcconfig → Debug.local.xcconfig (per-machine). Release stays on
+    # Xcode's implicit automatic signing until notarization is set up. (docs/28)
 
 configs:
   Debug: debug
@@ -27,6 +30,8 @@ targets:
   QuickStatsPanel:
     type: application
     platform: macOS
+    configFiles:
+      Debug: Config/Debug.xcconfig
     sources:
       - path: Sources/QuickStatsPanel
         excludes:

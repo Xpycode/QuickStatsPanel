@@ -66,6 +66,16 @@ final class AppSettings {
         }
     }
 
+    // MARK: - First-run
+
+    /// Whether the one-time first-run hint card has been shown. Policy (user
+    /// choice): set `true` the first time the hint appears, so it never returns —
+    /// even if the user missed it. A `Bool` default reads as `false` when absent,
+    /// which is exactly "brand-new install → show the hint once".
+    var hasSeenHint: Bool {
+        didSet { defaults.set(hasSeenHint, forKey: Keys.hasSeenHint) }
+    }
+
     // MARK: - Side-effect hooks (set by AppDelegate at launch)
 
     /// Re-register the global hotkey with the new binding.
@@ -134,6 +144,8 @@ final class AppSettings {
         } else {
             self.hotKey = .default
         }
+
+        self.hasSeenHint = defaults.bool(forKey: Keys.hasSeenHint)
     }
 
     // MARK: - Convenience
@@ -162,5 +174,6 @@ final class AppSettings {
         static let stripHeight    = "stripHeight"
         static let hotKeyCode     = "hotKeyCode"
         static let hotKeyModifiers = "hotKeyModifiers"
+        static let hasSeenHint    = "hasSeenHint"
     }
 }

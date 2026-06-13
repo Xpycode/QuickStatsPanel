@@ -1,0 +1,9 @@
+// Debug build configuration (tracked, portable across machines).
+//
+// Signing identity is the one thing that differs per Mac — the certificate
+// resolves to a keychain-local SHA-1, so it can't live in a shared file. We pull
+// it in from a gitignored per-machine override with the optional-include syntax:
+// `#include?` includes the file if present and silently skips it otherwise, so a
+// freshly-cloned Mac that hasn't been bootstrapped still configures (it just
+// falls back to whatever the project declares). See docs/28_xcode-signing.
+#include? "Debug.local.xcconfig"

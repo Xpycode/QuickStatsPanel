@@ -12,6 +12,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// separate borderless panel we draw ourselves, replacing the system popover
     /// so the card matches the strip's flat Theme (no arrow, small corner radius).
     private let detailPanel = DetailPanelController()
+    /// One-time first-run hint card teaching the summon hotkey. Shown once beneath
+    /// the strip on the very first launch (this Dock-less agent app has no other
+    /// cue for how to bring the panel back). Tears down with the strip.
+    private let hintPanel = HintPanelController()
     private let hotKey = HotKeyService(id: 1)
     private let settingsWindow = SettingsWindowController()
 
@@ -36,6 +40,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // First-run discoverability: an agent app with no Dock/menu-bar presence
         // is invisible until summoned, so show the panel once on launch.
         togglePanel()
+        showFirstRunHintIfNeeded()
+    }
+
+    /// On the very first launch, show a one-time hint card beneath the strip
+    /// teaching the summon hotkey — the only way back in this Dock-less agent app.
+    /// Policy (user choice): mark seen on first display so it never returns. The
+    /// card tears down with the strip via `onVisibilityChanged` (see below), so it
+    /// needs no dismissal logic of its own.
+    private func showFirstRunHintIfNeeded() {
+        let settings = AppSettings.shared
+        guard !settings.hasSeenHint else { return }
+
+        // Defer one beat before anchoring. The samplers deliver their first values
+        // via async main-actor hops (e.g. battery presence decides whether that
+        // tile shows), so the strip's content-driven width (D-008) is still
+        // settling when this runs synchronously at end-of-launch. Reading
+        // panel.frame now would center the card under the *half-built* strip,
+        // leaving it visibly off to one side. A short delay lets the first samples
+        // land and the strip reach its final width first.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            guard let self, let stripFrame = self.panel.frame else { return }
+            self.hintPanel.show(stripFrame: stripFrame) {
+                FirstRunHintView(hotKey: settings.hotKey.displayString)
+            }
+            settings.hasSeenHint = true
+        }
     }
 
     /// Connect settings changes that need an *imperative* reaction. Declarative
@@ -108,9 +138,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             } else {
                 self.dismissHotKey.unregister()
-                // The card is anchored to the strip — when the strip goes (toggle,
-                // Esc, click-away), the card goes with it.
+                // The detail and hint cards are anchored to the strip — when the
+                // strip goes (toggle, Esc, click-away), they go with it.
                 self.detailPanel.hide()
+                self.hintPanel.hide()
             }
         }
     }
