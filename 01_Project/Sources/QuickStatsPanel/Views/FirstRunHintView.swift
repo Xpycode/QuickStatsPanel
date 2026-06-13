@@ -37,7 +37,7 @@ struct FirstRunHintView: View {
     // Edit freely; the chrome above (padding / background / radius) stays put.
     private var cardBody: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("QuickStatsPanel")
+            Text("You're all set 👋")
                 .font(Theme.Fonts.detailTitle)
                 .foregroundStyle(Theme.Colors.primaryText)
 
@@ -45,12 +45,12 @@ struct FirstRunHintView: View {
                 Text("Press")
                     .foregroundStyle(Theme.Colors.secondaryText)
                 keycap(hotKey)
-                Text("to summon this anytime.")
+                Text("anytime to pop up your stats.")
                     .foregroundStyle(Theme.Colors.secondaryText)
             }
             .font(Theme.Fonts.detailTitle)
 
-            Text("Esc or click away to dismiss · ⚙ for settings")
+            Text("Esc or click away hides it · ⚙ for settings")
                 .font(Theme.Fonts.label)
                 .foregroundStyle(Theme.Colors.secondaryText)
         }
