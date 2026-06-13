@@ -12,9 +12,9 @@
 ## Current Position
 - **Funnel:** build
 - **Phase:** Implementation — v0 shell running
-- **Focus:** **D-014 top-process lists now sourced from `/usr/bin/top`** (replaces D-013's in-process rusage engine — proven this session that XNU same-user-gates *all* per-proc CPU/mem APIs, so in-process can never see WindowServer/kernel_task). CPU + Memory popover lists now look like Activity Monitor (system processes included, grouped by app, 1-decimal locale %, fixed-height popover). Disk-I/O per-process list dropped (top can't provide it). `top` gated to panel-visible; our own probe PID filtered. ✅ Verified on screen vs Activity Monitor. **App icon ✅ done** (parallel track): "Abstract bars" `AppIcon.appiconset` generated from the design handoff (native CG generator, build-verified). Next: **first-run hint / signing.**
-- **Status:** ✅ `** BUILD SUCCEEDED **` (clean, no warnings), launches & runs. All 5 stats live; gear tile → standard Settings window (D-009); Esc / toggle-hotkey / click-away all dismiss. Settings persist via `UserDefaults`. ✅ **Esc + click-away dismissal verified** (2026-06-05, CGEvent-tap test): Esc captured only while visible, dismisses panel, released after hide; click-away exercised literally. ✅ **Top-process lists (D-014) verified on screen**: CPU list shows WindowServer/kernel_task with sane per-core % matching Activity Monitor; app-grouping correct; spawned-`top` probe filtered out. ⚠️ Settings UI **not yet visually clicked-through** by user.
-- **Last updated:** 2026-06-05
+- **Focus:** **Flat detail card (D-015)** — tile detail moved off SwiftUI's native `.popover` (system "Tahoe" rounding + translucent material + arrow, read as a detached OS element) into a self-drawn card in its own borderless `NSPanel`. `StatDetailView` draws the card with the strip's own `Theme` (flat black 0.82, matching 12pt continuous radius, no arrow), reads `store.visibleStats` live; `DetailPanelController` (sibling of `PanelWindowController`) anchors it below the strip, centered on the click, sized once per open (no jitter). ✅ Verified on screen by user. Earlier: D-014 top-process lists via `/usr/bin/top`; app icon done. Next: **first-run hint / signing.**
+- **Status:** ✅ `** BUILD SUCCEEDED **` (clean, no warnings), launches & runs. All stats live; gear → standard Settings window (D-009); Esc / toggle-hotkey / click-away all dismiss (and now also hide the detail card). Settings persist via `UserDefaults`. ✅ **Esc + click-away dismissal verified** (CGEvent-tap test). ✅ **Top-process lists (D-014) verified** vs Activity Monitor. ✅ **Flat detail card (D-015) verified on screen** by user. ✅ **Settings UI click-through verified by user (2026-06-13)** — gear opens the Settings window; stat on/off toggles + reorder work (the long-standing ⚠️ item is now closed).
+- **Last updated:** 2026-06-13
 
 ## What we're building
 Press a global hotkey → a **thin** horizontally-wide strip appears near the cursor
@@ -56,6 +56,7 @@ item** — settings & quit live in the panel. Small corner radius (NOT "Tahoe").
 - **Esc-to-dismiss (06-05, D-010):** bare Esc as a 2nd scoped Carbon hotkey; `PanelWindowController.onVisibilityChanged` covers every hide path; `HotKeyService` made ID-filtered (latent multi-handler bug fixed).
 - **Phase A stats (06-05, D-011/D-012):** `LoadAverageSampler` (`getloadavg`), `UptimeSampler` (`kern.boottime`, not `systemUptime`), first `TopProcessSampler` (libproc, "top user proc by memory"); `AppSettings.knownStats` migration defaults new stats ON safely.
 - **Top-process lists in popovers (06-05, D-013 — data source later superseded by D-014):** folded CPU/mem/disk rankings into the tile popovers, retired the standalone tile, app-grouping introduced. The popover/grouping design stands; the in-process `rusage` engine was replaced — see D-014.
+- **Flat detail card (06-13, D-015):** replaced the native `.popover` with a self-drawn card (`StatDetailView`) in its own borderless non-activating `NSPanel` (`DetailPanelController`); flat Theme fill + 12pt radius + no arrow, anchored below the strip, live-reading `store.visibleStats`, sized once per open. Tile drops its popover state → reports taps via `onTap`; card hides whenever the strip hides via the existing `onVisibilityChanged`. Verified on screen. Also confirmed Settings stat on/off toggles already existed & work.
 
 ## Done (D-014 top-process via `top`, 2026-06-05)
 - [x] **Proved the limit with two throwaway probes**: `proc_pid_rusage` *and* `proc_pidinfo(PROC_PIDTASKINFO)` both fail for foreign-UID procs (kernel_task pid 0, WindowServer) — XNU same-user-gates all per-proc CPU/mem. So D-013's in-process engine could never show system processes. `top`/Activity Monitor see them only via Apple's private `com.apple.private.proc_info-list` entitlement.
@@ -68,8 +69,9 @@ item** — settings & quit live in the panel. Small corner radius (NOT "Tahoe").
 
 ## Next (in order)
 1. **First-run hint UI + signing** (`Debug.local.xcconfig`). App icon ✅ done.
-2. Live click-through verify: Settings UI (reorder/sliders/recorder persistence across relaunch).
-3. ⚠ **MAS caveat (from D-014):** `top` can't be spawned under the App Sandbox — if Mac App Store distribution is ever pursued, the top-process lists must fall back to D-013's user-only `rusage` engine (or be dropped). Fine for direct/notarized distribution.
+2. ✅ ~~Settings UI click-through verify~~ — done 2026-06-13 (toggles + reorder confirmed by user). Slider/recorder *persistence across relaunch* still unconfirmed.
+3. **Themes (named presets)** — see TASKS.md backlog. Refactor `Theme` from a static enum into a persisted, selectable value (colors + bg/opacity + radius/density) the strip and detail card both read. User wants pickable named themes, not loose knobs.
+4. ⚠ **MAS caveat (from D-014):** `top` can't be spawned under the App Sandbox — if Mac App Store distribution is ever pursued, the top-process lists must fall back to D-013's user-only `rusage` engine (or be dropped). Fine for direct/notarized distribution.
 4. Optional: per-app CPU smoothing if grouped readings flicker; revisit grouping edge cases (apps outside an `.app` bundle).
 5. Hover-to-expand tile detail (later enhancement; needs tracking-area work).
 
