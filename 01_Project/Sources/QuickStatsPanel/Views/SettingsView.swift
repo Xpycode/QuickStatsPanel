@@ -65,6 +65,52 @@ struct SettingsView: View {
             }
             Text("Theme applies live across the strip, detail card, and hint.")
                 .font(.caption).foregroundStyle(.secondary)
+
+            // Custom-theme knobs only appear when the Custom preset is selected;
+            // editing any of them materializes `customTheme` from the baseline.
+            if settings.themePreset == .custom {
+                DisclosureGroup("Customize…") {
+                    customizeControls
+                }
+            }
+        }
+    }
+
+    /// The five custom-theme knobs. Each is bound to one `ThemeData` field via the
+    /// `customBinding` / `colorBinding` helpers below, so editing one writes the
+    /// whole struct back through `settings.customTheme` (→ persist + live rebuild).
+    @ViewBuilder private var customizeControls: some View {
+        ColorPicker("Accent", selection: colorBinding(\.accent), supportsOpacity: false)
+        ColorPicker("Background", selection: colorBinding(\.background), supportsOpacity: false)
+
+        VStack(alignment: .leading) {
+            HStack {
+                Text("Background opacity")
+                Spacer()
+                Text(String(format: "%.0f%%", customBinding(\.opacity).wrappedValue * 100))
+                    .font(.system(.body, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+            // Floor at 0.3 so the panel never becomes invisible (AC-4 legibility).
+            Slider(value: customBinding(\.opacity), in: 0.3...1, step: 0.01)
+        }
+
+        VStack(alignment: .leading) {
+            HStack {
+                Text("Corner radius")
+                Spacer()
+                Text("\(Int(customBinding(\.cornerRadius).wrappedValue)) pt")
+                    .font(.system(.body, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+            // Capped at 20 — this is a flat HUD strip, not a Tahoe sheet.
+            Slider(value: customBinding(\.cornerRadius), in: 0...20, step: 1)
+        }
+
+        Picker("Density", selection: customBinding(\.density)) {
+            ForEach(ThemeDensity.allCases, id: \.self) { density in
+                Text(density.displayName).tag(density)
+            }
         }
     }
 
@@ -128,6 +174,44 @@ struct SettingsView: View {
                 set: { settings.setEnabled(kind, $0) })
     }
 
+    // MARK: Custom-theme field bindings
+
+    /// Bridges a single `ThemeData` field to a SwiftUI `Binding`.
+    ///
+    /// ⚠️ **Learning placeholder — currently read-only.** It returns the right
+    /// *value* (so the controls show correct baselines), but edits don't persist
+    /// because it's a `.constant`. Replace the body to make the knobs write back.
+    ///
+    /// What it must do:
+    ///   • **read**  — `(settings.customTheme ?? .default)[keyPath: keyPath]`
+    ///                 (fall back to the baseline when no custom theme exists yet)
+    ///   • **write** — copy `settings.customTheme ?? .default`, set the field on the
+    ///                 copy via `keyPath`, assign it back to `settings.customTheme`
+    ///                 (its `didSet` then JSON-persists + rebuilds the live theme)
+    ///
+    /// The whole-struct write-back is deliberate: `customTheme` is one `@Observable`
+    /// optional, so mutating a field means reassigning the property — that's what
+    /// triggers persistence and the live panel rebuild.
+    private func customBinding<T>(_ keyPath: WritableKeyPath<ThemeData, T>) -> Binding<T> {
+        Binding(
+            get: { (settings.customTheme ?? .default)[keyPath: keyPath] },
+            set: { newValue in
+                var data = settings.customTheme ?? .default
+                data[keyPath: keyPath] = newValue
+                settings.customTheme = data   // didSet → JSON persist + live rebuild
+            }
+        )
+    }
+
+    /// `ColorPicker` speaks `Color`; `ThemeData` stores `CodableColor` (sRGB
+    /// round-trip). This composes the generic field binding across that boundary,
+    /// so the color knobs reuse all of `customBinding`'s read/write logic.
+    private func colorBinding(_ keyPath: WritableKeyPath<ThemeData, CodableColor>) -> Binding<Color> {
+        let field = customBinding(keyPath)
+        return Binding(get: { field.wrappedValue.color },
+                       set: { field.wrappedValue = CodableColor($0) })
+    }
+
     private func resetToDefaults() {
         settings.statOrder = StatKind.allCases
         settings.enabledStats = Set(StatKind.allCases)
@@ -135,5 +219,9 @@ struct SettingsView: View {
         settings.anchor = .cursor
         settings.stripHeight = 36
         settings.hotKey = .default
+        // Theme reset (the model-side reset deferred from 2.2): back to the stock
+        // Default preset, and drop any custom payload so it doesn't linger on disk.
+        settings.themePreset = .default
+        settings.customTheme = nil
     }
 }
