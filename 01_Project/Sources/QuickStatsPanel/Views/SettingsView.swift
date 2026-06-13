@@ -87,7 +87,7 @@ struct SettingsView: View {
             HStack {
                 Text("Background opacity")
                 Spacer()
-                Text(String(format: "%.0f%%", customBinding(\.opacity).wrappedValue * 100))
+                Text(String(format: "%.0f%%", customData.opacity * 100))
                     .font(.system(.body, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
@@ -99,7 +99,7 @@ struct SettingsView: View {
             HStack {
                 Text("Corner radius")
                 Spacer()
-                Text("\(Int(customBinding(\.cornerRadius).wrappedValue)) pt")
+                Text("\(Int(customData.cornerRadius)) pt")
                     .font(.system(.body, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
@@ -175,6 +175,12 @@ struct SettingsView: View {
     }
 
     // MARK: Custom-theme field bindings
+
+    /// The custom payload to *read* for display, materializing the baseline when
+    /// none exists yet. Read inside `body`, so Observation tracks `customTheme`.
+    /// Mirrors the other sections' pattern: `Text` reads the value, the control
+    /// takes the `Binding`.
+    private var customData: ThemeData { settings.customTheme ?? .default }
 
     /// Bridges a single `ThemeData` field to a SwiftUI `Binding`.
     ///
