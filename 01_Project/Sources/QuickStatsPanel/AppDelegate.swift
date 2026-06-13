@@ -26,6 +26,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// never becomes key. (id: 2 keeps it distinct from the toggle hotkey.)
     private let dismissHotKey = HotKeyService(id: 2)
 
+    /// ⌘,-to-open-Settings. Registered only while the panel is visible (and torn
+    /// down on hide), mirroring `dismissHotKey` — ⌘, is the macOS-standard
+    /// Settings shortcut but there's no menu bar to host it, and the non-activating
+    /// panel never becomes key, so a scoped Carbon hotkey is the only fit (D-010
+    /// pattern). (id: 3 keeps it distinct from the toggle and dismiss hotkeys.)
+    private let settingsHotKey = HotKeyService(id: 3)
+
     /// Global mouse monitor for click-away dismissal. A *mouse* monitor needs no
     /// special permission (unlike a keyboard one), keeping us permission-free.
     private var clickAwayMonitor: Any?
@@ -88,6 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.stop()
         hotKey.unregister()
         dismissHotKey.unregister()
+        settingsHotKey.unregister()
         removeClickAwayMonitor()
     }
 
@@ -136,8 +144,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.dismissHotKey.register(.escape) { [weak self] in
                     self?.panel.hide()
                 }
+                self.settingsHotKey.register(.commaSettings) { [weak self] in
+                    self?.openSettings()
+                }
             } else {
                 self.dismissHotKey.unregister()
+                self.settingsHotKey.unregister()
                 // The detail and hint cards are anchored to the strip — when the
                 // strip goes (toggle, Esc, click-away), they go with it.
                 self.detailPanel.hide()

@@ -63,6 +63,6 @@ struct StatsStripView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Settings")
+        .help("Settings (⌘,)")
     }
 }

@@ -23,6 +23,13 @@ final class HotKeyService {
 
         /// Bare Escape (no modifiers) — used to dismiss the panel while visible.
         static let escape = Binding(keyCode: UInt32(kVK_Escape), modifiers: 0)
+
+        /// ⌘, (the macOS-standard Settings shortcut) — opens Settings, scoped to
+        /// while the panel is visible (same pattern as `.escape`; see D-010).
+        static let commaSettings = Binding(
+            keyCode: UInt32(kVK_ANSI_Comma),
+            modifiers: UInt32(cmdKey)
+        )
     }
 
     /// Distinguishes this service's hotkey from any other instance's. Each
