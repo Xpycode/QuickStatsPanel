@@ -1,7 +1,9 @@
 import SwiftUI
 
 /// One compact stat in the strip: SF Symbol + primary value, tinted by load.
-/// Click reveals a detail popover (D-006: click-to-expand for v1).
+/// Click toggles the detail card (D-006: click-to-expand). The card itself is a
+/// separate flat panel drawn by `DetailPanelController` / `StatDetailView` — this
+/// tile just reports the tap; it no longer owns popover state or content.
 struct StatTileView: View {
     let symbol: String
     let value: String
@@ -10,17 +12,12 @@ struct StatTileView: View {
     /// the number changes. Adapted from Penumbra's TimecodeView.
     let widestValue: String
     let loadPercent: Double
-    /// Detail rows shown in the popover: (label, value).
-    let detail: [(String, String)]
-    /// Optional ranked "top processes" list shown beneath the detail rows.
-    var processSection: StatDescriptor.ProcessSection? = nil
-
-    @State private var showingDetail = false
+    /// Called when the tile is clicked, so the owner can toggle this stat's detail
+    /// card. The owner anchors the card and pulls live detail rows from the store.
+    let onTap: () -> Void
 
     var body: some View {
-        Button {
-            showingDetail.toggle()
-        } label: {
+        Button(action: onTap) {
             HStack(spacing: 5) {
                 Image(systemName: symbol)
                     .font(.system(size: 11, weight: .semibold))
@@ -38,53 +35,5 @@ struct StatTileView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .popover(isPresented: $showingDetail, arrowEdge: .bottom) {
-            detailPopover
-        }
-    }
-
-    private var detailPopover: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ForEach(detail, id: \.0) { row in
-                HStack {
-                    Text(row.0)
-                        .font(Theme.Fonts.detailTitle)
-                        .foregroundStyle(Theme.Colors.secondaryText)
-                    Spacer(minLength: 24)
-                    Text(row.1)
-                        .font(Theme.Fonts.detailValue)
-                        .foregroundStyle(Theme.Colors.primaryText)
-                }
-            }
-
-            // iStat-Menus-style top-processes list (CPU / Memory / Disk tiles).
-            if let section = processSection, !section.rows.isEmpty {
-                Divider().padding(.vertical, 2)
-                Text(section.title)
-                    .font(Theme.Fonts.detailTitle)
-                    .foregroundStyle(Theme.Colors.secondaryText)
-                // Reserve a constant `reservedRows` slots so the popover height never
-                // changes as the active-app count varies tick-to-tick (rate lists
-                // like CPU fluctuate). Real rows render; missing slots render an
-                // invisible row of identical height. Cookbook 67, applied vertically.
-                ForEach(0..<section.reservedRows, id: \.self) { i in
-                    let row: (String, String)? = i < section.rows.count ? section.rows[i] : nil
-                    HStack {
-                        Text(row?.0 ?? " ")                      // process name leads
-                            .font(Theme.Fonts.detailValue)
-                            .foregroundStyle(Theme.Colors.primaryText)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Spacer(minLength: 24)
-                        Text(row?.1 ?? " ")                      // its metric value
-                            .font(Theme.Fonts.detailValue)
-                            .foregroundStyle(Theme.Colors.secondaryText)
-                    }
-                    .opacity(row == nil ? 0 : 1)                 // pad slots stay invisible
-                }
-            }
-        }
-        .padding(12)
-        .frame(minWidth: 200)
     }
 }

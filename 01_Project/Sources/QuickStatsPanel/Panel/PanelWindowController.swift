@@ -28,6 +28,10 @@ final class PanelWindowController {
 
     var isVisible: Bool { panel?.isVisible ?? false }
 
+    /// The strip panel's on-screen frame, or `nil` when hidden. Used by the
+    /// detail panel to anchor its card beneath the strip.
+    var frame: NSRect? { panel?.frame }
+
     /// Toggle: hide if showing, otherwise show `content` at `anchor`.
     func toggle<Content: View>(anchor: PanelAnchor, @ViewBuilder content: () -> Content) {
         if isVisible { hide() } else { show(anchor: anchor, content: content()) }

@@ -7,6 +7,9 @@ struct StatsStripView: View {
     /// Opens the Settings window (provided by AppDelegate — it must activate the
     /// agent app first so the window can become key).
     var onOpenSettings: () -> Void
+    /// Toggles the flat detail card for the tapped stat (handled by AppDelegate,
+    /// which owns the DetailPanelController and anchors the card to the strip).
+    var onTileTap: (StatKind) -> Void
 
     var body: some View {
         // Data-driven: the store maps its live samples to an ordered, availability-
@@ -21,8 +24,7 @@ struct StatsStripView: View {
                     value: stat.value,
                     widestValue: stat.widestValue,
                     loadPercent: stat.loadPercent,
-                    detail: stat.detail,
-                    processSection: stat.processSection
+                    onTap: { onTileTap(stat.kind) }
                 )
             }
             // Gear lives at the trailing end and is always present — even with

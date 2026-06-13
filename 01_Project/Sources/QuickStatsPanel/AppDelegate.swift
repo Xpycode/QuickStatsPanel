@@ -8,6 +8,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private let store = StatsStore()
     private let panel = PanelWindowController()
+    /// The flat detail card shown beneath the strip when a tile is tapped. A
+    /// separate borderless panel we draw ourselves, replacing the system popover
+    /// so the card matches the strip's flat Theme (no arrow, small corner radius).
+    private let detailPanel = DetailPanelController()
     private let hotKey = HotKeyService(id: 1)
     private let settingsWindow = SettingsWindowController()
 
@@ -61,9 +65,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Width is content-driven (PanelWindowController measures the SwiftUI
         // content); anchor + height come from settings.
         panel.toggle(anchor: AppSettings.shared.anchor) { [store] in
-            StatsStripView(store: store, onOpenSettings: { [weak self] in
-                self?.openSettings()
-            })
+            StatsStripView(
+                store: store,
+                onOpenSettings: { [weak self] in self?.openSettings() },
+                onTileTap: { [weak self] kind in self?.toggleDetail(for: kind) }
+            )
+        }
+    }
+
+    /// Toggle the flat detail card for `kind`, anchored beneath the strip and
+    /// centered on the click. The card reads the store live (StatDetailView), so
+    /// values keep ticking while it's open.
+    private func toggleDetail(for kind: StatKind) {
+        guard let stripFrame = panel.frame else { return }
+        detailPanel.toggle(kind: kind,
+                           stripFrame: stripFrame,
+                           anchorX: NSEvent.mouseLocation.x) { [store] in
+            StatDetailView(store: store, kind: kind)
         }
     }
 
@@ -90,6 +108,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             } else {
                 self.dismissHotKey.unregister()
+                // The card is anchored to the strip — when the strip goes (toggle,
+                // Esc, click-away), the card goes with it.
+                self.detailPanel.hide()
             }
         }
     }

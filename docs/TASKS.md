@@ -6,7 +6,14 @@
 <!-- Ideas and future work. Added by /interview, user input, or discovered during development. -->
 <!-- Priority: top = highest, bottom = lowest -->
 
-- [ ] [Task description]
+- [ ] **Themes (named presets)** — user wants a full theming system selectable in
+      Settings, bundling: (1) accent / load colors (`Theme.loadColor` thresholds —
+      presets, solid vs gradient bands), (2) background color & opacity (currently
+      flat black 0.82; presets + possible light mode), (3) corner radius / density
+      (roundness, spacing, font-size presets: compact vs comfortable). Deliver as
+      pickable named themes ("Default", "Mono", "Neon", …), not loose knobs.
+      Requires refactoring `Theme` from a static enum into a selectable, persisted
+      value (AppSettings) that the strip + detail card both read.
 
 ## Current Sprint
 <!-- Active work. Populated by /plan or /execute. Keep focused (3-7 tasks). -->
