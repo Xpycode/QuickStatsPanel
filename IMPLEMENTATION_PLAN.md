@@ -56,9 +56,9 @@ and a unified hysteresis-backed status-color function — all updating the panel
   - Success: a value oscillating 79–81% around an 80% boundary does **not** change band without crossing ±5%; battery `reversed:true` inverts.
   - Backpressure: builds; inline asserts for the oscillation + reversed cases pass.
 
-### Wave 2 (the chokepoint — sequential; everything else depends on it)
+### Wave 2 ✅ (the chokepoint — sequential; everything else depends on it) — done 2026-06-13
 
-- [ ] **2.1**: Refactor `Theme` static enum → token **struct** → `Theme.swift`
+- [x] **2.1**: Refactor `Theme` static enum → token **struct** → `Theme.swift`
   - `struct Theme { var colors; var metrics; var fonts; func usageColor(band:on:emphasis:) -> Color; func tint(for:reversed:previous:) }`.
   - Colors resolve **light + dark** (take a `ColorScheme` or use dynamic `Color`s) — Default-dark = today's verbatim values.
   - `static func make(_ preset:, custom: ThemeData?, reduceTransparency: Bool) -> Theme` defining all 4 presets.
@@ -67,7 +67,7 @@ and a unified hysteresis-backed status-color function — all updating the panel
   - Success: project builds with views untouched; `make(.default,…)` dark == current pixels.
   - Backpressure: `xcodegen generate && xcodebuild … build` clean.
 
-- [ ] **2.2**: Wire theme into `AppSettings` → `Model/AppSettings.swift`
+- [x] **2.2**: Wire theme into `AppSettings` → `Model/AppSettings.swift`
   - Add `themePreset` (persisted), `customTheme: ThemeData?` (persisted via 1.1), derived `private(set) var theme: Theme` recomputed in `didSet` + on `reduceTransparency` change; new `Keys`.
   - Observe `NSWorkspace.accessibilityDisplayOptionsDidChange` (Reduce Transparency / Increase Contrast) → rebuild theme.
   - Extend `resetToDefaults` path (model side) to reset `themePreset`/`customTheme`.
@@ -132,7 +132,9 @@ and a unified hysteresis-backed status-color function — all updating the panel
 
 ## Operational Learnings
 - Adding files requires `cd 01_Project && xcodegen generate` before `xcodebuild` (CLAUDE.md / cookbook 47).
-- SourceKit may emit false "Theme not found" diagnostics during the migration; trust `xcodebuild`, not the indexer (seen 2026-06-13).
+- SourceKit may emit false "Theme not found" diagnostics during the migration; trust `xcodebuild`, not the indexer (seen 2026-06-13). In Wave 2 the indexer briefly flagged *every* cross-file type (`StatKind`, `PanelAnchor`, `HotKeyService`, …) as "not found" — pure index staleness; `xcodebuild` compiled clean.
+- **Wave 2 gotchas (real, caught by `xcodebuild`):** (1) a private static helper `metrics(…)`/`fonts(…)` collides with the instance properties `var metrics`/`var fonts` on the same struct → renamed to `makeMetrics`/`makeFonts`. (2) Reading `self.themePreset`/`self.customTheme` to derive `theme` in `init` fails ("self used before all stored properties initialized") because `theme` is still unset — compute via **locals**, assign, then build `theme` from the locals.
+- **Facade design that worked:** `Theme` is now a `struct`; the transitional facade is `@MainActor static var`s in extensions of `Theme.Colors`/`Metrics`/`Fonts` (+ `Theme.loadColor`). Static `Theme.Colors.background` and instance `theme.colors.background` coexist (different access paths, no recursion). Delete the whole facade block in Wave 3.
 
 ## Blocked Tasks / Notes
 - **Light-mode upgrade nuance:** today the panel is force-dark even in Light mode. Removing
@@ -148,7 +150,7 @@ and a unified hysteresis-backed status-color function — all updating the panel
 | Wave | Started | Completed | Commits |
 |------|---------|-----------|---------|
 | 1 | 2026-06-13 | 2026-06-13 | 3fe3bb4 |
-| 2 | | | |
+| 2 | 2026-06-13 | 2026-06-13 | (pending) |
 | 3 | | | |
 | 4 | | | |
 | 5 | | | |

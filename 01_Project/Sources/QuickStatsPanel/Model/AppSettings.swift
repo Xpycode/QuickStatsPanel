@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import AppKit
 
 /// App-wide, persisted user preferences. Single source of truth shared by the
 /// imperative side (`AppDelegate` → `store` / `panel` / `hotKey`) and the
@@ -76,6 +77,50 @@ final class AppSettings {
         didSet { defaults.set(hasSeenHint, forKey: Keys.hasSeenHint) }
     }
 
+    // MARK: - Theme
+
+    /// The selected named preset. **Only this id is persisted** (not the rendered
+    /// `Theme` value) so future app updates can fix a preset's tokens without
+    /// migrating stored data. Changing it rebuilds `theme` synchronously, so the
+    /// three panels — all reading `theme` in their `body` — re-render live.
+    var themePreset: ThemePreset {
+        didSet {
+            defaults.set(themePreset.rawValue, forKey: Keys.themePreset)
+            rebuildTheme()
+        }
+    }
+
+    /// The user's hand-tuned theme, used only when `themePreset == .custom`.
+    /// Persisted as JSON (`ThemeData` → `CodableColor`, sRGB round-trip). `nil`
+    /// until the user edits a custom theme.
+    var customTheme: ThemeData? {
+        didSet {
+            if let customTheme, let data = try? JSONEncoder().encode(customTheme) {
+                defaults.set(data, forKey: Keys.customTheme)
+            } else {
+                defaults.removeObject(forKey: Keys.customTheme)
+            }
+            rebuildTheme()
+        }
+    }
+
+    /// The live, rendered token value the views read. Derived from
+    /// `themePreset` + `customTheme` + the system Reduce-Transparency flag — never
+    /// persisted directly, never set from outside (`private(set)`). Recomputed by
+    /// `rebuildTheme()` whenever any input changes.
+    private(set) var theme: Theme
+
+    /// Rebuild `theme` from the current inputs. Reads the *live* Reduce-Transparency
+    /// flag each time so the accessibility observer (below) just calls this.
+    private func rebuildTheme() {
+        let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+        theme = Theme.make(themePreset, custom: customTheme, reduceTransparency: reduce)
+    }
+
+    /// Token for the accessibility-options observer, removed on deinit. Ignored by
+    /// Observation — it is plumbing, not user state.
+    @ObservationIgnored private var accessibilityObserver: NSObjectProtocol?
+
     // MARK: - Side-effect hooks (set by AppDelegate at launch)
 
     /// Re-register the global hotkey with the new binding.
@@ -146,6 +191,37 @@ final class AppSettings {
         }
 
         self.hasSeenHint = defaults.bool(forKey: Keys.hasSeenHint)
+
+        // Theme: load the persisted preset id + optional custom payload, then build
+        // the initial rendered value. (didSet does NOT fire for these in-init
+        // assignments, so we compute `theme` explicitly below rather than relying
+        // on rebuildTheme() being triggered.)
+        // Build from locals: `theme` is still uninitialized here, so `self` can't be
+        // read yet — compute the inputs into locals, assign, then derive `theme`.
+        let preset = defaults.string(forKey: Keys.themePreset)
+            .flatMap(ThemePreset.init(rawValue:)) ?? .default
+        let custom: ThemeData?
+        if let data = defaults.data(forKey: Keys.customTheme) {
+            custom = try? JSONDecoder().decode(ThemeData.self, from: data)
+        } else {
+            custom = nil
+        }
+        self.themePreset = preset
+        self.customTheme = custom
+        let reduceTransparency = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+        self.theme = Theme.make(preset, custom: custom,
+                                reduceTransparency: reduceTransparency)
+
+        // Rebuild the theme when the system accessibility flags change (Reduce
+        // Transparency / Increase Contrast → AC-11). Fires on the main queue; the
+        // singleton outlives the app so we keep the token but never need to remove it.
+        accessibilityObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.rebuildTheme() }
+        }
     }
 
     // MARK: - Convenience
@@ -175,5 +251,7 @@ final class AppSettings {
         static let hotKeyCode     = "hotKeyCode"
         static let hotKeyModifiers = "hotKeyModifiers"
         static let hasSeenHint    = "hasSeenHint"
+        static let themePreset    = "themePreset"
+        static let customTheme    = "customTheme"
     }
 }
