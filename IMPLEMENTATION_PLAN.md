@@ -150,7 +150,7 @@ and a unified hysteresis-backed status-color function — all updating the panel
 | Wave | Started | Completed | Commits |
 |------|---------|-----------|---------|
 | 1 | 2026-06-13 | 2026-06-13 | 3fe3bb4 |
-| 2 | 2026-06-13 | 2026-06-13 | (pending) |
+| 2 | 2026-06-13 | 2026-06-13 | caf5694 |
 | 3 | | | |
 | 4 | | | |
 | 5 | | | |
