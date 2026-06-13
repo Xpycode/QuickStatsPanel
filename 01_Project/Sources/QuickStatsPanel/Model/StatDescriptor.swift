@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Stable identity for each stat the panel can show. Drives display order
 /// (declaration order via `allCases`) and is the hook for a future "stat
@@ -40,9 +41,9 @@ enum StatKind: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// A render-ready, UI-agnostic snapshot of one stat: everything `StatTileView`
-/// needs, already formatted to strings. No SwiftUI types here — the view applies
-/// `Theme.loadColor(forPercent:)` to `loadPercent` itself.
+/// A render-ready snapshot of one stat: everything `StatTileView` needs, already
+/// formatted. The status **band** and its themed **tint** are resolved centrally
+/// in `visibleStats` (with hysteresis), so the tile never computes color itself.
 struct StatDescriptor: Identifiable {
     let kind: StatKind
     let symbol: String
@@ -54,6 +55,14 @@ struct StatDescriptor: Identifiable {
     let detail: [(String, String)]
     /// Optional iStat-Menus-style "top processes" list shown beneath `detail`.
     let processSection: ProcessSection?
+
+    /// Status band for this reading, resolved in `visibleStats` with hysteresis.
+    /// Drives the non-color severity cue (font-weight ramp) so "hot" is legible in
+    /// Mono / greyscale (AC-5). Defaults to `.calm` until the store fills it in.
+    var band: Band = .calm
+    /// The themed color for `band` (status hue, or neutral under Mono). Set by the
+    /// store; `.primary` is a safe placeholder that `visibleStats` always overwrites.
+    var tint: Color = .primary
 
     var id: String { kind.id }
 
@@ -96,6 +105,19 @@ extension StatsStore {
         return settings.statOrder
             .filter(settings.isEnabled)
             .compactMap(descriptor(for:))
+            .map { desc in
+                // Resolve the status band + themed tint once, here — the single
+                // chokepoint. Battery is the only "less = worse" metric, so it
+                // resolves reversed (low charge → hot). `tint(for:…)` reads the
+                // live theme, so a preset switch recolors on the next body pass.
+                var d = desc
+                let resolved = tint(for: desc.kind,
+                                    percent: desc.loadPercent,
+                                    reversed: desc.kind == .battery)
+                d.band = resolved.band
+                d.tint = resolved.color
+                return d
+            }
     }
 
     /// Top-N count shown in each tile's "top processes" popover section.

@@ -5,12 +5,12 @@ import AppKit
 /// static namespace. (The App Shell Standard `Theme` is for windowed apps; this
 /// is the panel-scoped equivalent — see CLAUDE.md.)
 ///
-/// **Wave 2 of Themes** turned the old `enum Theme` (compile-time constants) into
-/// this `struct`: the live value lives on `AppSettings.shared.theme` and is swapped
-/// when the user picks a preset. Views will read `AppSettings.shared.theme.…`
-/// inside their `body` (Wave 3); until then a **transitional facade** at the bottom
-/// of this file keeps the old `Theme.Colors.X` / `Theme.Fonts.X` / `Theme.Metrics.X`
-/// / `Theme.loadColor(_:)` spellings compiling by forwarding to the live value.
+/// The old `enum Theme` (compile-time constants) is now this `struct`: the live
+/// value lives on `AppSettings.shared.theme` and is swapped when the user picks a
+/// preset. Views read `AppSettings.shared.theme.…` inside their `body`, so SwiftUI
+/// Observation re-renders each of the three `NSHostingView` panels live on a
+/// switch. (Wave 2 added the struct behind a transitional facade; Wave 3 migrated
+/// the views and removed the facade.)
 ///
 /// Built-in preset colors are *code constants*; only the **Custom** theme
 /// serializes (via `ThemeData` → `CodableColor`). Don't persist this struct —
@@ -87,6 +87,19 @@ struct Theme: Sendable {
               previous: Band?) -> (band: Band, color: Color) {
         let band = resolveBand(percent: percent, reversed: reversed, previous: previous)
         return (band, color(for: band))
+    }
+
+    /// Font weight for a severity band — the **non-color** severity cue (AC-5).
+    /// Heavier = hotter, so "hot" stays legible in Mono and in greyscale /
+    /// color-blind viewing where the status hue is suppressed or indistinct.
+    /// Width-neutral: only the weight changes, so the jitter-free strip keeps its
+    /// reserved field widths.
+    func weight(for band: Band) -> Font.Weight {
+        switch band {
+        case .calm: return .regular
+        case .busy: return .semibold
+        case .hot:  return .heavy
+        }
     }
 
     // MARK: Preset construction
@@ -263,57 +276,5 @@ private extension Color {
             let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
             return NSColor(isDark ? dark : light)
         })
-    }
-}
-
-// MARK: - Transitional facade (DELETE in Wave 3 once views read AppSettings.shared.theme)
-
-/// These statics preserve the pre-Themes spellings (`Theme.Colors.background`,
-/// `Theme.Fonts.value`, `Theme.Metrics.cornerRadius`, `Theme.loadColor(_:)`) so the
-/// four views compile unchanged until Wave 3 migrates them to read
-/// `AppSettings.shared.theme.…` directly. Each forwards to the live value, read
-/// **here** rather than captured, so SwiftUI Observation still tracks theme changes
-/// when these are evaluated inside a `body`. All `@MainActor` because they reach
-/// through the `@MainActor` settings singleton.
-///
-/// Note the static/instance pairing: `Theme.Colors.background` (static, below)
-/// forwards to `AppSettings.shared.theme.colors.background` (the instance member) —
-/// different access paths, no recursion.
-extension Theme.Colors {
-    @MainActor static var background:    Color { AppSettings.shared.theme.colors.background }
-    @MainActor static var primaryText:   Color { AppSettings.shared.theme.colors.primaryText }
-    @MainActor static var secondaryText: Color { AppSettings.shared.theme.colors.secondaryText }
-    @MainActor static var divider:       Color { AppSettings.shared.theme.colors.divider }
-    @MainActor static var calm:          Color { AppSettings.shared.theme.colors.calm }
-    @MainActor static var busy:          Color { AppSettings.shared.theme.colors.busy }
-    @MainActor static var hot:           Color { AppSettings.shared.theme.colors.hot }
-}
-
-extension Theme.Metrics {
-    @MainActor static var cornerRadius:     CGFloat { AppSettings.shared.theme.metrics.cornerRadius }
-    @MainActor static var tileSpacing:      CGFloat { AppSettings.shared.theme.metrics.tileSpacing }
-    @MainActor static var horizontalPadding: CGFloat { AppSettings.shared.theme.metrics.horizontalPadding }
-    /// Height is owned by the slider, not the theme — kept here only so any legacy
-    /// `Theme.Metrics.stripHeight` reference still resolves.
-    @MainActor static var stripHeight:      CGFloat { AppSettings.shared.stripHeight }
-}
-
-extension Theme.Fonts {
-    @MainActor static var value:       Font { AppSettings.shared.theme.fonts.value }
-    @MainActor static var label:       Font { AppSettings.shared.theme.fonts.label }
-    @MainActor static var detailTitle: Font { AppSettings.shared.theme.fonts.detailTitle }
-    @MainActor static var detailValue: Font { AppSettings.shared.theme.fonts.detailValue }
-}
-
-extension Theme {
-    /// Legacy stepped status color for the un-migrated `StatTileView`. Reproduces
-    /// the pre-Themes bands exactly (calm < 50, busy < 80, hot ≥ 80, no hysteresis)
-    /// against the *active* theme's colors — so Default is pixel-identical while a
-    /// switched preset already tints correctly. Wave 3.2 replaces the call site
-    /// with the store-resolved, hysteresis-backed `tint`.
-    @MainActor static func loadColor(forPercent percent: Double) -> Color {
-        let theme = AppSettings.shared.theme
-        let band: Band = percent < 50 ? .calm : (percent < 80 ? .busy : .hot)
-        return theme.color(for: band)
     }
 }

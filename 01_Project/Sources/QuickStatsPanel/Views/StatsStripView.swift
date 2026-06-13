@@ -15,15 +15,17 @@ struct StatsStripView: View {
         // Data-driven: the store maps its live samples to an ordered, availability-
         // filtered [StatDescriptor]; we render one tile each with dividers between.
         // Reading store.visibleStats here keeps Observation tracking the samples.
+        let theme = AppSettings.shared.theme
         let stats = store.visibleStats
-        HStack(spacing: Theme.Metrics.tileSpacing) {
+        HStack(spacing: theme.metrics.tileSpacing) {
             ForEach(Array(stats.enumerated()), id: \.element.id) { index, stat in
                 if index > 0 { divider }
                 StatTileView(
                     symbol: stat.symbol,
                     value: stat.value,
                     widestValue: stat.widestValue,
-                    loadPercent: stat.loadPercent,
+                    band: stat.band,
+                    tint: stat.tint,
                     onTap: { onTileTap(stat.kind) }
                 )
             }
@@ -37,19 +39,18 @@ struct StatsStripView: View {
         // equal its *ideal* width, so PanelWindowController's fittingSize measures
         // the snug strip correctly instead of the over-compressed one.
         .fixedSize(horizontal: true, vertical: false)
-        .padding(.horizontal, Theme.Metrics.horizontalPadding)
+        .padding(.horizontal, theme.metrics.horizontalPadding)
         .frame(height: AppSettings.shared.stripHeight)
         .background(
-            RoundedRectangle(cornerRadius: Theme.Metrics.cornerRadius, style: .continuous)
-                .fill(Theme.Colors.background)
+            RoundedRectangle(cornerRadius: theme.metrics.cornerRadius, style: .continuous)
+                .fill(theme.colors.background)
         )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Metrics.cornerRadius, style: .continuous))
-        .preferredColorScheme(.dark)
+        .clipShape(RoundedRectangle(cornerRadius: theme.metrics.cornerRadius, style: .continuous))
     }
 
     private var divider: some View {
         Rectangle()
-            .fill(Theme.Colors.divider)
+            .fill(AppSettings.shared.theme.colors.divider)
             .frame(width: 1, height: 18)
     }
 
@@ -59,7 +60,7 @@ struct StatsStripView: View {
         Button(action: onOpenSettings) {
             Image(systemName: "gearshape")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.Colors.secondaryText)
+                .foregroundStyle(AppSettings.shared.theme.colors.secondaryText)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

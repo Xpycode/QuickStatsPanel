@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 
 /// Owns the live samplers and publishes their latest values to SwiftUI.
 ///
@@ -33,6 +34,24 @@ final class StatsStore {
     /// while the panel is on screen (set via `setPanelVisible`). The cheap
     /// in-process samplers run continuously; this one is gated.
     private var panelVisible = false
+
+    /// Per-stat last status band, the memory the hysteresis needs (a value
+    /// hovering at a boundary holds its band until it crosses by the margin).
+    /// `@ObservationIgnored` because it's internal caching, not published state —
+    /// it's written while resolving tints inside `visibleStats` (a body read), and
+    /// tracking it would risk an observation loop.
+    @ObservationIgnored private var lastBands: [StatKind: Band] = [:]
+
+    /// Resolve a stat's status band (with hysteresis vs its previous band) and the
+    /// theme color for it, in one call. Reads the *live* theme, so switching preset
+    /// recolors immediately on the next body pass; battery passes `reversed: true`
+    /// so a low charge reads "hot" — replacing the old `100 - percent` hack.
+    func tint(for kind: StatKind, percent: Double, reversed: Bool = false) -> (band: Band, color: Color) {
+        let resolved = AppSettings.shared.theme.tint(
+            forPercent: percent, reversed: reversed, previous: lastBands[kind])
+        lastBands[kind] = resolved.band
+        return resolved
+    }
 
     func start() {
         guard !isRunning else { return }

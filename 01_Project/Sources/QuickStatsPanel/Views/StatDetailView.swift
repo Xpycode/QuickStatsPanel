@@ -16,34 +16,34 @@ struct StatDetailView: View {
     let kind: StatKind
 
     var body: some View {
+        let theme = AppSettings.shared.theme
         // Tolerate the stat vanishing while open (e.g. battery unplugged) by
         // collapsing to an empty card rather than crashing on a stale lookup.
         let descriptor = store.visibleStats.first { $0.kind == kind }
         Group {
-            if let descriptor { content(descriptor) }
+            if let descriptor { content(descriptor, theme: theme) }
         }
         .padding(12)
         .frame(minWidth: 200)
         .background(
-            RoundedRectangle(cornerRadius: Theme.Metrics.cornerRadius, style: .continuous)
-                .fill(Theme.Colors.background)
+            RoundedRectangle(cornerRadius: theme.metrics.cornerRadius, style: .continuous)
+                .fill(theme.colors.background)
         )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Metrics.cornerRadius, style: .continuous))
-        .preferredColorScheme(.dark)
+        .clipShape(RoundedRectangle(cornerRadius: theme.metrics.cornerRadius, style: .continuous))
     }
 
     @ViewBuilder
-    private func content(_ descriptor: StatDescriptor) -> some View {
+    private func content(_ descriptor: StatDescriptor, theme: Theme) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             ForEach(descriptor.detail, id: \.0) { row in
                 HStack {
                     Text(row.0)
-                        .font(Theme.Fonts.detailTitle)
-                        .foregroundStyle(Theme.Colors.secondaryText)
+                        .font(theme.fonts.detailTitle)
+                        .foregroundStyle(theme.colors.secondaryText)
                     Spacer(minLength: 24)
                     Text(row.1)
-                        .font(Theme.Fonts.detailValue)
-                        .foregroundStyle(Theme.Colors.primaryText)
+                        .font(theme.fonts.detailValue)
+                        .foregroundStyle(theme.colors.primaryText)
                 }
             }
 
@@ -51,8 +51,8 @@ struct StatDetailView: View {
             if let section = descriptor.processSection, !section.rows.isEmpty {
                 Divider().padding(.vertical, 2)
                 Text(section.title)
-                    .font(Theme.Fonts.detailTitle)
-                    .foregroundStyle(Theme.Colors.secondaryText)
+                    .font(theme.fonts.detailTitle)
+                    .foregroundStyle(theme.colors.secondaryText)
                 // Reserve a constant slot count so the card height never changes as
                 // the active-app count varies tick-to-tick. Real rows render; empty
                 // slots render an invisible row of identical height. Cookbook 67,
@@ -61,14 +61,14 @@ struct StatDetailView: View {
                     let row: (String, String)? = i < section.rows.count ? section.rows[i] : nil
                     HStack {
                         Text(row?.0 ?? " ")                      // process name leads
-                            .font(Theme.Fonts.detailValue)
-                            .foregroundStyle(Theme.Colors.primaryText)
+                            .font(theme.fonts.detailValue)
+                            .foregroundStyle(theme.colors.primaryText)
                             .lineLimit(1)
                             .truncationMode(.middle)
                         Spacer(minLength: 24)
                         Text(row?.1 ?? " ")                      // its metric value
-                            .font(Theme.Fonts.detailValue)
-                            .foregroundStyle(Theme.Colors.secondaryText)
+                            .font(theme.fonts.detailValue)
+                            .foregroundStyle(theme.colors.secondaryText)
                     }
                     .opacity(row == nil ? 0 : 1)                 // pad slots stay invisible
                 }

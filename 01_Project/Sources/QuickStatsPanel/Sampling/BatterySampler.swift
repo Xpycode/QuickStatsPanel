@@ -17,10 +17,11 @@ struct BatterySample: Equatable, Sendable {
     static let empty = BatterySample(isPresent: false, percent: 0,
                                      isCharging: false, isOnAC: false, minutesRemaining: nil)
 
-    /// Battery is INVERTED vs other stats: a *low* charge should read "hot".
-    /// Feeding `100 - percent` into Theme.loadColor reuses the same bands so a
-    /// near-empty battery glows red and a full one stays calm green.
-    var loadPercent: Double { 100 - percent }
+    /// Raw charge as the stat's load figure. Battery is INVERTED vs other stats
+    /// (a *low* charge should read "hot"), but that inversion now lives in the
+    /// store's tint resolution (`theme.tint(..., reversed: true)`) — not here.
+    /// The old `100 - percent` hack is gone: `loadPercent` is just the charge.
+    var loadPercent: Double { percent }
 
     var percentFormatted: String { "\(Int(percent.rounded()))%" }
 

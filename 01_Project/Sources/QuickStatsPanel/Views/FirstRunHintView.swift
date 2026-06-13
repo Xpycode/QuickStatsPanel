@@ -13,15 +13,15 @@ struct FirstRunHintView: View {
     let hotKey: String
 
     var body: some View {
-        cardBody
+        let theme = AppSettings.shared.theme
+        cardBody(theme: theme)
             .padding(14)
             .frame(minWidth: 220)
             .background(
-                RoundedRectangle(cornerRadius: Theme.Metrics.cornerRadius, style: .continuous)
-                    .fill(Theme.Colors.background)
+                RoundedRectangle(cornerRadius: theme.metrics.cornerRadius, style: .continuous)
+                    .fill(theme.colors.background)
             )
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Metrics.cornerRadius, style: .continuous))
-            .preferredColorScheme(.dark)
+            .clipShape(RoundedRectangle(cornerRadius: theme.metrics.cornerRadius, style: .continuous))
     }
 
     // MARK: - Card content  ⟵ USER CONTRIBUTION POINT
@@ -35,38 +35,38 @@ struct FirstRunHintView: View {
     //   • how much to say — discoverability vs. clutter on a HUD that's meant to
     //     read in a glance
     // Edit freely; the chrome above (padding / background / radius) stays put.
-    private var cardBody: some View {
+    private func cardBody(theme: Theme) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("You're all set 👋")
-                .font(Theme.Fonts.detailTitle)
-                .foregroundStyle(Theme.Colors.primaryText)
+                .font(theme.fonts.detailTitle)
+                .foregroundStyle(theme.colors.primaryText)
 
             HStack(spacing: 6) {
                 Text("Press")
-                    .foregroundStyle(Theme.Colors.secondaryText)
-                keycap(hotKey)
+                    .foregroundStyle(theme.colors.secondaryText)
+                keycap(hotKey, theme: theme)
                 Text("anytime to pop up your stats.")
-                    .foregroundStyle(Theme.Colors.secondaryText)
+                    .foregroundStyle(theme.colors.secondaryText)
             }
-            .font(Theme.Fonts.detailTitle)
+            .font(theme.fonts.detailTitle)
 
             Text("Esc or click away hides it · ⚙ for settings")
-                .font(Theme.Fonts.label)
-                .foregroundStyle(Theme.Colors.secondaryText)
+                .font(theme.fonts.label)
+                .foregroundStyle(theme.colors.secondaryText)
         }
     }
 
     /// A small keycap-style chip for a shortcut string, so the hotkey stands out
     /// from the surrounding prose.
-    private func keycap(_ text: String) -> some View {
+    private func keycap(_ text: String, theme: Theme) -> some View {
         Text(text)
-            .font(Theme.Fonts.detailValue)
-            .foregroundStyle(Theme.Colors.primaryText)
+            .font(theme.fonts.detailValue)
+            .foregroundStyle(theme.colors.primaryText)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(
                 RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(Color.white.opacity(0.10))
+                    .fill(theme.colors.primaryText.opacity(0.12))
             )
     }
 }
