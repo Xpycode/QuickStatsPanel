@@ -164,6 +164,13 @@ struct SettingsView: View {
                 Spacer()
                 HotKeyRecorderView(binding: $settings.hotKey)
             }
+            HStack {
+                Text("Keep on screen")
+                Spacer()
+                HotKeyRecorderView(binding: $settings.pinHotKey)
+            }
+            Text("“Keep on screen” works while the panel is showing; it also lives in the strip’s right-click menu.")
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 
@@ -225,6 +232,7 @@ struct SettingsView: View {
         settings.anchor = .cursor
         settings.stripHeight = 36
         settings.hotKey = .default
+        settings.pinHotKey = .defaultPin
         // Theme reset (the model-side reset deferred from 2.2): back to the stock
         // Default preset, and drop any custom payload so it doesn't linger on disk.
         settings.themePreset = .default

@@ -7,7 +7,24 @@ import SwiftUI
 /// after it appears would only raise the window and be swallowed before SwiftUI
 /// saw it. (Same fix MousePlus's ring overlay uses.)
 private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    /// Supplies the right-click menu for the strip. Set by `PanelWindowController`
+    /// in `show`; `nil` falls back to the default (no menu).
+    var contextMenuProvider: (() -> NSMenu)?
+
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    /// Right-click anywhere on the strip pops the panel's context menu (Pin /
+    /// Reset Position / Settings / Quit). This is local to our window, so it never
+    /// reaches the *global* click-away monitor — the strip stays put while the menu
+    /// is open. SwiftUI's `.contextMenu` is unreliable on a non-key, non-activating
+    /// panel, so we drive `NSMenu` directly.
+    override func rightMouseDown(with event: NSEvent) {
+        if let menu = contextMenuProvider?() {
+            NSMenu.popUpContextMenu(menu, with: event, for: self)
+        } else {
+            super.rightMouseDown(with: event)
+        }
+    }
 }
 
 /// Shows / hides the stats strip in a borderless, non-activating `NSPanel`.
@@ -26,19 +43,41 @@ final class PanelWindowController {
     /// as Esc-to-dismiss to exactly the window where the panel is on screen.
     var onVisibilityChanged: ((Bool) -> Void)?
 
+    /// Fired with the strip's new bottom-left origin when the *user* drags it
+    /// (programmatic moves are filtered out). The owner persists this as the
+    /// custom summon position.
+    var onPanelMoved: ((NSPoint) -> Void)?
+
+    /// Supplies the right-click context menu. Set by the owner before the first
+    /// `show`; applied to the hosting view each summon.
+    var contextMenuProvider: (() -> NSMenu)?
+
     var isVisible: Bool { panel?.isVisible ?? false }
+
+    /// The last origin we set *programmatically* (summon / reposition). Used to
+    /// tell our own `setFrame` echoes apart from genuine user drags in the move
+    /// observer — an exact match means we moved it, anything else is the user.
+    private var lastAppliedOrigin: NSPoint?
+
+    /// Token for the window-move observer, removed on hide.
+    private var moveObserver: NSObjectProtocol?
 
     /// The strip panel's on-screen frame, or `nil` when hidden. Used by the
     /// detail panel to anchor its card beneath the strip.
     var frame: NSRect? { panel?.frame }
 
-    /// Toggle: hide if showing, otherwise show `content` at `anchor`.
-    func toggle<Content: View>(anchor: PanelAnchor, @ViewBuilder content: () -> Content) {
-        if isVisible { hide() } else { show(anchor: anchor, content: content()) }
+    /// Toggle: hide if showing, otherwise show `content` at `customOrigin` (a
+    /// dragged spot) if present, else at `anchor`.
+    func toggle<Content: View>(anchor: PanelAnchor,
+                               customOrigin: NSPoint?,
+                               @ViewBuilder content: () -> Content) {
+        if isVisible { hide() }
+        else { show(anchor: anchor, customOrigin: customOrigin, content: content()) }
     }
 
-    func show<Content: View>(anchor: PanelAnchor, content: Content) {
+    func show<Content: View>(anchor: PanelAnchor, customOrigin: NSPoint?, content: Content) {
         let hosting = FirstMouseHostingView(rootView: AnyView(content))
+        hosting.contextMenuProvider = contextMenuProvider
 
         // Content-driven size: ask the SwiftUI tree for its ideal size so the
         // strip hugs its tiles (and grows as tiles are added) rather than using a
@@ -53,8 +92,10 @@ final class PanelWindowController {
         self.hosting = hosting
         self.panel = panel
 
-        let origin = origin(forSize: size, anchor: anchor)
+        let origin = origin(forSize: size, anchor: anchor, customOrigin: customOrigin)
+        lastAppliedOrigin = origin
         panel.setFrame(NSRect(origin: origin, size: size), display: true)
+        installMoveObserver(for: panel)
         panel.orderFrontRegardless()
         onVisibilityChanged?(true)
     }
@@ -63,15 +104,62 @@ final class PanelWindowController {
         // Guard so redundant hides (e.g. click-away after Esc already fired)
         // don't emit a second `false` and double-unregister downstream.
         guard panel != nil else { return }
+        removeMoveObserver()
         panel?.orderOut(nil)
         panel = nil
         hosting = nil
+        lastAppliedOrigin = nil
         onVisibilityChanged?(false)
+    }
+
+    /// Reposition the *visible* strip to `customOrigin` (if given) or `anchor`,
+    /// keeping its current size. Used by "Reset Position" to snap a dragged strip
+    /// back to the configured anchor without rebuilding its content.
+    func reposition(anchor: PanelAnchor, customOrigin: NSPoint?) {
+        guard let panel else { return }
+        let size = panel.frame.size
+        let origin = origin(forSize: size, anchor: anchor, customOrigin: customOrigin)
+        lastAppliedOrigin = origin
+        panel.setFrame(NSRect(origin: origin, size: size), display: true)
+    }
+
+    // MARK: - Drag tracking
+
+    /// Watch for window moves so user drags can be persisted as the custom
+    /// position. Block-based observer wrapped in `MainActor.assumeIsolated` (same
+    /// pattern as `AppSettings`'s accessibility observer) so it stays clean under
+    /// `complete` strict concurrency without an `NSWindowDelegate` conformance.
+    private func installMoveObserver(for panel: NSPanel) {
+        moveObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didMoveNotification, object: panel, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, let panel = self.panel else { return }
+                let origin = panel.frame.origin
+                // Ignore our own `setFrame` echoes; only report genuine user drags.
+                if origin == self.lastAppliedOrigin { return }
+                self.lastAppliedOrigin = origin
+                self.onPanelMoved?(origin)
+            }
+        }
+    }
+
+    private func removeMoveObserver() {
+        if let moveObserver { NotificationCenter.default.removeObserver(moveObserver) }
+        moveObserver = nil
     }
 
     // MARK: - Geometry
 
-    private func origin(forSize size: NSSize, anchor: PanelAnchor) -> NSPoint {
+    private func origin(forSize size: NSSize, anchor: PanelAnchor,
+                        customOrigin: NSPoint?) -> NSPoint {
+        // A dragged position wins over the anchor. Clamp it to the screen it sits
+        // on so a saved spot stays valid if displays change (a now-missing screen
+        // falls back to main via `screen(containing:)`).
+        if let custom = customOrigin {
+            return clamp(origin: custom, size: size, on: screen(containing: custom))
+        }
+
         // All anchors resolve relative to the screen the pointer is on, so the
         // strip lands on the active display in a multi-monitor setup.
         let cursor = NSEvent.mouseLocation       // global, bottom-left origin
@@ -146,7 +234,12 @@ final class PanelWindowController {
         panel.backgroundColor = .clear      // SwiftUI draws the rounded background
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.isMovable = false
+        // Let the user drag the strip by any empty region of its background. Tiles
+        // and the gear are SwiftUI controls — they consume their own mouse-downs —
+        // so only the gaps/padding initiate a window drag, and a plain tap never
+        // moves it. The dragged spot is captured via the move observer (above).
+        panel.isMovable = true
+        panel.isMovableByWindowBackground = true
         panel.hasShadow = true
 
         // Float over other apps without stealing focus; still deliver mouse-moved

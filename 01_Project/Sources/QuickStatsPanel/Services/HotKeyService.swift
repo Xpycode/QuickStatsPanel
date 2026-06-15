@@ -15,9 +15,17 @@ final class HotKeyService {
         var keyCode: UInt32
         var modifiers: UInt32
 
-        /// Default: ⌃⌥⌘Q (control + option + command + Q).
+        /// Default summon hotkey: ⌃⌥⌘Q (control + option + command + Q).
         static let `default` = Binding(
             keyCode: UInt32(kVK_ANSI_Q),
+            modifiers: UInt32(controlKey | optionKey | cmdKey)
+        )
+
+        /// Default "Keep on Screen" (pin) toggle: ⌃⌥⌘P. Like the summon hotkey
+        /// it's user-rebindable; unlike it, it's registered only while the panel
+        /// is visible (pinning is meaningless when nothing is shown).
+        static let defaultPin = Binding(
+            keyCode: UInt32(kVK_ANSI_P),
             modifiers: UInt32(controlKey | optionKey | cmdKey)
         )
 

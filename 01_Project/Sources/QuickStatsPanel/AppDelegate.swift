@@ -33,9 +33,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// pattern). (id: 3 keeps it distinct from the toggle and dismiss hotkeys.)
     private let settingsHotKey = HotKeyService(id: 3)
 
+    /// Toggle "Keep on Screen" (pin) from the keyboard. Registered only while the
+    /// panel is visible (and torn down on hide), mirroring `dismissHotKey` —
+    /// pinning is meaningless when nothing is shown. Rebindable in Settings; the
+    /// binding is read at register time so a changed combo applies on next summon.
+    /// (id: 4 keeps it distinct from the toggle/dismiss/settings hotkeys.)
+    private let pinToggleHotKey = HotKeyService(id: 4)
+
     /// Global mouse monitor for click-away dismissal. A *mouse* monitor needs no
     /// special permission (unlike a keyboard one), keeping us permission-free.
     private var clickAwayMonitor: Any?
+
+    /// "Pin" state (Keep on Screen). While pinned, click-away no longer dismisses
+    /// the strip so it stays put for a longer read; Esc and the toggle hotkey still
+    /// hide it (the deliberate "I'm done" gestures). Stored on `AppSettings.shared`
+    /// (transient, not persisted) so the strip can observe it for its pinned
+    /// indicator. Per-summon: reset whenever the strip hides (see below).
+    private var isPinned: Bool {
+        get { AppSettings.shared.isPinned }
+        set { AppSettings.shared.isPinned = newValue }
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         wireSettings()
@@ -43,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         registerHotKey()
         installClickAwayMonitor()
         installEscToDismiss()
+        installPanelInteractions()
 
         // First-run discoverability: an agent app with no Dock/menu-bar presence
         // is invisible until summoned, so show the panel once on launch.
@@ -96,18 +114,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotKey.unregister()
         dismissHotKey.unregister()
         settingsHotKey.unregister()
+        pinToggleHotKey.unregister()
         removeClickAwayMonitor()
     }
 
     private func togglePanel() {
         // Width is content-driven (PanelWindowController measures the SwiftUI
-        // content); anchor + height come from settings.
-        panel.toggle(anchor: AppSettings.shared.anchor) { [store] in
+        // content); anchor + height come from settings. A dragged custom position,
+        // if any, wins over the anchor so the strip reappears where it was left.
+        panel.toggle(anchor: AppSettings.shared.anchor,
+                     customOrigin: AppSettings.shared.customPosition) { [store] in
             StatsStripView(
                 store: store,
                 onOpenSettings: { [weak self] in self?.openSettings() },
                 onTileTap: { [weak self] kind in self?.toggleDetail(for: kind) }
             )
+        }
+    }
+
+    /// Wire the strip's direct-manipulation affordances: the right-click menu and
+    /// drag-to-reposition persistence. Set once at launch; `PanelWindowController`
+    /// re-applies the menu provider to each freshly-built strip.
+    private func installPanelInteractions() {
+        panel.contextMenuProvider = { [weak self] in
+            self?.makePanelMenu() ?? NSMenu()
+        }
+        // Persist a user drag so the strip re-summons at the spot it was left.
+        panel.onPanelMoved = { origin in
+            AppSettings.shared.customPosition = origin
         }
     }
 
@@ -126,6 +160,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Open our settings window. Uses a self-managed `NSWindow` rather than the
     /// SwiftUI `Settings` scene, which is unreliable in an `LSUIElement` app.
     private func openSettings() {
+        // The strip floats at `.floating` level, so it would sit *on top* of the
+        // normal-level Settings window — pinning ("Keep on Screen") makes that
+        // worse since it no longer dismisses on click-away. Settings is its own
+        // full context, so close the strip as we open it. (hide() also resets pin
+        // and tears down the detail/hint cards via onVisibilityChanged.)
+        panel.hide()
         settingsWindow.show()
     }
 
@@ -147,9 +187,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.settingsHotKey.register(.commaSettings) { [weak self] in
                     self?.openSettings()
                 }
+                // Read the binding now so a rebind applies on the next summon.
+                self.pinToggleHotKey.register(AppSettings.shared.pinHotKey) { [weak self] in
+                    self?.isPinned.toggle()
+                }
             } else {
                 self.dismissHotKey.unregister()
                 self.settingsHotKey.unregister()
+                self.pinToggleHotKey.unregister()
+                // Pinning is per-summon: any hide path (toggle, Esc, click-away)
+                // clears it so the next summon is never unexpectedly stuck on.
+                self.isPinned = false
                 // The detail and hint cards are anchored to the strip — when the
                 // strip goes (toggle, Esc, click-away), they go with it.
                 self.detailPanel.hide()
@@ -167,7 +215,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // A global monitor only fires for clicks in *other* apps, i.e. outside
             // our panel — exactly the click-away case. Hide if visible.
             Task { @MainActor in
-                guard let self, self.panel.isVisible else { return }
+                // A pinned strip ignores click-away — the user asked it to stay.
+                guard let self, self.panel.isVisible, !self.isPinned else { return }
                 self.panel.hide()
             }
         }
@@ -176,5 +225,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func removeClickAwayMonitor() {
         if let clickAwayMonitor { NSEvent.removeMonitor(clickAwayMonitor) }
         clickAwayMonitor = nil
+    }
+
+    // MARK: - Right-click menu
+
+    /// Build the strip's context menu fresh on each right-click so item state
+    /// (the Pin checkmark, whether "Reset Position" is enabled) reflects the
+    /// current moment. Rebuilt rather than cached for exactly that reason.
+    private func makePanelMenu() -> NSMenu {
+        let menu = NSMenu()
+
+        let pin = NSMenuItem(title: "Keep on Screen",
+                             action: #selector(togglePin), keyEquivalent: "")
+        pin.target = self
+        pin.state = isPinned ? .on : .off
+        menu.addItem(pin)
+
+        menu.addItem(.separator())
+
+        let reset = NSMenuItem(title: "Reset Position",
+                               action: #selector(resetPosition), keyEquivalent: "")
+        reset.target = self
+        // Only meaningful once the strip has actually been dragged somewhere.
+        reset.isEnabled = AppSettings.shared.customPosition != nil
+        menu.addItem(reset)
+
+        let settings = NSMenuItem(title: "Settings…",
+                                  action: #selector(openSettingsFromMenu), keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
+
+        menu.addItem(.separator())
+
+        let quit = NSMenuItem(title: "Quit QuickStatsPanel",
+                              action: #selector(quitFromMenu), keyEquivalent: "q")
+        quit.target = self
+        menu.addItem(quit)
+
+        return menu
+    }
+
+    @objc private func togglePin() {
+        isPinned.toggle()
+    }
+
+    /// Clear the dragged position and snap the visible strip back to its anchor.
+    @objc private func resetPosition() {
+        AppSettings.shared.customPosition = nil
+        panel.reposition(anchor: AppSettings.shared.anchor, customOrigin: nil)
+    }
+
+    @objc private func openSettingsFromMenu() {
+        openSettings()
+    }
+
+    @objc private func quitFromMenu() {
+        NSApp.terminate(nil)
     }
 }

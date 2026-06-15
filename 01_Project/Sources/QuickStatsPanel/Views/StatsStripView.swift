@@ -18,6 +18,7 @@ struct StatsStripView: View {
         let theme = AppSettings.shared.theme
         let stats = store.visibleStats
         HStack(spacing: theme.metrics.tileSpacing) {
+            pinIndicator
             ForEach(Array(stats.enumerated()), id: \.element.id) { index, stat in
                 if index > 0 { divider }
                 StatTileView(
@@ -46,6 +47,22 @@ struct StatsStripView: View {
                 .fill(theme.colors.background)
         )
         .clipShape(RoundedRectangle(cornerRadius: theme.metrics.cornerRadius, style: .continuous))
+    }
+
+    /// Leading pinned ("Keep on Screen") indicator. A *reserved inline slot*, not a
+    /// floating overlay: the strip's width is measured once per summon and never
+    /// resizes while visible, so the slot is always laid out (even unpinned) and the
+    /// thumbtack just fades in/out within it — pinning mid-display never reflows or
+    /// clips. Tinted with `secondaryText` so it stays on-theme across every preset
+    /// without borrowing the calm/busy/hot band colors (which carry stat meaning).
+    private var pinIndicator: some View {
+        Image(systemName: "pin.fill")
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(AppSettings.shared.theme.colors.secondaryText)
+            .opacity(AppSettings.shared.isPinned ? 1 : 0)
+            .allowsHitTesting(false)
+            .accessibilityHidden(!AppSettings.shared.isPinned)
+            .help("Pinned — Keep on Screen is on")
     }
 
     private var divider: some View {

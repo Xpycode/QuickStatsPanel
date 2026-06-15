@@ -49,7 +49,32 @@ final class AppSettings {
     // MARK: - Panel placement & size
 
     var anchor: PanelAnchor {
-        didSet { defaults.set(anchor.rawValue, forKey: Keys.anchor) }
+        didSet {
+            defaults.set(anchor.rawValue, forKey: Keys.anchor)
+            // Picking an anchor in Settings is an explicit "put it here" choice, so
+            // it supersedes any spot the user previously *dragged* the strip to.
+            // Without this, choosing e.g. "Top center" would silently do nothing
+            // while a saved custom position still won at summon time.
+            customPosition = nil
+        }
+    }
+
+    /// A position the user dragged the strip to, in screen coordinates
+    /// (bottom-left origin). When set, it wins over `anchor` at summon time so the
+    /// strip reappears exactly where it was left. `nil` means "use `anchor`".
+    /// Cleared by choosing an anchor in Settings or by "Reset Position".
+    var customPosition: CGPoint? {
+        didSet {
+            if let p = customPosition {
+                defaults.set(Double(p.x), forKey: Keys.customX)
+                defaults.set(Double(p.y), forKey: Keys.customY)
+                defaults.set(true, forKey: Keys.hasCustomPosition)
+            } else {
+                defaults.removeObject(forKey: Keys.customX)
+                defaults.removeObject(forKey: Keys.customY)
+                defaults.set(false, forKey: Keys.hasCustomPosition)
+            }
+        }
     }
 
     /// Strip height in points (D-006: ~22–44). Read at summon time.
@@ -66,6 +91,27 @@ final class AppSettings {
             onHotKeyChanged?()
         }
     }
+
+    /// "Keep on Screen" (pin) toggle hotkey. No `onChanged` hook: it's registered
+    /// fresh each time the panel becomes visible (scoped, like Esc), and opening
+    /// Settings hides the panel — so a new binding is always picked up on the next
+    /// summon without an imperative re-register.
+    var pinHotKey: HotKeyService.Binding {
+        didSet {
+            defaults.set(Int(pinHotKey.keyCode), forKey: Keys.pinHotKeyCode)
+            defaults.set(Int(pinHotKey.modifiers), forKey: Keys.pinHotKeyModifiers)
+        }
+    }
+
+    // MARK: - Transient UI state (NOT persisted)
+
+    /// Whether the strip is currently "pinned" (Keep on Screen). Runtime-only and
+    /// deliberately *not* written to UserDefaults — pinning is a per-summon
+    /// decision that resets when the strip hides. It lives on this `@Observable`
+    /// singleton (rather than privately in `AppDelegate`) only so the SwiftUI strip
+    /// can observe it and show its pinned indicator the instant it toggles, whether
+    /// the toggle came from the right-click menu or the pin hotkey.
+    var isPinned = false
 
     // MARK: - First-run
 
@@ -178,6 +224,13 @@ final class AppSettings {
         self.anchor = (defaults.string(forKey: Keys.anchor)
             .flatMap(PanelAnchor.init(rawValue:))) ?? .cursor
 
+        if defaults.bool(forKey: Keys.hasCustomPosition) {
+            self.customPosition = CGPoint(x: defaults.double(forKey: Keys.customX),
+                                          y: defaults.double(forKey: Keys.customY))
+        } else {
+            self.customPosition = nil
+        }
+
         let storedHeight = defaults.double(forKey: Keys.stripHeight)
         self.stripHeight = storedHeight > 0 ? CGFloat(storedHeight) : 36
 
@@ -188,6 +241,15 @@ final class AppSettings {
             )
         } else {
             self.hotKey = .default
+        }
+
+        if defaults.object(forKey: Keys.pinHotKeyCode) != nil {
+            self.pinHotKey = HotKeyService.Binding(
+                keyCode: UInt32(defaults.integer(forKey: Keys.pinHotKeyCode)),
+                modifiers: UInt32(defaults.integer(forKey: Keys.pinHotKeyModifiers))
+            )
+        } else {
+            self.pinHotKey = .defaultPin
         }
 
         self.hasSeenHint = defaults.bool(forKey: Keys.hasSeenHint)
@@ -247,9 +309,14 @@ final class AppSettings {
         static let knownStats     = "knownStats"
         static let interval       = "interval"
         static let anchor         = "anchor"
+        static let customX        = "customPositionX"
+        static let customY        = "customPositionY"
+        static let hasCustomPosition = "hasCustomPosition"
         static let stripHeight    = "stripHeight"
         static let hotKeyCode     = "hotKeyCode"
         static let hotKeyModifiers = "hotKeyModifiers"
+        static let pinHotKeyCode   = "pinHotKeyCode"
+        static let pinHotKeyModifiers = "pinHotKeyModifiers"
         static let hasSeenHint    = "hasSeenHint"
         static let themePreset    = "themePreset"
         static let customTheme    = "customTheme"
