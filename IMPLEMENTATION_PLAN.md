@@ -118,7 +118,17 @@ extern long      IOReportSimpleGetIntegerValue(CFDictionaryRef, int);
 - *Success:* `xcodegen generate` picks up the bridging header + flag; project **links** against `-lIOReport`; a throwaway dump (temp `print` loop or a `#if DEBUG` test fn) prints CPU/GPU/ANE/DRAM watts each second **un-elevated** (proves AC-1).
 - *Backpressure:* `cd 01_Project && xcodegen generate && xcodebuild -scheme QuickStatsPanel build` clean; **cross-check the printed watts against `sudo powermetrics --samplers cpu_power,gpu_power -i 1000` within lag** (the watts must be in the same ballpark — this is the load-bearing validation; do it before building the sampler on top).
 
-### Wave 2 — PowerSampler + PowerSample (depends on T1.1)
+### Wave 2 — PowerSampler + PowerSample (depends on T1.1) — ✅ DONE 2026-06-15
+
+> **Result (validated on the M4 Pro, un-elevated):** clean build 0 warnings.
+> Live dump: tick 0 → `"0·0 W"` load 0% (AC-7 seed ✓); under load headline renders the
+> CPU·GPU split `"6·0 W"`; **peakTotal ratchets up monotonically (6.55→6.88→7.04→7.18 W)
+> and never drops (AC-5 ✓)**; loadPercent = total÷peak×100 (saw 97% when total dipped
+> below the running peak). Peak resets in `start()` so `restart()` recalibrates. The
+> sample-building math is a pure `PowerSampler.makeSample(from:available:peak:)` shared by
+> `tick()` and the DEBUG dump. `isAvailable=false` hide path is structurally reachable
+> (propagated through `makeSample`); forced-stub confirmation is Wave 4 T4.4.
+> **Wave 3 may proceed: publish `power: PowerSample` + own `powerSampler` + `.power` descriptor.**
 
 **T2.1 — `Sampling/PowerSampler.swift` + `PowerSample`**
 - *Files:* new `Sources/QuickStatsPanel/Sampling/PowerSampler.swift`
