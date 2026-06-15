@@ -1,7 +1,10 @@
 # Implementation Plan — Temperatures Tile (D-018)
 
-> **Status: WAVE 1 IN PROGRESS.** Decision: `decisions.md` D-018. Last roadmap stat;
-> increment after D-019 (Power). Run `/execute` or work the waves in order.
+> **Status: ✅ SHIPPED 2026-06-15 — all 4 waves complete.** Decision: `decisions.md` D-018.
+> The last roadmap stat. Commits `2e3d315` (W1) → `9d18595` (W2) → `c5e9349` (W3) → `a73dea8`
+> (launch-crash fix: IOHID client lifetime). Verified on screen (M4 Pro): tile after Power =
+> `Nominal`, detail SoC 36 / SSD 33 / Battery 31 °C, no jitter; migration AC-7 verified.
+> Archived for the record — no further work.
 
 ## Goal
 Add one permission-free **Temperatures tile** to the data-driven strip, reusing the existing
