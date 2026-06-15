@@ -5,7 +5,7 @@ import SwiftUI
 /// (declaration order via `allCases`) and is the hook for a future "stat
 /// selection" setting — users will enable/reorder these without touching views.
 enum StatKind: String, CaseIterable, Identifiable, Sendable {
-    case cpu, memory, disk, network, battery, gpu, fan, power, loadAverage, uptime
+    case cpu, memory, disk, network, battery, gpu, fan, power, temps, loadAverage, uptime
     var id: String { rawValue }
 
     // NOTE: `.topProcess` was retired once top-process lists moved into the CPU /
@@ -24,6 +24,7 @@ enum StatKind: String, CaseIterable, Identifiable, Sendable {
         case .gpu:         return "GPU"
         case .fan:         return "Fans"
         case .power:       return "Power"
+        case .temps:       return "Temperature"
         case .loadAverage: return "Load Avg"
         case .uptime:      return "Uptime"
         }
@@ -41,6 +42,7 @@ enum StatKind: String, CaseIterable, Identifiable, Sendable {
         case .gpu:         return "cpu.fill"   // ⚠ weak: reads near "CPU" — flagged for design pass
         case .fan:         return "fanblades"
         case .power:       return "bolt.fill"  // ⚠ candidate glyph — confirm in design pass
+        case .temps:       return "thermometer"
         case .loadAverage: return "speedometer"
         case .uptime:      return "clock"
         }
@@ -254,6 +256,18 @@ extension StatsStore {
                     ("DRAM", power.dramFormatted),
                     ("Total", power.totalFormatted),
                 ])
+
+        case .temps:
+            // Always visible — the headline is ProcessInfo.thermalState, which
+            // never fails (D-018), so there is deliberately NO `guard`. This is the
+            // project's first always-on optional tile. The detail card degrades to a
+            // `Pressure: <state>` row when IOHID enumerates no sensors (Intel / VM).
+            return StatDescriptor(
+                kind: .temps, symbol: "thermometer",
+                value: temps.headlineFormatted,     // headline: thermal-pressure word
+                widestValue: "Critical",            // widest state word — no jitter (AC-6)
+                loadPercent: temps.loadPercent,     // color/weight: calm→hot via state
+                detail: temps.detailRows)
 
         case .loadAverage:
             return StatDescriptor(

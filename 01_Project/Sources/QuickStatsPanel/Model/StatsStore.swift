@@ -19,6 +19,7 @@ final class StatsStore {
     var gpu: GPUSample = .empty
     var fan: FanSample = .empty
     var power: PowerSample = .empty
+    var temps: TemperatureSample = .empty
     var loadAverage: LoadSample = .empty
     var uptime: UptimeSample = .empty
     var topProcesses: TopProcessesSample = .empty
@@ -32,6 +33,7 @@ final class StatsStore {
     private var gpuSampler: GPUSampler?
     private var fanSampler: FanSampler?
     private var powerSampler: PowerSampler?
+    private var temperatureSampler: TemperatureSampler?
     private var loadAverageSampler: LoadAverageSampler?
     private var uptimeSampler: UptimeSampler?
     private var topProcessSampler: TopProcessSampler?
@@ -91,6 +93,9 @@ final class StatsStore {
         let power = PowerSampler(interval: interval) { [weak self] sample in
             Task { @MainActor in self?.power = sample }
         }
+        let temps = TemperatureSampler(interval: interval) { [weak self] sample in
+            Task { @MainActor in self?.temps = sample }
+        }
         let load = LoadAverageSampler(interval: interval) { [weak self] sample in
             Task { @MainActor in self?.loadAverage = sample }
         }
@@ -108,6 +113,7 @@ final class StatsStore {
         gpu.start()
         fan.start()
         power.start()   // un-gated: IOReport reads are cheap, run continuously like GPU/Fan
+        temps.start()   // un-gated: thermalState + IOHID reads are cheap, like Power
         load.start()
         uptime.start()
         if panelVisible { topProc.start() }   // gated; the others run continuously
@@ -119,6 +125,7 @@ final class StatsStore {
         self.gpuSampler = gpu
         self.fanSampler = fan
         self.powerSampler = power
+        self.temperatureSampler = temps
         self.loadAverageSampler = load
         self.uptimeSampler = uptime
         self.topProcessSampler = topProc
@@ -133,6 +140,7 @@ final class StatsStore {
         gpuSampler?.stop()
         fanSampler?.stop()
         powerSampler?.stop()
+        temperatureSampler?.stop()
         loadAverageSampler?.stop()
         uptimeSampler?.stop()
         topProcessSampler?.stop()
@@ -144,6 +152,7 @@ final class StatsStore {
         gpuSampler = nil
         fanSampler = nil
         powerSampler = nil
+        temperatureSampler = nil
         loadAverageSampler = nil
         uptimeSampler = nil
         topProcessSampler = nil
