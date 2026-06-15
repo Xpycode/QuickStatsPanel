@@ -37,6 +37,15 @@ final class IOHIDTemperatureReader {
     /// Display order for the detail-card rows (only those actually present render).
     static let roleOrder = ["CPU", "GPU", "SoC", "SSD", "Battery"]
 
+    /// The event-system client MUST stay retained for the reader's whole lifetime.
+    /// The cached service handles below are vended by — and backed by — this client;
+    /// reading an event through a service whose parent client has been released is a
+    /// use-after-free that corrupts the heap (it crashed the app on launch when this
+    /// was only a local in `init`). Held as a managed CF object; ARC releases it in
+    /// the synthesized `deinit`. (Matches every reference impl: exelban/stats,
+    /// fermion-star/apple_sensors keep the client alive in a long-lived field.)
+    private let client: IOHIDEventSystemClient
+
     /// Borrowed-then-retained service handles paired with the role they map to,
     /// resolved once at init. Holding the `IOHIDServiceClient` instances in this
     /// array retains them (CF objects bridge as classes), so they outlive the
@@ -49,7 +58,7 @@ final class IOHIDTemperatureReader {
     var isAvailable: Bool { !sensors.isEmpty }
 
     init() {
-        let client = IOHIDEventSystemClientCreate(kCFAllocatorDefault).takeRetainedValue()
+        client = IOHIDEventSystemClientCreate(kCFAllocatorDefault).takeRetainedValue()
         IOHIDEventSystemClientSetMatching(
             client, ["PrimaryUsagePage": 0xff00, "PrimaryUsage": 5] as CFDictionary)
 
