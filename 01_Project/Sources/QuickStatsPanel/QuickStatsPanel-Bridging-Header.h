@@ -38,3 +38,25 @@ extern NSString* IOReportChannelGetChannelName(CFDictionaryRef);
 extern NSString* IOReportChannelGetUnitLabel(CFDictionaryRef);
 extern int       IOReportChannelGetFormat(CFDictionaryRef);
 extern long      IOReportSimpleGetIntegerValue(CFDictionaryRef, int);
+
+//
+//  IOHID temperature sensors (D-018 Temperatures tile) — Apple's PRIVATE, un-entitled
+//  IOHIDEventSystemClient SPI for reading per-sensor °C. No public header / no Swift
+//  overlay; symbols resolve from IOKit.framework (`OTHER_LDFLAGS: … -framework IOKit`).
+//  The opaque tags collide-by-design with the SDK's CF-type-registered IOHID types, so
+//  Swift imports Create/Copy as managed CF types (ARC releases — no Unmanaged dance);
+//  `IOHIDServiceClientCopyEvent`/`…GetFloatValue` keep the plain `CFTypeRef` form below
+//  and bridge as `Unmanaged<CFTypeRef>` (take with `takeRetainedValue()`). Reference:
+//  fermion-star/apple_sensors, exelban/stats. Fragile by nature: sensor *names* drift
+//  per SoC generation (validated on M4 Pro — see decisions.md D-018), so the Swift side
+//  maps names→roles defensively and the tile degrades to its thermalState headline.
+//
+typedef struct __IOHIDEventSystemClient* IOHIDEventSystemClientRef;  // → Swift OpaquePointer / CF type
+typedef struct __IOHIDServiceClient*     IOHIDServiceClientRef;      // → Swift OpaquePointer / CF type
+
+extern IOHIDEventSystemClientRef IOHIDEventSystemClientCreate(CFAllocatorRef allocator);
+extern void       IOHIDEventSystemClientSetMatching(IOHIDEventSystemClientRef client, CFDictionaryRef matching);
+extern CFArrayRef IOHIDEventSystemClientCopyServices(IOHIDEventSystemClientRef client);
+extern CFTypeRef  IOHIDServiceClientCopyProperty(IOHIDServiceClientRef service, CFStringRef key);
+extern CFTypeRef  IOHIDServiceClientCopyEvent(IOHIDServiceClientRef service, int64_t type, int32_t options, int64_t timestamp);
+extern double     IOHIDEventGetFloatValue(CFTypeRef event, int32_t field);

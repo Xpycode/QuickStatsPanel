@@ -51,5 +51,7 @@ targets:
         # the C prototypes in a bridging header and link the private framework
         # directly — resolves against /usr/lib/libIOReport.tbd in the dyld shared
         # cache (no dlopen, no relocated-framework Library-Validation issue).
+        # IOHID temperature sensors (D-018 Temperatures tile): same bridging header,
+        # symbols resolve from IOKit.framework — hence the explicit -framework IOKit.
         SWIFT_OBJC_BRIDGING_HEADER: Sources/QuickStatsPanel/QuickStatsPanel-Bridging-Header.h
-        OTHER_LDFLAGS: -lIOReport
+        OTHER_LDFLAGS: -lIOReport -framework IOKit
