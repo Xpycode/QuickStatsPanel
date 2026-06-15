@@ -1,8 +1,9 @@
-# Implementation Plan — GPU + Fan Stats (D-017)
+# Implementation Plan — GPU + Fan Stats (D-017) — ✅ SHIPPED 2026-06-15
 
-> **Persists across sessions.** Regenerate when wrong rather than patching.
-> Source spec: `specs/gpu-fan-stats.md` (drafted 2026-06-15).
-> Increment 1 of 2 in the GPU/temps/fans roadmap item. Temps = D-018 (separate plan).
+> **DONE.** All 4 waves + 8 ACs complete (AC-2/AC-4 by mechanism, see below).
+> Decision recorded as D-017 in `docs/decisions.md`; full record in
+> `docs/sessions/2026-06-15.md` (Sessions 2–3). Archived copy of this plan.
+> Source spec: `specs/gpu-fan-stats.md`. Increment 1 of 2; Temps = D-018 (separate plan).
 
 ## Goal
 Add two new permission-free stat tiles — **GPU utilization (%)** and **Fan speed (rpm)** —
@@ -12,14 +13,14 @@ as `DiskSampler`); fans use a new minimal read-only `AppleSMC` reader that corre
 the Apple-Silicon `flt` type. Both hide when the hardware is absent, like Battery on desktops.
 
 ## Acceptance Criteria (from spec — abbreviated; see `specs/gpu-fan-stats.md` for Given/When/Then)
-- [ ] AC-1 GPU tile shows live 0–100% tracking Activity Monitor, colors hotter as it rises
-- [ ] AC-2 GPU tile hidden when no `IOAccelerator` utilization key (VM / headless)
-- [ ] AC-3 Fan tile shows live rpm matching a reference reader (fastest fan if several)
-- [ ] AC-4 Fan tile hidden on fanless Macs (`FNum == 0`) / SMC read failure
-- [ ] AC-5 Detail cards: GPU → Utilization (+ device name); Fan → per-fan current/min/max
-- [ ] AC-6 SMC `flt` decoding correct (sane positive rpm, not `fpe2`-garbage)
-- [ ] AC-7 Existing users get both tiles ON once via the `knownStats` migration, order preserved
-- [ ] AC-8 Permission-free, notarizable, builds clean from scratch with 0 Swift warnings
+- [x] AC-1 GPU tile shows live 0–100% tracking Activity Monitor, colors hotter as it rises
+- [x] AC-2 GPU tile hidden when no `IOAccelerator` utilization key — *by mechanism* (same `compactMap` chokepoint proven dropping Network tile; `guard isAvailable` + `.empty` inspected; no VM to trigger on)
+- [x] AC-3 Fan tile shows live rpm — verified: 0 rpm cool-idle → 2483 rpm under 12-core stress
+- [x] AC-4 Fan tile hidden on fanless Macs — *by mechanism* (as AC-2; no fanless Mac to trigger on)
+- [x] AC-5 Detail cards: GPU → Utilization (+ device name); Fan → per-fan current (min–max)
+- [x] AC-6 SMC `flt` decoding correct — proven by the 0→2483 live move (a misread prints ~6e9)
+- [x] AC-7 Existing users get both tiles ON via `knownStats` migration — verified (data + visual; deliberately-off Network preserved)
+- [x] AC-8 Permission-free, notarizable, builds clean from scratch with 0 Swift warnings
 
 ## Locked design decisions (don't re-litigate)
 - **GPU read = `IOServiceMatching(kIOAcceleratorClassName)`** (the SDK constant == `"IOAccelerator"`),

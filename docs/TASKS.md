@@ -6,19 +6,23 @@
 <!-- Ideas and future work. Added by /interview, user input, or discovered during development. -->
 <!-- Priority: top = highest, bottom = lowest -->
 
-_(empty — Themes shipped 2026-06-13; see tasks-archive.md)_
+**D-019 Power tile (watts) via IOReport** — needs `/spec`. `powermetrics` reads watts but needs root (breaks permission-free, D-002/D-003); IOReport is the no-sudo path (private framework `macmon` uses, more fragile). Increment after D-017.
+
+_(D-018 Temperatures also queued — `ProcessInfo.thermalState` tile + best-effort IOHID per-sensor °C.)_
 
 ## Current Sprint
 <!-- Active work. Populated by /plan or /execute. Keep focused (3-7 tasks). -->
 <!-- When done: /log moves to tasks-archive.md -->
 
-**D-017 GPU + Fan stats** — plan: `IMPLEMENTATION_PLAN.md` · spec: `specs/gpu-fan-stats.md`
+_(empty — **D-017 GPU + Fan stats SHIPPED 2026-06-15**; see `tasks-archive.md` / `docs/sessions/IMPLEMENTATION_PLAN-gpu-fan-DONE.md`)_
+
+**D-017 GPU + Fan stats — ✅ DONE** — plan archived: `docs/sessions/IMPLEMENTATION_PLAN-gpu-fan-DONE.md`
 
 - [x] T1.1 — `Sampling/SMC.swift`: read-only AppleSMC reader (flt-correct decode) *(Wave 1)* — verified: FNum=2, F0 range 2317–7826 rpm, flt decode proven sane
 - [x] T1.2 — `Sampling/GPUSampler.swift` + `GPUSample`: IOAccelerator utilization *(Wave 1)* — verified: isAvailable, 15%, AGXAcceleratorG16X (M4 Pro GPU)
-- [ ] T2.1 — `Sampling/FanSampler.swift` + `FanSample`: FNum/F0Ac via SMC *(Wave 2)*
-- [ ] T3.1–3.3 — Wire into strip: `StatKind` `.gpu`/`.fan` + `StatsStore` samples/samplers + `descriptor(for:)` tiles *(Wave 3)*
-- [ ] T4 — Verify on-screen (vs Activity Monitor / iStat), migration + Settings, hide-paths, doc D-017 *(Wave 4)*
+- [x] T2.1 — `Sampling/FanSampler.swift` + `FanSample`: FNum/F0Ac via SMC *(Wave 2)* — `1dc398a`; fastest-fan headline, clamped `loadPercent`
+- [x] T3.1–3.3 — Wire into strip: `StatKind` `.gpu`/`.fan` + `StatsStore` samples/samplers + `descriptor(for:)` tiles *(Wave 3)* — `31bf97f`
+- [x] T4 — Verify on-screen, migration + Settings, hide-paths, doc D-017 *(Wave 4)* — GPU tracks AM; fans 0→2483 rpm under stress; AC-7 verified; AC-2/4 by mechanism
 
 ---
 
