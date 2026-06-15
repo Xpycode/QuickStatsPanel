@@ -5,7 +5,7 @@ import SwiftUI
 /// (declaration order via `allCases`) and is the hook for a future "stat
 /// selection" setting — users will enable/reorder these without touching views.
 enum StatKind: String, CaseIterable, Identifiable, Sendable {
-    case cpu, memory, disk, network, battery, loadAverage, uptime
+    case cpu, memory, disk, network, battery, gpu, fan, loadAverage, uptime
     var id: String { rawValue }
 
     // NOTE: `.topProcess` was retired once top-process lists moved into the CPU /
@@ -21,6 +21,8 @@ enum StatKind: String, CaseIterable, Identifiable, Sendable {
         case .disk:        return "Disk"
         case .network:     return "Network"
         case .battery:     return "Battery"
+        case .gpu:         return "GPU"
+        case .fan:         return "Fans"
         case .loadAverage: return "Load Avg"
         case .uptime:      return "Uptime"
         }
@@ -35,6 +37,8 @@ enum StatKind: String, CaseIterable, Identifiable, Sendable {
         case .disk:        return "internaldrive"
         case .network:     return "network"
         case .battery:     return "battery.100"
+        case .gpu:         return "cpu.fill"   // ⚠ weak: reads near "CPU" — flagged for design pass
+        case .fan:         return "fanblades"
         case .loadAverage: return "speedometer"
         case .uptime:      return "clock"
         }
@@ -201,6 +205,36 @@ extension StatsStore {
                     ("State", battery.stateLabel),
                     ("Time", battery.timeFormatted),
                 ])
+
+        case .gpu:
+            // Hidden when no IOAccelerator exposes a utilization key (VM / headless),
+            // mirroring battery's desktop gate.
+            guard gpu.isAvailable else { return nil }
+            var detail: [(String, String)] = [("Utilization", gpu.percentFormatted)]
+            if let name = gpu.deviceName { detail.append(("Device", name)) }
+            return StatDescriptor(
+                kind: .gpu, symbol: "cpu.fill",         // ⚠ placeholder glyph (see settingsSymbol)
+                value: gpu.percentFormatted,            // headline: GPU load %
+                widestValue: "100%",
+                loadPercent: gpu.utilizationPercent,    // color: busier = hotter
+                detail: detail)
+
+        case .fan:
+            // Hidden on fanless Macs (FNum == 0) or SMC read failure.
+            guard fan.hasFans else { return nil }
+            let multi = fan.fans.count > 1
+            let detail: [(String, String)] = fan.fans.enumerated().map { i, f in
+                let label = multi ? "Fan \(i + 1)" : "Fan"
+                let rpm = Int(f.current.rounded())
+                let lo = Int(f.min.rounded()), hi = Int(f.max.rounded())
+                return (label, "\(rpm) rpm (\(lo)–\(hi))")
+            }
+            return StatDescriptor(
+                kind: .fan, symbol: "fanblades",
+                value: fan.headlineFormatted,           // headline: fastest fan rpm
+                widestValue: "8888 rpm",
+                loadPercent: fan.loadPercent,           // color: near full tilt = hot
+                detail: detail)
 
         case .loadAverage:
             return StatDescriptor(

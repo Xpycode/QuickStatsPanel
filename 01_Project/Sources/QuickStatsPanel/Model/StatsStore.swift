@@ -16,6 +16,8 @@ final class StatsStore {
     var disk: DiskSample = .empty
     var network: NetworkSample = .empty
     var battery: BatterySample = .empty
+    var gpu: GPUSample = .empty
+    var fan: FanSample = .empty
     var loadAverage: LoadSample = .empty
     var uptime: UptimeSample = .empty
     var topProcesses: TopProcessesSample = .empty
@@ -26,6 +28,8 @@ final class StatsStore {
     private var diskSampler: DiskSampler?
     private var networkSampler: NetworkSampler?
     private var batterySampler: BatterySampler?
+    private var gpuSampler: GPUSampler?
+    private var fanSampler: FanSampler?
     private var loadAverageSampler: LoadAverageSampler?
     private var uptimeSampler: UptimeSampler?
     private var topProcessSampler: TopProcessSampler?
@@ -76,6 +80,12 @@ final class StatsStore {
         let battery = BatterySampler(interval: interval) { [weak self] sample in
             Task { @MainActor in self?.battery = sample }
         }
+        let gpu = GPUSampler(interval: interval) { [weak self] sample in
+            Task { @MainActor in self?.gpu = sample }
+        }
+        let fan = FanSampler(interval: interval) { [weak self] sample in
+            Task { @MainActor in self?.fan = sample }
+        }
         let load = LoadAverageSampler(interval: interval) { [weak self] sample in
             Task { @MainActor in self?.loadAverage = sample }
         }
@@ -90,6 +100,8 @@ final class StatsStore {
         disk.start()
         net.start()
         battery.start()
+        gpu.start()
+        fan.start()
         load.start()
         uptime.start()
         if panelVisible { topProc.start() }   // gated; the others run continuously
@@ -98,6 +110,8 @@ final class StatsStore {
         self.diskSampler = disk
         self.networkSampler = net
         self.batterySampler = battery
+        self.gpuSampler = gpu
+        self.fanSampler = fan
         self.loadAverageSampler = load
         self.uptimeSampler = uptime
         self.topProcessSampler = topProc
@@ -109,6 +123,8 @@ final class StatsStore {
         diskSampler?.stop()
         networkSampler?.stop()
         batterySampler?.stop()
+        gpuSampler?.stop()
+        fanSampler?.stop()
         loadAverageSampler?.stop()
         uptimeSampler?.stop()
         topProcessSampler?.stop()
@@ -117,6 +133,8 @@ final class StatsStore {
         diskSampler = nil
         networkSampler = nil
         batterySampler = nil
+        gpuSampler = nil
+        fanSampler = nil
         loadAverageSampler = nil
         uptimeSampler = nil
         topProcessSampler = nil
