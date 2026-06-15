@@ -5,7 +5,7 @@ import SwiftUI
 /// (declaration order via `allCases`) and is the hook for a future "stat
 /// selection" setting — users will enable/reorder these without touching views.
 enum StatKind: String, CaseIterable, Identifiable, Sendable {
-    case cpu, memory, disk, network, battery, gpu, fan, loadAverage, uptime
+    case cpu, memory, disk, network, battery, gpu, fan, power, loadAverage, uptime
     var id: String { rawValue }
 
     // NOTE: `.topProcess` was retired once top-process lists moved into the CPU /
@@ -23,6 +23,7 @@ enum StatKind: String, CaseIterable, Identifiable, Sendable {
         case .battery:     return "Battery"
         case .gpu:         return "GPU"
         case .fan:         return "Fans"
+        case .power:       return "Power"
         case .loadAverage: return "Load Avg"
         case .uptime:      return "Uptime"
         }
@@ -39,6 +40,7 @@ enum StatKind: String, CaseIterable, Identifiable, Sendable {
         case .battery:     return "battery.100"
         case .gpu:         return "cpu.fill"   // ⚠ weak: reads near "CPU" — flagged for design pass
         case .fan:         return "fanblades"
+        case .power:       return "bolt.fill"  // ⚠ candidate glyph — confirm in design pass
         case .loadAverage: return "speedometer"
         case .uptime:      return "clock"
         }
@@ -235,6 +237,23 @@ extension StatsStore {
                 widestValue: "8888 rpm",
                 loadPercent: fan.loadPercent,           // color: near full tilt = hot
                 detail: detail)
+
+        case .power:
+            // Hidden when the IOReport "Energy Model" CPU/GPU channels don't resolve
+            // (Intel Macs / renamed future chips), mirroring Battery/GPU/Fan's gate.
+            guard power.isAvailable else { return nil }
+            return StatDescriptor(
+                kind: .power, symbol: "bolt.fill",
+                value: power.headlineFormatted,         // headline: "cpu·gpu W" split
+                widestValue: "88·88 W",                 // worst-case slot (D-008); Ultra GPU >99W clips, acceptable
+                loadPercent: power.loadPercent,         // color: total ÷ session-peak (set by the sampler)
+                detail: [
+                    ("CPU", power.cpuFormatted),
+                    ("GPU", power.gpuFormatted),
+                    ("ANE", power.aneFormatted),
+                    ("DRAM", power.dramFormatted),
+                    ("Total", power.totalFormatted),
+                ])
 
         case .loadAverage:
             return StatDescriptor(

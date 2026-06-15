@@ -136,7 +136,16 @@ extern long      IOReportSimpleGetIntegerValue(CFDictionaryRef, int);
 - *Success:* compiles; throwaway print shows the split headline string updating and `loadPercent` rising under load then holding its peak; `isAvailable=false` path reachable (stub the wrapper).
 - *Backpressure:* build clean; headline/`loadPercent` sanity vs the T1.1 watts.
 
-### Wave 3 — Wire into the strip (depends on Wave 2; ONE compile unit — a new `StatKind` forces exhaustive switches, so 3.1–3.3 land together)
+### Wave 3 — Wire into the strip (depends on Wave 2; ONE compile unit — a new `StatKind` forces exhaustive switches, so 3.1–3.3 land together) — ✅ DONE 2026-06-15
+
+> **Result:** `.power` added to `StatKind` (after `fan`); `displayName "Power"`,
+> `settingsSymbol "bolt.fill"`; `descriptor(for: .power)` guards `power.isAvailable`
+> (hide-gate) and supplies headline `power.headlineFormatted`, `widestValue "88·88 W"`,
+> `loadPercent power.loadPercent`, and the 5 detail rows (CPU/GPU/ANE/DRAM/Total).
+> `StatsStore` publishes `power: PowerSample` and owns `powerSampler`, started un-gated
+> after `fan` (cheap reads), assigned, and stopped+niled in `stop()`. Clean build from
+> scratch, **0 warnings**. **Wave 4 (verify/migrate/document) remains — needs on-screen
+> confirmation; D-019 is NOT marked shipped until the user verifies the tile live.**
 
 **T3.1 — `StatKind`: add `.power`**
 - *Files:* `Model/StatDescriptor.swift`
