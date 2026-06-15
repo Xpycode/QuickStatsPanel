@@ -47,3 +47,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.sim.QuickStatsPanel
         PRODUCT_NAME: QuickStatsPanel
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # IOReport (D-019 Power tile): no public header, no Swift overlay. Declare
+        # the C prototypes in a bridging header and link the private framework
+        # directly — resolves against /usr/lib/libIOReport.tbd in the dyld shared
+        # cache (no dlopen, no relocated-framework Library-Validation issue).
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/QuickStatsPanel/QuickStatsPanel-Bridging-Header.h
+        OTHER_LDFLAGS: -lIOReport
