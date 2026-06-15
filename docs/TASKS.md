@@ -6,15 +6,22 @@
 <!-- Ideas and future work. Added by /interview, user input, or discovered during development. -->
 <!-- Priority: top = highest, bottom = lowest -->
 
-**D-019 Power tile (watts) via IOReport** — needs `/spec`. `powermetrics` reads watts but needs root (breaks permission-free, D-002/D-003); IOReport is the no-sudo path (private framework `macmon` uses, more fragile). Increment after D-017.
-
-_(D-018 Temperatures also queued — `ProcessInfo.thermalState` tile + best-effort IOHID per-sensor °C.)_
+_(D-018 Temperatures queued — `ProcessInfo.thermalState` tile + best-effort IOHID per-sensor °C.)_
 
 ## Current Sprint
 <!-- Active work. Populated by /plan or /execute. Keep focused (3-7 tasks). -->
 <!-- When done: /log moves to tasks-archive.md -->
 
-_(empty — **D-017 GPU + Fan stats SHIPPED 2026-06-15**; see `tasks-archive.md` / `docs/sessions/IMPLEMENTATION_PLAN-gpu-fan-DONE.md`)_
+**D-019 Power tile via IOReport** — ✅ **SHIPPED 2026-06-15** (4 waves; commits `5778f09`+`fa713ff`+`0a520bd`+docs). Permission-free CPU·GPU split watts via the un-entitled `IOReport` "Energy Model" channels, hide-when-absent. Decision D-019; plan archived `docs/sessions/IMPLEMENTATION_PLAN-power-DONE.md`.
+
+- [x] T1.1 — Bridging header + `-lIOReport` + `Sampling/IOReport.swift` wrapper *(Wave 1 — validated un-elevated: CPU→~6 W under load, GPU/ANE flat)*
+- [x] T2.1 — `Sampling/PowerSampler.swift` + `PowerSample` (delta-per-tick, session-peak tint) *(Wave 2)*
+- [x] T3.1–3.3 — Wire into strip: `StatKind` `.power` + `StatsStore` sample/sampler + `descriptor(for:)` tile *(Wave 3, one compile unit)*
+- [x] T4 — Clean build (0 warnings), on-screen verify (tile + 5-row detail), migration AC-9 (data-layer), seed/leak paths *(Wave 4)*. **Left to user:** exact `sudo powermetrics` cross-check; **release gate:** `notarytool`+`-lIOReport` (unproven).
+
+---
+
+### Shipped (awaiting archive by `/log`)
 
 **D-017 GPU + Fan stats — ✅ DONE** — plan archived: `docs/sessions/IMPLEMENTATION_PLAN-gpu-fan-DONE.md`
 
