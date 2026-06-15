@@ -1,40 +1,90 @@
 import SwiftUI
+import AppKit
 
-/// The real settings surface, shown in the standard `Settings` window (opened
-/// from the panel's gear). Edits `AppSettings.shared` directly; persistence and
-/// side-effects (hotkey re-register, sampler restart) happen in the model's
-/// `didSet` hooks, so this view stays declarative.
+/// The real settings surface, shown in the self-managed Settings window (opened
+/// from the panel's gear). A sidebar (`NavigationSplitView`) splits the old single
+/// scrolling form into focused panes — Stats / Appearance / Panel / Hotkeys /
+/// About — matching the sibling HUD app's house style.
+///
+/// Every pane edits `AppSettings.shared` directly; persistence and side-effects
+/// (hotkey re-register, sampler restart, live theme rebuild) happen in the model's
+/// `didSet` hooks, so the views stay declarative.
 struct SettingsView: View {
+    // Single-select `List` wants an optional binding (macOS); default to the first
+    // pane and coalesce nil → .stats in `detail` so a pane is always shown.
+    @State private var selection: SettingsPane? = .stats
+
+    var body: some View {
+        NavigationSplitView {
+            // `id: \.self` makes each row's selection tag the *element* (SettingsPane),
+            // matching the `SettingsPane?` binding — without it, List tags rows with the
+            // Identifiable id (String) and selection never updates. Sidebar-toggle is
+            // removed so the nav can't be collapsed away inside a small settings window.
+            List(SettingsPane.allCases, id: \.self, selection: $selection) { pane in
+                Label(pane.title, systemImage: pane.systemImage)
+            }
+            .navigationSplitViewColumnWidth(180)
+            .toolbar(removing: .sidebarToggle)
+        } detail: {
+            // NavigationSplitView fills its container, so the detail carries the size
+            // floor (the window controller sets the default + min window size to match).
+            detail
+                .frame(minWidth: 380, minHeight: 420)
+        }
+        .navigationSplitViewStyle(.balanced)
+    }
+
+    @ViewBuilder
+    private var detail: some View {
+        switch selection ?? .stats {
+        case .stats:      StatsSettingsPane()
+        case .appearance: AppearanceSettingsPane()
+        case .panel:      PanelSettingsPane()
+        case .hotkeys:    HotkeySettingsPane()
+        case .about:      AboutSettingsPane()
+        }
+    }
+}
+
+/// Which Settings pane the sidebar shows. Declaration order = sidebar order.
+private enum SettingsPane: String, CaseIterable, Identifiable {
+    case stats, appearance, panel, hotkeys, about
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .stats:      return "Stats"
+        case .appearance: return "Appearance"
+        case .panel:      return "Panel"
+        case .hotkeys:    return "Hotkeys"
+        case .about:      return "About"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .stats:      return "square.grid.2x2"
+        case .appearance: return "paintbrush"
+        case .panel:      return "macwindow"
+        case .hotkeys:    return "keyboard"
+        case .about:      return "info.circle"
+        }
+    }
+}
+
+// MARK: - Stats (toggle + drag-to-reorder)
+
+private struct StatsSettingsPane: View {
     @Bindable private var settings = AppSettings.shared
 
     var body: some View {
-        Form {
-            statsSection
-            appearanceSection
-            samplingSection
-            panelSection
-            hotkeySection
-
-            Section {
-                HStack {
-                    Button("Reset to Defaults", action: resetToDefaults)
-                    Spacer()
-                    Button("Quit QuickStatsPanel") { NSApp.terminate(nil) }
-                }
-            }
-        }
-        .formStyle(.grouped)
-        .frame(width: 380)
-        .fixedSize(horizontal: false, vertical: true)
-    }
-
-    // MARK: - Stats (toggle + drag-to-reorder)
-
-    private var statsSection: some View {
-        Section("Stats") {
-            // Order here = strip order. Drag to reorder; toggle to show/hide.
-            // Unavailable stats (e.g. battery on a desktop) stay listed but won't
-            // appear in the strip — availability is filtered in `visibleStats`.
+        // A bare List that *fills* the pane (not a fixed-height List nested in a
+        // grouped Form) — one natural scroll container, so the list scrolls only when
+        // the stats overflow rather than the whole pane gaining a spurious scrollbar.
+        // Order here = strip order. Drag to reorder; toggle to show/hide. Unavailable
+        // stats (e.g. battery on a desktop) stay listed but won't appear in the strip —
+        // availability is filtered in `visibleStats`.
+        VStack(spacing: 0) {
             List {
                 ForEach(settings.statOrder) { kind in
                     Toggle(isOn: enabledBinding(kind)) {
@@ -43,37 +93,51 @@ struct SettingsView: View {
                 }
                 .onMove { settings.statOrder.move(fromOffsets: $0, toOffset: $1) }
             }
-            // Height scales with the number of stats (~34pt/row) so added kinds
-            // don't clip the list — was a hardcoded 170 sized for the original five.
-            .frame(height: CGFloat(settings.statOrder.count) * 34)
+            .listStyle(.inset)
+
+            Divider()
             Text("Drag to reorder · toggle to show or hide")
                 .font(.caption).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16).padding(.vertical, 10)
         }
     }
 
-    // MARK: - Appearance (theme preset + custom)
+    private func enabledBinding(_ kind: StatKind) -> Binding<Bool> {
+        Binding(get: { settings.isEnabled(kind) },
+                set: { settings.setEnabled(kind, $0) })
+    }
+}
 
-    /// Theme selection. Picking a preset rebuilds `AppSettings.theme` in its
-    /// `didSet`; the three panels read `theme` in their `body`, so the switch is
-    /// live (AC-1) with no glue here. `.custom` reveals the Customize editor below.
-    private var appearanceSection: some View {
-        Section("Appearance") {
-            Picker("Theme", selection: $settings.themePreset) {
-                ForEach(ThemePreset.allCases) { preset in
-                    Text(preset.displayName).tag(preset)
+// MARK: - Appearance (theme preset + custom)
+
+private struct AppearanceSettingsPane: View {
+    @Bindable private var settings = AppSettings.shared
+
+    var body: some View {
+        Form {
+            // Theme selection. Picking a preset rebuilds `AppSettings.theme` in its
+            // `didSet`; the panels read `theme` in their `body`, so the switch is live
+            // (AC-1) with no glue here. `.custom` reveals the Customize editor below.
+            Section("Appearance") {
+                Picker("Theme", selection: $settings.themePreset) {
+                    ForEach(ThemePreset.allCases) { preset in
+                        Text(preset.displayName).tag(preset)
+                    }
                 }
-            }
-            Text("Theme applies live across the strip, detail card, and hint.")
-                .font(.caption).foregroundStyle(.secondary)
+                Text("Theme applies live across the strip, detail card, and hint.")
+                    .font(.caption).foregroundStyle(.secondary)
 
-            // Custom-theme knobs only appear when the Custom preset is selected;
-            // editing any of them materializes `customTheme` from the baseline.
-            if settings.themePreset == .custom {
-                DisclosureGroup("Customize…") {
-                    customizeControls
+                // Custom-theme knobs only appear when the Custom preset is selected;
+                // editing any of them materializes `customTheme` from the baseline.
+                if settings.themePreset == .custom {
+                    DisclosureGroup("Customize…") {
+                        customizeControls
+                    }
                 }
             }
         }
+        .formStyle(.grouped)
     }
 
     /// The five custom-theme knobs. Each is bound to one `ThemeData` field via the
@@ -114,93 +178,13 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Sampling
-
-    private var samplingSection: some View {
-        Section("Sampling") {
-            VStack(alignment: .leading) {
-                HStack {
-                    Text("Refresh interval")
-                    Spacer()
-                    Text(String(format: "%.2f s", settings.interval))
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                }
-                Slider(value: $settings.interval, in: 0.25...5, step: 0.25)
-            }
-        }
-    }
-
-    // MARK: - Panel placement & size
-
-    private var panelSection: some View {
-        Section("Panel") {
-            Picker("Appears", selection: $settings.anchor) {
-                ForEach(PanelAnchor.allCases) { anchor in
-                    Text(anchor.label).tag(anchor)
-                }
-            }
-            VStack(alignment: .leading) {
-                HStack {
-                    Text("Strip height")
-                    Spacer()
-                    Text("\(Int(settings.stripHeight)) pt")
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                }
-                Slider(value: $settings.stripHeight, in: 22...44, step: 1)
-            }
-            Text("Placement and height apply the next time the panel is summoned.")
-                .font(.caption).foregroundStyle(.secondary)
-        }
-    }
-
-    // MARK: - Hotkey
-
-    private var hotkeySection: some View {
-        Section("Global Hotkey") {
-            HStack {
-                Text("Summon panel")
-                Spacer()
-                HotKeyRecorderView(binding: $settings.hotKey)
-            }
-            HStack {
-                Text("Keep on screen")
-                Spacer()
-                HotKeyRecorderView(binding: $settings.pinHotKey)
-            }
-            Text("“Keep on screen” works while the panel is showing; it also lives in the strip’s right-click menu.")
-                .font(.caption).foregroundStyle(.secondary)
-        }
-    }
-
-    // MARK: - Helpers
-
-    private func enabledBinding(_ kind: StatKind) -> Binding<Bool> {
-        Binding(get: { settings.isEnabled(kind) },
-                set: { settings.setEnabled(kind, $0) })
-    }
-
     // MARK: Custom-theme field bindings
 
     /// The custom payload to *read* for display, materializing the baseline when
     /// none exists yet. Read inside `body`, so Observation tracks `customTheme`.
-    /// Mirrors the other sections' pattern: `Text` reads the value, the control
-    /// takes the `Binding`.
     private var customData: ThemeData { settings.customTheme ?? .default }
 
     /// Bridges a single `ThemeData` field to a SwiftUI `Binding`.
-    ///
-    /// ⚠️ **Learning placeholder — currently read-only.** It returns the right
-    /// *value* (so the controls show correct baselines), but edits don't persist
-    /// because it's a `.constant`. Replace the body to make the knobs write back.
-    ///
-    /// What it must do:
-    ///   • **read**  — `(settings.customTheme ?? .default)[keyPath: keyPath]`
-    ///                 (fall back to the baseline when no custom theme exists yet)
-    ///   • **write** — copy `settings.customTheme ?? .default`, set the field on the
-    ///                 copy via `keyPath`, assign it back to `settings.customTheme`
-    ///                 (its `didSet` then JSON-persists + rebuilds the live theme)
     ///
     /// The whole-struct write-back is deliberate: `customTheme` is one `@Observable`
     /// optional, so mutating a field means reassigning the property — that's what
@@ -217,12 +201,145 @@ struct SettingsView: View {
     }
 
     /// `ColorPicker` speaks `Color`; `ThemeData` stores `CodableColor` (sRGB
-    /// round-trip). This composes the generic field binding across that boundary,
-    /// so the color knobs reuse all of `customBinding`'s read/write logic.
+    /// round-trip). Composes the generic field binding across that boundary so the
+    /// color knobs reuse all of `customBinding`'s read/write logic.
     private func colorBinding(_ keyPath: WritableKeyPath<ThemeData, CodableColor>) -> Binding<Color> {
         let field = customBinding(keyPath)
         return Binding(get: { field.wrappedValue.color },
                        set: { field.wrappedValue = CodableColor($0) })
+    }
+}
+
+// MARK: - Panel (sampling cadence + placement & size)
+
+private struct PanelSettingsPane: View {
+    @Bindable private var settings = AppSettings.shared
+
+    var body: some View {
+        Form {
+            Section("Sampling") {
+                VStack(alignment: .leading) {
+                    HStack {
+                        Text("Refresh interval")
+                        Spacer()
+                        Text(String(format: "%.2f s", settings.interval))
+                            .font(.system(.body, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(value: $settings.interval, in: 0.25...5, step: 0.25)
+                }
+            }
+
+            Section("Placement") {
+                Picker("Appears", selection: $settings.anchor) {
+                    ForEach(PanelAnchor.allCases) { anchor in
+                        Text(anchor.label).tag(anchor)
+                    }
+                }
+                VStack(alignment: .leading) {
+                    HStack {
+                        Text("Strip height")
+                        Spacer()
+                        Text("\(Int(settings.stripHeight)) pt")
+                            .font(.system(.body, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(value: $settings.stripHeight, in: 22...44, step: 1)
+                }
+                Text("Placement and height apply the next time the panel is summoned.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+// MARK: - Hotkeys
+
+private struct HotkeySettingsPane: View {
+    @Bindable private var settings = AppSettings.shared
+
+    var body: some View {
+        Form {
+            Section("Global Hotkey") {
+                HStack {
+                    Text("Summon panel")
+                    Spacer()
+                    HotKeyRecorderView(binding: $settings.hotKey)
+                }
+                HStack {
+                    Text("Keep on screen")
+                    Spacer()
+                    HotKeyRecorderView(binding: $settings.pinHotKey)
+                }
+                Text("“Keep on screen” works while the panel is showing; it also lives in the strip’s right-click menu.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+// MARK: - About (identity + global actions)
+
+private struct AboutSettingsPane: View {
+    @Bindable private var settings = AppSettings.shared
+    @State private var confirmingReset = false
+
+    /// Marketing version from the bundle (`MARKETING_VERSION` in project.yml).
+    private var version: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // The bundled AppIcon — valid even for an LSUIElement agent app, which
+            // has no Dock icon but still ships an icon in its bundle.
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 72, height: 72)
+
+            VStack(spacing: 2) {
+                Text("QuickStatsPanel")
+                    .font(.title2).bold()
+                Text("Version \(version)")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+
+            Text("A glanceable HUD of live Mac stats, summoned with a hotkey.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Divider().padding(.horizontal, 40)
+
+            VStack(spacing: 10) {
+                Button(role: .destructive) {
+                    confirmingReset = true
+                } label: {
+                    Text("Reset to Defaults").frame(maxWidth: 220)
+                }
+                Button {
+                    NSApp.terminate(nil)
+                } label: {
+                    Text("Quit QuickStatsPanel").frame(maxWidth: 220)
+                }
+            }
+            .controlSize(.large)
+
+            Spacer()
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // A wipe of every preference deserves a confirm — there's no undo.
+        .confirmationDialog("Reset all settings to defaults?",
+                            isPresented: $confirmingReset, titleVisibility: .visible) {
+            Button("Reset", role: .destructive, action: resetToDefaults)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Stats, theme, panel placement, and hotkeys all return to their original values.")
+        }
     }
 
     private func resetToDefaults() {
@@ -233,8 +350,8 @@ struct SettingsView: View {
         settings.stripHeight = 36
         settings.hotKey = .default
         settings.pinHotKey = .defaultPin
-        // Theme reset (the model-side reset deferred from 2.2): back to the stock
-        // Default preset, and drop any custom payload so it doesn't linger on disk.
+        // Theme reset: back to the stock Default preset, and drop any custom payload
+        // so it doesn't linger on disk.
         settings.themePreset = .default
         settings.customTheme = nil
     }

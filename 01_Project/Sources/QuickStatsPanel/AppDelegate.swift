@@ -61,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         installClickAwayMonitor()
         installEscToDismiss()
         installPanelInteractions()
+        installMainMenu()
 
         // First-run discoverability: an agent app with no Dock/menu-bar presence
         // is invisible until summoned, so show the panel once on launch.
@@ -225,6 +226,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func removeClickAwayMonitor() {
         if let clickAwayMonitor { NSEvent.removeMonitor(clickAwayMonitor) }
         clickAwayMonitor = nil
+    }
+
+    // MARK: - Application main menu
+
+    /// Install a minimal application menu so standard key equivalents work whenever
+    /// the app is *active* (a window is key). This is what gives ⌘, a real home: it
+    /// opens Settings from anywhere the app is frontmost — complementing the strip-
+    /// scoped Carbon ⌘, that covers the glance flow (strip up, app not activated).
+    ///
+    /// **Why this doesn't break the chrome-free identity:** the strip is a
+    /// `.nonactivating` panel, so summoning it never activates the app — the menu
+    /// bar stays hidden during a glance. It appears only when the Settings window is
+    /// focused, which is exactly when a menu bar is appropriate. The menu also makes
+    /// that window well-behaved: ⌘W to close, ⌘Q to quit, and cut/copy/paste for the
+    /// color-picker fields (standard responder-chain selectors, target = first
+    /// responder via `nil`).
+    private func installMainMenu() {
+        let mainMenu = NSMenu()
+
+        // App menu — its title is auto-filled with the process name when the item
+        // has an empty title and a submenu.
+        let appItem = NSMenuItem()
+        mainMenu.addItem(appItem)
+        let appMenu = NSMenu()
+        appItem.submenu = appMenu
+
+        let settingsItem = NSMenuItem(title: "Settings…",
+                                      action: #selector(openSettingsFromMenu), keyEquivalent: ",")
+        settingsItem.target = self
+        appMenu.addItem(settingsItem)
+        appMenu.addItem(.separator())
+        let quitItem = NSMenuItem(title: "Quit QuickStatsPanel",
+                                  action: #selector(quitFromMenu), keyEquivalent: "q")
+        quitItem.target = self
+        appMenu.addItem(quitItem)
+
+        // Edit menu — standard responder selectors so cut/copy/paste reach whatever
+        // field (e.g. the color pickers) holds focus. The `copy(_:)` cast picks the
+        // action overload over `NSObject.copy()` (otherwise ambiguous).
+        let editItem = NSMenuItem()
+        mainMenu.addItem(editItem)
+        let editMenu = NSMenu(title: "Edit")
+        editItem.submenu = editMenu
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy",
+                         action: #selector(NSText.copy(_:) as (NSText) -> (Any?) -> Void),
+                         keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+
+        // Window menu — gives the Settings window ⌘W (close) and ⌘M (minimize),
+        // routed to the key window through the responder chain.
+        let windowItem = NSMenuItem()
+        mainMenu.addItem(windowItem)
+        let windowMenu = NSMenu(title: "Window")
+        windowItem.submenu = windowMenu
+        windowMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        NSApp.windowsMenu = windowMenu
+
+        NSApp.mainMenu = mainMenu
     }
 
     // MARK: - Right-click menu

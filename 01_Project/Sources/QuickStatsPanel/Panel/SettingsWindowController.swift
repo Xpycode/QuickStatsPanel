@@ -20,7 +20,12 @@ final class SettingsWindowController {
             let hosting = NSHostingController(rootView: SettingsView())
             let window = NSWindow(contentViewController: hosting)
             window.title = "QuickStatsPanel Settings"
-            window.styleMask = [.titled, .closable]
+            // Resizable: the sidebar `NavigationSplitView` fills its window rather than
+            // hugging content, so we give it an explicit default + min size (180pt
+            // sidebar + 380pt detail floor) instead of letting it collapse.
+            window.styleMask = [.titled, .closable, .resizable]
+            window.setContentSize(NSSize(width: 600, height: 460))
+            window.contentMinSize = NSSize(width: 560, height: 420)
             window.isReleasedWhenClosed = false   // reuse across opens
             window.center()
             self.window = window
