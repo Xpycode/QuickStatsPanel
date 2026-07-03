@@ -39,9 +39,9 @@ enum StatKind: String, CaseIterable, Identifiable, Sendable {
         case .disk:        return "internaldrive"
         case .network:     return "network"
         case .battery:     return "battery.100"
-        case .gpu:         return "cpu.fill"   // ⚠ weak: reads near "CPU" — flagged for design pass
+        case .gpu:         return "cpu.fill"   // "other processor"; kept over cube/display in design pass (2026-07-03)
         case .fan:         return "fanblades"
-        case .power:       return "bolt.fill"  // ⚠ candidate glyph — confirm in design pass
+        case .power:       return "bolt.fill"  // confirmed watts glyph, design pass 2026-07-03
         case .temps:       return "thermometer"
         case .loadAverage: return "speedometer"
         case .uptime:      return "clock"
@@ -217,7 +217,7 @@ extension StatsStore {
             var detail: [(String, String)] = [("Utilization", gpu.percentFormatted)]
             if let name = gpu.deviceName { detail.append(("Device", name)) }
             return StatDescriptor(
-                kind: .gpu, symbol: "cpu.fill",         // ⚠ placeholder glyph (see settingsSymbol)
+                kind: .gpu, symbol: "cpu.fill",         // kept in design pass 2026-07-03 (see settingsSymbol)
                 value: gpu.percentFormatted,            // headline: GPU load %
                 widestValue: "100%",
                 loadPercent: gpu.utilizationPercent,    // color: busier = hotter
