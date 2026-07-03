@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import ServiceManagement
 
 /// The real settings surface, shown in the self-managed Settings window (opened
 /// from the panel's gear). A sidebar (`NavigationSplitView`) splits the old single
@@ -215,8 +216,27 @@ private struct AppearanceSettingsPane: View {
 private struct PanelSettingsPane: View {
     @Bindable private var settings = AppSettings.shared
 
+    /// Mirrors the login-item registration for the toggle. **Not** persisted in
+    /// `AppSettings` — the OS's `SMAppService.mainApp.status` is the single source of
+    /// truth, so this is a view-local reflection of it, re-read on `.onAppear` so the
+    /// switch can never silently disagree with the real registry state.
+    @State private var launchAtLogin = false
+
     var body: some View {
         Form {
+            Section("Startup") {
+                Toggle("Launch at login", isOn: $launchAtLogin)
+                    .onChange(of: launchAtLogin) { _, newValue in
+                        setLaunchAtLogin(enabled: newValue)
+                    }
+                Text("Starts QuickStatsPanel in the background when you log in, ready for the hotkey.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            // Reconcile the toggle with the real registration state whenever the pane
+            // appears, so a failed register/unregister — or a change made in System
+            // Settings ▸ General ▸ Login Items — is reflected instead of a stale switch.
+            .onAppear { launchAtLogin = (SMAppService.mainApp.status == .enabled) }
+
             Section("Sampling") {
                 VStack(alignment: .leading) {
                     HStack {
@@ -251,6 +271,40 @@ private struct PanelSettingsPane: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    /// Register or unregister the app as a macOS login item.
+    ///
+    /// Because the app is **non-sandboxed** (see `QuickStatsPanel.entitlements`),
+    /// `SMAppService.mainApp` enrols the main bundle itself — no separate login-helper
+    /// target. `register()` / `unregister()` are `throws`.
+    ///
+    /// Design notes / trade-offs to weigh in the body:
+    ///  • Idempotency — calling `register()` when `.status` is already `.enabled`
+    ///    throws. Guard on the current `.status` before acting, or let it throw and
+    ///    swallow it? (macOS may also report `.requiresApproval` if the user disabled
+    ///    the item in System Settings.)
+    ///  • Failure honesty — if the call throws, the OS state didn't change but
+    ///    `launchAtLogin` already flipped to `newValue`. Re-sync it to the *real*
+    ///    `SMAppService.mainApp.status == .enabled` so the switch can't lie.
+    private func setLaunchAtLogin(enabled: Bool) {
+        do {
+            if enabled {
+                // Guard so a redundant register() (item already enabled) can't throw.
+                if SMAppService.mainApp.status != .enabled {
+                    try SMAppService.mainApp.register()
+                }
+            } else {
+                if SMAppService.mainApp.status == .enabled {
+                    try SMAppService.mainApp.unregister()
+                }
+            }
+        } catch {
+            // The OS call failed, but the toggle already flipped to `enabled`. Re-sync
+            // it to the real registry state so the switch reflects reality, not intent.
+            NSLog("Launch at login: failed to \(enabled ? "register" : "unregister"): \(error)")
+            launchAtLogin = (SMAppService.mainApp.status == .enabled)
+        }
     }
 }
 

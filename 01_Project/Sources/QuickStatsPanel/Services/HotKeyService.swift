@@ -40,15 +40,60 @@ final class HotKeyService {
         )
     }
 
-    /// Distinguishes this service's hotkey from any other instance's. Each
-    /// instance installs its own app-level handler, and Carbon dispatches every
-    /// hotkey press to *all* installed handlers — so the callback must filter by
-    /// id, or two services would both fire on any one press.
+    // MARK: - Shared Carbon plumbing
+    //
+    // ONE application-level event handler for the whole process, plus a registry
+    // of hotkey-id → callback. Installing a handler *per instance* (the previous
+    // design) was subtly broken: Carbon calls same-target handlers newest-first and
+    // STOPS at the first that returns `noErr` — which every handler did — so only
+    // the last-registered hotkey ever fired and all the others were silently
+    // shadowed (the ⌘,/Esc "do nothing" bug). A single handler that dispatches by
+    // id can't shadow anything, and the id filtering lives in the dictionary lookup.
+
+    /// The one installed handler, kept so we install it exactly once. Never removed:
+    /// it lives for the whole app run (a `@MainActor` deinit is nonisolated under
+    /// Swift 6 and can't touch this safely), which is fine for a process-lifetime
+    /// singleton — teardown of individual hotkeys goes through `unregister()`.
+    private static var sharedHandler: EventHandlerRef?
+
+    /// hotkey id → what to run when it fires. Mutated only on the main actor
+    /// (register/unregister are `@MainActor`; the C callback hops to it before
+    /// reading), so it needs no extra synchronization.
+    private static var callbacks: [UInt32: () -> Void] = [:]
+
+    /// Install the shared hotkey-pressed handler once, on first `register`.
+    private static func installSharedHandlerIfNeeded() {
+        guard sharedHandler == nil else { return }
+        var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
+                                 eventKind: UInt32(kEventHotKeyPressed))
+        InstallEventHandler(
+            GetApplicationEventTarget(),
+            { _, event, _ -> OSStatus in
+                // Which hotkey fired? Read its id, then dispatch to the matching
+                // callback on the main actor. The closure captures nothing (it only
+                // touches the static registry), so it converts to a C function ptr.
+                var firedID = EventHotKeyID()
+                GetEventParameter(event,
+                                  EventParamName(kEventParamDirectObject),
+                                  EventParamType(typeEventHotKeyID),
+                                  nil, MemoryLayout<EventHotKeyID>.size, nil,
+                                  &firedID)
+                let firedRawID = firedID.id
+                Task { @MainActor in
+                    HotKeyService.callbacks[firedRawID]?()
+                }
+                return noErr
+            },
+            1, &spec, nil, &sharedHandler
+        )
+    }
+
+    /// Distinguishes this service's hotkey from any other instance's — it's the
+    /// registry key, and the `EventHotKeyID.id` Carbon stamps on this hotkey's
+    /// presses, so a fired press routes back to exactly this instance's callback.
     private let id: UInt32
 
     private var hotKeyRef: EventHotKeyRef?
-    private var handlerRef: EventHandlerRef?
-    private var onTrigger: (() -> Void)?
 
     /// - Parameter id: unique per instance (e.g. 1 = toggle, 2 = dismiss).
     init(id: UInt32 = 1) {
@@ -58,35 +103,8 @@ final class HotKeyService {
     /// (Re)registers the hotkey. Calling again replaces any previous binding.
     func register(_ binding: Binding = .default, onTrigger: @escaping () -> Void) {
         unregister()
-        self.onTrigger = onTrigger
-
-        // Install one application-level handler for hotkey-pressed events.
-        var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
-                                 eventKind: UInt32(kEventHotKeyPressed))
-        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
-        InstallEventHandler(
-            GetApplicationEventTarget(),
-            { _, event, userData -> OSStatus in
-                guard let userData else { return noErr }
-                // Which hotkey fired? Carbon delivers every press to all handlers,
-                // so read the id and let the matching service decide.
-                var firedID = EventHotKeyID()
-                GetEventParameter(event,
-                                  EventParamName(kEventParamDirectObject),
-                                  EventParamType(typeEventHotKeyID),
-                                  nil, MemoryLayout<EventHotKeyID>.size, nil,
-                                  &firedID)
-                // The C callback is non-isolated; hop to the main actor before
-                // touching `self` (which is @MainActor-isolated).
-                Task { @MainActor in
-                    let service = Unmanaged<HotKeyService>.fromOpaque(userData)
-                        .takeUnretainedValue()
-                    if firedID.id == service.id { service.onTrigger?() }
-                }
-                return noErr
-            },
-            1, &spec, selfPtr, &handlerRef
-        )
+        HotKeyService.installSharedHandlerIfNeeded()
+        HotKeyService.callbacks[id] = onTrigger
 
         // 'QSTP' signature keeps our hotkey distinct from other apps'; `id`
         // distinguishes this instance's hotkey from our other instances'.
@@ -97,8 +115,7 @@ final class HotKeyService {
 
     func unregister() {
         if let hotKeyRef { UnregisterEventHotKey(hotKeyRef); self.hotKeyRef = nil }
-        if let handlerRef { RemoveEventHandler(handlerRef); self.handlerRef = nil }
-        onTrigger = nil
+        HotKeyService.callbacks[id] = nil
     }
 
     // No `deinit` cleanup: a @MainActor class's deinit is nonisolated under

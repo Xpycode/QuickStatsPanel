@@ -140,8 +140,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.contextMenuProvider = { [weak self] in
             self?.makePanelMenu() ?? NSMenu()
         }
-        // Persist a user drag so the strip re-summons at the spot it was left.
+        // Persist a user drag so the strip re-summons at the spot it was left —
+        // except in cursor mode, where the strip re-homes to the pointer each
+        // summon, so a drag is a transient nudge, not a spot to save. Persisting it
+        // there would resurrect the "At cursor gets stuck" bug and needlessly enable
+        // Reset Position. (Switching to a fixed anchor is the way to pin a spot.)
         panel.onPanelMoved = { origin in
+            guard AppSettings.shared.anchor != .cursor else { return }
             AppSettings.shared.customPosition = origin
         }
     }

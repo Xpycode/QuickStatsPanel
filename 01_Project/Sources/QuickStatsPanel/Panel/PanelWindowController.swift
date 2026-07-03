@@ -153,10 +153,14 @@ final class PanelWindowController {
 
     private func origin(forSize size: NSSize, anchor: PanelAnchor,
                         customOrigin: NSPoint?) -> NSPoint {
-        // A dragged position wins over the anchor. Clamp it to the screen it sits
-        // on so a saved spot stays valid if displays change (a now-missing screen
-        // falls back to main via `screen(containing:)`).
-        if let custom = customOrigin {
+        // A dragged position wins over the anchor — but *not* in cursor mode, whose
+        // whole contract is "appear at the pointer, every summon." Letting a saved
+        // drag override there made "At cursor" stop following the cursor the moment
+        // the strip was nudged (even accidentally, by a click on its draggable
+        // background). Cursor mode always recomputes from the live pointer below.
+        // Clamp a saved spot to the screen it sits on so it stays valid if displays
+        // change (a now-missing screen falls back to main via `screen(containing:)`).
+        if anchor != .cursor, let custom = customOrigin {
             return clamp(origin: custom, size: size, on: screen(containing: custom))
         }
 
