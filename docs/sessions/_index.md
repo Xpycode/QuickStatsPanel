@@ -2,6 +2,7 @@
 
 | Date | Session | Summary |
 |------|---------|---------|
+| [2026-07-12](2026-07-12.md) | v1.0.0 released | Version 1.0.0 (build 2) + Utilities category; new `scripts/package-dmg.sh` (ClipSmart-derived, verify-not-resign, both-Mac notary auth); DMG + app both notarized/stapled, Gatekeeper-accepted; README written (doubles as website copy, icon exported); GitHub release v1.0.0 cut with DMG+zip. Open: repo private → public download path for the site; real screenshot. |
 | [2026-07-11](2026-07-11.md) | Network ↓/↑ inline + first publish | Network tile now shows download AND upload in the strip (optional secondary value slot, jitter-free per D-008; `1534e9c`, user-verified). Reconciled M4 Pro's Syncthing phantom copies with origin first. Then published: notarize → Accepted → staple → spctl OK → `04_Exports/QuickStatsPanel-0.1.0-notarized.zip`. Open: 1.0.0 bump, DMG, artifact destination. |
 | [2026-07-04](2026-07-04.md) | Status check + push pending commit | Ran `/status`; confirmed `f71dda8` (launch-at-login + cursor/hotkey fixes, D-022) was unpushed and pushed it to `origin/main`. Considered migrating `PROJECT_STATE.md` to the lean digest shape but held off — user just wanted the push done. Docs (`decisions.md`, `PROJECT_STATE.md`, session logs) from the prior session are still uncommitted. |
 | [2026-06-04](2026-06-04.md) | Setup + v0 scaffold | New project → Directions + folders + swift MCP profile; design locked (D-001–D-007); scaffolded `01_Project`, builds clean, smoke-launched OK |
