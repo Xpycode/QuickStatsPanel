@@ -25,6 +25,8 @@ struct StatsStripView: View {
                     symbol: stat.symbol,
                     value: stat.value,
                     widestValue: stat.widestValue,
+                    secondaryValue: stat.secondaryValue,
+                    widestSecondaryValue: stat.widestSecondaryValue,
                     band: stat.band,
                     tint: stat.tint,
                     onTap: { onTileTap(stat.kind) }

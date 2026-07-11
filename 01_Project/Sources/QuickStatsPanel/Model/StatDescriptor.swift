@@ -58,6 +58,11 @@ struct StatDescriptor: Identifiable {
     let value: String
     /// Worst-case value string reserving constant field width (Penumbra pattern).
     let widestValue: String
+    /// Optional second value section (e.g. Network's upload beside its download).
+    /// Gets its own worst-case slot in the tile so the two sections never shift
+    /// against each other as digit counts change tick-to-tick.
+    let secondaryValue: String?
+    let widestSecondaryValue: String?
     let loadPercent: Double
     /// Popover rows: (label, value).
     let detail: [(String, String)]
@@ -85,12 +90,15 @@ struct StatDescriptor: Identifiable {
     }
 
     init(kind: StatKind, symbol: String, value: String, widestValue: String,
+         secondaryValue: String? = nil, widestSecondaryValue: String? = nil,
          loadPercent: Double, detail: [(String, String)],
          processSection: ProcessSection? = nil) {
         self.kind = kind
         self.symbol = symbol
         self.value = value
         self.widestValue = widestValue
+        self.secondaryValue = secondaryValue
+        self.widestSecondaryValue = widestSecondaryValue
         self.loadPercent = loadPercent
         self.detail = detail
         self.processSection = processSection
@@ -188,8 +196,10 @@ extension StatsStore {
         case .network:
             return StatDescriptor(
                 kind: .network, symbol: "network",
-                value: network.downFormatted,          // headline: download rate
-                widestValue: "888 MB/s",
+                value: "↓ " + network.downFormatted,   // both directions at a glance —
+                widestValue: "↓ 888 MB/s",
+                secondaryValue: "↑ " + network.upFormatted,  // no click needed for upload
+                widestSecondaryValue: "↑ 888 MB/s",
                 loadPercent: network.activityPercent,  // color: busier link = hotter
                 detail: [
                     ("Down", network.downFormatted),

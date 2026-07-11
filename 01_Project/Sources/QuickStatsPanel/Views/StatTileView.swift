@@ -17,6 +17,11 @@ struct StatTileView: View {
     /// "888,88 GB", "100%") so the tile — and the whole strip — never resizes as
     /// the number changes. Adapted from Penumbra's TimecodeView.
     let widestValue: String
+    /// Optional second value section (e.g. Network's "↑ …" upload beside its
+    /// download), rendered in its own reserved-width slot so the sections never
+    /// shift against each other. nil for single-value tiles.
+    var secondaryValue: String? = nil
+    var widestSecondaryValue: String? = nil
     /// Resolved status band — drives the font-weight severity cue.
     let band: Band
     /// Resolved status color for the icon (neutral under Mono).
@@ -44,6 +49,16 @@ struct StatTileView: View {
                 }
                 .font(theme.fonts.value)
                 .foregroundStyle(theme.colors.primaryText)
+                // Second section (e.g. upload) in its own reserved slot, so the
+                // down/up fields can't push each other around as digits change.
+                if let secondaryValue, let widestSecondaryValue {
+                    ZStack(alignment: .leading) {
+                        Text(widestSecondaryValue).fontWeight(.heavy).hidden()
+                        Text(secondaryValue).fontWeight(weight)
+                    }
+                    .font(theme.fonts.value)
+                    .foregroundStyle(theme.colors.primaryText)
+                }
             }
             .contentShape(Rectangle())
         }
