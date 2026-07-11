@@ -24,3 +24,10 @@ default.profraw
 # Secrets / local
 .env
 *.local.json
+
+# Distributables (DMGs/zips) — published via releases, not tracked
+04_Exports/
+
+# Session scratch (machine-local)
+WORKING_NOTES.md
+.claude/logs/
