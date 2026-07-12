@@ -22,12 +22,35 @@ again (or Esc, or click anywhere else) and it's gone.
 It's for people who want *iStat at a glance*: quick, shallow, dismissible —
 not another monitoring suite that lives in your face all day.
 
-<!-- Screenshot slot: drop a capture of the summoned strip at
-     03_Screenshots/strip.png and restore this section.
 ## Screenshot
 
-![The strip](03_Screenshots/strip.png)
--->
+<p align="center">
+  <img src="03_Screenshots/strip.png" width="820" alt="The summoned strip — every tile live, colour-coded by load">
+</p>
+
+<p align="center"><i>One keystroke and every vital is there, colour-coded at a glance — green when healthy, amber when busy, red when it's hot.</i></p>
+
+Click any tile for a detail card — the header numbers plus the top processes behind them:
+
+<p align="center">
+  <img src="03_Screenshots/detail-cpu.png" height="240" alt="CPU detail — user/system split and top processes by CPU">
+  &nbsp;&nbsp;
+  <img src="03_Screenshots/detail-memory.png" height="240" alt="Memory detail — used/total/pressure and top processes by memory">
+  &nbsp;&nbsp;
+  <img src="03_Screenshots/detail-disk.png" height="240" alt="Disk detail — used/free/total and live read/write">
+</p>
+
+Fully themeable — the same strip, same live readings, in a light theme:
+
+<p align="center">
+  <img src="03_Screenshots/strip-light.png" width="820" alt="The strip in a light custom theme">
+</p>
+
+Toggle and reorder every stat in Settings — tiles for hardware you don't have never appear:
+
+<p align="center">
+  <img src="03_Screenshots/settings-stats.png" width="440" alt="Settings — toggle and reorder every stat">
+</p>
 
 
 ## What it shows
