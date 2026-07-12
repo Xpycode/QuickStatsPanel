@@ -1,4 +1,5 @@
 import Foundation
+import SystemConfiguration
 
 // New sampler (roadmap v1.1). Permission-free, matching the app's no-permission
 // stance (D-002/D-003): network throughput comes from `getifaddrs(3)`, a BSD call
@@ -9,6 +10,14 @@ import Foundation
 struct NetworkSample: Equatable, Sendable {
     var downBytesPerSec: Double   // received  (sum of counted interfaces' ifi_ibytes delta)
     var upBytesPerSec: Double     // sent      (sum of counted interfaces' ifi_obytes delta)
+
+    // Detail card rows (2026-07-12): the primary interface, pre-composed as
+    // "Wi-Fi (en0)" (or bare BSD name when no friendly name resolves), and its
+    // IPv4 address. nil ⇒ no active non-loopback interface → rows hidden.
+    // Deliberately NO public IP: that needs an external HTTP call, and this app
+    // makes zero network requests (a privacy property worth keeping).
+    var interfaceName: String? = nil
+    var localIP: String? = nil
 
     static let empty = NetworkSample(downBytesPerSec: 0, upBytesPerSec: 0)
 
@@ -46,12 +55,18 @@ final class NetworkSampler {
     /// so we report their delta over `interval` — same idea as DiskSampler.previousIO.
     private var previousBytes: (received: UInt64, sent: UInt64)?
 
+    /// BSD name → localized display name ("en0" → "Wi-Fi"), resolved once in
+    /// `start()` via SystemConfiguration. Interfaces hot-plugged mid-session fall
+    /// back to their bare BSD name until the next start — honest, not stale.
+    private var friendlyNames: [String: String] = [:]
+
     init(interval: TimeInterval = 1.0, onSample: @escaping @Sendable (NetworkSample) -> Void) {
         self.interval = interval
         self.onSample = onSample
     }
 
     func start() {
+        friendlyNames = Self.localizedInterfaceNames()
         let t = DispatchSource.makeTimerSource(queue: queue)
         t.schedule(deadline: .now(), repeating: interval)
         t.setEventHandler { [weak self] in self?.tick() }
@@ -77,7 +92,16 @@ final class NetworkSampler {
             }
             previousBytes = bytes   // first tick only seeds the baseline (rates stay 0)
         }
-        onSample(NetworkSample(downBytesPerSec: downRate, upBytesPerSec: upRate))
+
+        var interfaceName: String?
+        var localIP: String?
+        if let primary = Self.primaryInterface() {
+            interfaceName = friendlyNames[primary.bsdName]
+                .map { "\($0) (\(primary.bsdName))" } ?? primary.bsdName
+            localIP = primary.ip
+        }
+        onSample(NetworkSample(downBytesPerSec: downRate, upBytesPerSec: upRate,
+                               interfaceName: interfaceName, localIP: localIP))
     }
 
     // MARK: - Interface counters (getifaddrs)
@@ -108,6 +132,48 @@ final class NetworkSampler {
             totalSent += UInt64(data.ifi_obytes)
         }
         return (totalReceived, totalSent)
+    }
+
+    /// The interface shown in the detail card: up, running, non-loopback, with an
+    /// IPv4 address — preferring "en0", then any "en*" (built-in before adapters),
+    /// then anything else (VPN tunnel, tether). One getifaddrs walk; nil when
+    /// offline. Display-only — the throughput sum above still counts everything.
+    private static func primaryInterface() -> (bsdName: String, ip: String)? {
+        var head: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&head) == 0, let first = head else { return nil }
+        defer { freeifaddrs(head) }
+
+        var candidates: [(bsdName: String, ip: String)] = []
+        for ptr in sequence(first: first, next: { $0.pointee.ifa_next }) {
+            let ifa = ptr.pointee
+            guard let addr = ifa.ifa_addr, addr.pointee.sa_family == UInt8(AF_INET) else { continue }
+            let flags = Int32(ifa.ifa_flags)
+            guard (flags & IFF_UP) != 0, (flags & IFF_RUNNING) != 0,
+                  (flags & IFF_LOOPBACK) == 0 else { continue }
+
+            var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            guard getnameinfo(addr, socklen_t(addr.pointee.sa_len),
+                              &host, socklen_t(host.count),
+                              nil, 0, NI_NUMERICHOST) == 0 else { continue }
+            candidates.append((String(cString: ifa.ifa_name), String(cString: host)))
+        }
+        return candidates.first { $0.bsdName == "en0" }
+            ?? candidates.first { $0.bsdName.hasPrefix("en") }
+            ?? candidates.first
+    }
+
+    /// BSD name → localized service name ("en0" → "Wi-Fi") from SystemConfiguration
+    /// (public API, permission-free). Called once at `start()`.
+    private static func localizedInterfaceNames() -> [String: String] {
+        guard let interfaces = SCNetworkInterfaceCopyAll() as? [SCNetworkInterface] else { return [:] }
+        var map: [String: String] = [:]
+        for interface in interfaces {
+            guard let bsd = SCNetworkInterfaceGetBSDName(interface) as String?,
+                  let name = SCNetworkInterfaceGetLocalizedDisplayName(interface) as String?
+            else { continue }
+            map[bsd] = name
+        }
+        return map
     }
 
     /// Decides whether an interface's bytes count toward the displayed throughput.

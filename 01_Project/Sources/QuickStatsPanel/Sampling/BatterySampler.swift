@@ -1,4 +1,5 @@
 import Foundation
+import IOKit
 import IOKit.ps
 
 // New sampler (roadmap v1.1). Permission-free: the IOKit Power Sources API
@@ -13,6 +14,12 @@ struct BatterySample: Equatable, Sendable {
     var isCharging: Bool
     var isOnAC: Bool             // plugged into power (charging or fully charged)
     var minutesRemaining: Int?   // nil = calculating/unknown; means "to full" when charging, else "to empty"
+
+    // Health details from the AppleSmartBattery IORegistry entry (detail card
+    // rows, 2026-07-12). nil ⇒ key unreadable on this Mac → row hidden.
+    var healthPercent: Double? = nil   // NominalChargeCapacity ÷ DesignCapacity
+    var cycleCount: Int? = nil
+    var temperatureC: Double? = nil    // registry reports centi-°C (3057 → 30.6 °C)
 
     static let empty = BatterySample(isPresent: false, percent: 0,
                                      isCharging: false, isOnAC: false, minutesRemaining: nil)
@@ -50,6 +57,11 @@ struct BatterySample: Equatable, Sendable {
         guard let m = minutesRemaining, m > 0 else { return "—" }
         return String(format: "%d:%02d", m / 60, m % 60)
     }
+
+    // Detail rows — nil when the registry key was unreadable (row hidden).
+    var healthFormatted: String? { healthPercent.map { "\(Int($0.rounded()))%" } }
+    var cyclesFormatted: String? { cycleCount.map(String.init) }
+    var temperatureFormatted: String? { temperatureC.map { String(format: "%.0f°C", $0) } }
 }
 
 /// Polls IOKit Power Sources on a background timer, reporting an absolute battery
@@ -111,8 +123,43 @@ final class BatterySampler {
         let minutes = rawTime.map { $0.intValue }
         let minutesRemaining = (minutes ?? -1) > 0 ? minutes : nil
 
+        let smart = readSmartBattery()
         return BatterySample(isPresent: true, percent: percent,
                              isCharging: isCharging, isOnAC: isOnAC,
-                             minutesRemaining: minutesRemaining)
+                             minutesRemaining: minutesRemaining,
+                             healthPercent: smart.health,
+                             cycleCount: smart.cycles,
+                             temperatureC: smart.tempC)
+    }
+
+    /// Health details from the AppleSmartBattery IORegistry entry — the same
+    /// numbers System Settings' Battery Health panel derives (permission-free
+    /// registry read; keys verified on this M4 Pro 2026-07-12). Any missing key
+    /// degrades to nil → its row is hidden, never fabricated.
+    ///   • Health % = NominalChargeCapacity ÷ DesignCapacity (both mAh);
+    ///     AppleRawMaxCapacity is the fallback numerator on older firmwares.
+    ///     (kIOPSMaxCapacityKey is useless here — modern macOS pins it to 100.)
+    ///   • Temperature is reported in centi-°C (3057 → 30.6 °C).
+    private static func readSmartBattery() -> (health: Double?, cycles: Int?, tempC: Double?) {
+        let service = IOServiceGetMatchingService(kIOMainPortDefault,
+                                                  IOServiceMatching("AppleSmartBattery"))
+        guard service != 0 else { return (nil, nil, nil) }
+        defer { IOObjectRelease(service) }
+
+        func number(_ key: String) -> Double? {
+            (IORegistryEntryCreateCFProperty(service, key as CFString,
+                                             kCFAllocatorDefault, 0)?
+                .takeRetainedValue() as? NSNumber)?.doubleValue
+        }
+
+        let cycles = number("CycleCount").map { Int($0) }
+        let design = number("DesignCapacity")
+        let nominal = number("NominalChargeCapacity") ?? number("AppleRawMaxCapacity")
+        let health: Double? = {
+            guard let design, design > 0, let nominal else { return nil }
+            return nominal / design * 100
+        }()
+        let tempC = number("Temperature").map { $0 / 100 }
+        return (health, cycles, tempC)
     }
 }

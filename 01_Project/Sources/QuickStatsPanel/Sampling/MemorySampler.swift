@@ -8,6 +8,12 @@ struct MemorySample: Equatable, Sendable {
     var totalBytes: UInt64
     var pressurePercent: Double
 
+    // Activity-Monitor-style breakdown (detail card rows, 2026-07-12). All three
+    // come from the same vm_statistics64 read that already feeds `usedBytes`.
+    var appBytes: UInt64 = 0         // anonymous minus purgeable ("App Memory")
+    var wiredBytes: UInt64 = 0
+    var compressedBytes: UInt64 = 0
+
     static let empty = MemorySample(usedBytes: 0, totalBytes: 0, pressurePercent: 0)
 
     var usedFormatted: String {
@@ -16,6 +22,18 @@ struct MemorySample: Equatable, Sendable {
 
     var totalFormatted: String {
         ByteCountFormatter.string(fromByteCount: Int64(totalBytes), countStyle: .memory)
+    }
+
+    var appFormatted: String {
+        ByteCountFormatter.string(fromByteCount: Int64(appBytes), countStyle: .memory)
+    }
+
+    var wiredFormatted: String {
+        ByteCountFormatter.string(fromByteCount: Int64(wiredBytes), countStyle: .memory)
+    }
+
+    var compressedFormatted: String {
+        ByteCountFormatter.string(fromByteCount: Int64(compressedBytes), countStyle: .memory)
     }
 }
 
@@ -62,10 +80,20 @@ final class MemorySampler {
         let used = active + wired + compressed
         let total = ProcessInfo.processInfo.physicalMemory
 
+        // "App Memory" = anonymous (internal) pages minus purgeable — Activity
+        // Monitor's formula. Saturating: purgeable can momentarily exceed internal
+        // in the same snapshot, and UInt64 underflow would render as ~18 EB.
+        let internalBytes = UInt64(stats.internal_page_count) * pageSize
+        let purgeable = UInt64(stats.purgeable_count) * pageSize
+        let app = internalBytes > purgeable ? internalBytes - purgeable : 0
+
         onSample(MemorySample(
             usedBytes: used,
             totalBytes: total,
-            pressurePercent: total > 0 ? Double(used) / Double(total) * 100 : 0
+            pressurePercent: total > 0 ? Double(used) / Double(total) * 100 : 0,
+            appBytes: app,
+            wiredBytes: wired,
+            compressedBytes: compressed
         ))
     }
 }

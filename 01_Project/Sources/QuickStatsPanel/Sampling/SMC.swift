@@ -1,10 +1,11 @@
 import Foundation
 import IOKit
 
-// Permission-free READ-ONLY AppleSMC reader. Used by FanSampler (fan rpm). No
-// writes, ever. (D-018 temperatures went the IOHID route instead — Apple-Silicon
-// SMC temp keys are undocumented, per-machine, and identity-less; IOHID returns
-// named °C sensors. See Sampling/TemperatureReader.swift.)
+// Permission-free READ-ONLY AppleSMC reader. No writes, ever. Consumers:
+// FanSampler (fan rpm), TemperatureReader (named-core °C via the ported
+// SMCTemperatureTable — added 2026-07-12; D-018 originally went IOHID-only
+// because the Apple-Silicon temp keys were undocumented, until exelban/stats'
+// crowd-sourced key map closed that gap), and PowerSampler (System/DC In watts).
 //
 // Load-bearing facts:
 //   • Field order in SMCKeyData_t MUST match the kernel ABI exactly — the struct

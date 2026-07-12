@@ -88,9 +88,21 @@ private struct StatsSettingsPane: View {
         VStack(spacing: 0) {
             List {
                 ForEach(settings.statOrder) { kind in
-                    Toggle(isOn: enabledBinding(kind)) {
+                    // Checkbox and label are SEPARATE views: when the Toggle owned
+                    // the whole row (label included), every point in the row was an
+                    // interactive control, and under macOS 26 the control wins the
+                    // mouse-down — .onMove's per-row drag recognizer never fires and
+                    // reorders silently stop committing to `statOrder`. With the
+                    // label inert, it (plus the spacer) initiates the row drag; only
+                    // the checkbox itself toggles. (Trade-off: clicking the row text
+                    // no longer flips the toggle — it drags instead.)
+                    HStack(spacing: 8) {
+                        Toggle("", isOn: enabledBinding(kind))
+                            .labelsHidden()
                         Label(kind.displayName, systemImage: kind.settingsSymbol)
+                        Spacer(minLength: 0)
                     }
+                    .contentShape(Rectangle())
                 }
                 .onMove { settings.statOrder.move(fromOffsets: $0, toOffset: $1) }
             }

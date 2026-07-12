@@ -24,9 +24,19 @@ struct PowerSample: Equatable, Sendable {
     /// from GPU/Fan, whose loadPercent is purely computed from the snapshot.)
     var loadPercent: Double
 
+    /// Whole-machine draw from the SMC `PSTR` key (display, SSD, everything —
+    /// vs the SoC-only IOReport rows above). nil ⇒ the key is absent on this
+    /// Mac and the detail row is hidden. Key presence is fixed at `start()`, so
+    /// the detail card's row set never changes while it's open. (SMC power keys
+    /// per exelban/stats' sensor table, MIT.)
+    var systemWatts: Double? = nil   // defaulted: `makeSample` builds the SoC part;
+    /// Charger input from the SMC `PDTR` key; reads ~0 W on battery. Same
+    /// nil-hides-row contract as `systemWatts`.
+    var dcInWatts: Double? = nil     // the sampler stamps these two after it
+
     static let empty = PowerSample(isAvailable: false,
                                    cpuWatts: 0, gpuWatts: 0, aneWatts: 0, dramWatts: 0,
-                                   loadPercent: 0)
+                                   loadPercent: 0, systemWatts: nil, dcInWatts: nil)
 
     /// Total SoC draw = CPU+GPU+ANE+DRAM (open-question 1 default: ANE+DRAM included
     /// in the Total row and the tint). The headline stays CPU·GPU.
@@ -47,6 +57,10 @@ struct PowerSample: Equatable, Sendable {
     var aneFormatted: String  { String(format: "%.1f W", aneWatts) }
     var dramFormatted: String { String(format: "%.1f W", dramWatts) }
     var totalFormatted: String { String(format: "%.1f W", totalWatts) }
+
+    // SMC rows — nil when the key is absent (row hidden, Battery/Fan pattern).
+    var systemFormatted: String? { systemWatts.map { String(format: "%.1f W", $0) } }
+    var dcInFormatted: String?   { dcInWatts.map { String(format: "%.1f W", $0) } }
 }
 
 /// Polls IOReportPower on a background timer, reporting a watts snapshot each tick
@@ -65,6 +79,14 @@ final class PowerSampler {
     private let queue = DispatchQueue(label: "QuickStatsPanel.PowerSampler")
     private var reader: IOReportPower?
 
+    /// Read-only SMC connection for the whole-machine rows (System `PSTR`,
+    /// DC In `PDTR`). Same lifecycle + queue confinement as FanSampler's handle.
+    private var smc: SMC?
+    /// Key presence, probed once in `start()` so the detail card's row set is
+    /// stable for the whole session (a mid-session nil would flap the row).
+    private var hasSystemKey = false
+    private var hasDCInKey = false
+
     /// Highest total SoC watts seen this session. Ratchets up, never down (AC-5);
     /// reset in `start()` so a relaunch/`restart()` recalibrates the tint band.
     private var peakTotal: Double = 0
@@ -76,6 +98,13 @@ final class PowerSampler {
 
     func start() {
         reader = IOReportPower()
+        smc = SMC()
+        hasSystemKey = smc?.value(forKey: "PSTR") != nil
+        hasDCInKey = smc?.value(forKey: "PDTR") != nil
+        if !hasSystemKey && !hasDCInKey {   // nothing to read — don't hold a connection
+            smc?.close()
+            smc = nil
+        }
         peakTotal = 0
         let t = DispatchSource.makeTimerSource(queue: queue)
         t.schedule(deadline: .now(), repeating: interval)
@@ -88,13 +117,19 @@ final class PowerSampler {
         timer?.cancel()
         timer = nil
         reader = nil   // last strong ref drops → IOReportPower.deinit releases the CF subscription
+        smc?.close()
+        smc = nil
     }
 
     private func tick() {   // runs on `queue`
         guard let reader else { return }
-        let (sample, newPeak) = Self.makeSample(from: reader.read(),
+        var (sample, newPeak) = Self.makeSample(from: reader.read(),
                                                 available: reader.isAvailable,
                                                 peak: peakTotal)
+        // `?? 0` keeps the row rendered (as 0.0 W) on a transient SMC misread
+        // rather than letting the card's row set flap mid-session.
+        if hasSystemKey { sample.systemWatts = smc?.value(forKey: "PSTR") ?? 0 }
+        if hasDCInKey { sample.dcInWatts = smc?.value(forKey: "PDTR") ?? 0 }
         peakTotal = newPeak
         onSample(sample)
     }

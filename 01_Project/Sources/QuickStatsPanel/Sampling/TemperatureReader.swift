@@ -1,10 +1,18 @@
 import Foundation
 
-// Permission-free per-sensor temperature reader (D-018). Wraps Apple's PRIVATE,
-// un-entitled **IOHIDEventSystemClient** SPI: the temperature sensors on the
-// AppleVendor HID page (PrimaryUsagePage 0xff00 / PrimaryUsage 5), read as IEEE
-// floats in °C via `kIOHIDEventTypeTemperature`. C prototypes live in
-// QuickStatsPanel-Bridging-Header.h; the symbols link via `-framework IOKit`.
+// Permission-free per-sensor temperature reader (D-018). TWO sources, merged
+// per role:
+//   • **SMC named-core keys** (2026-07-12 follow-up) — the per-generation
+//     Apple Silicon key→role table in SMCTemperatureTable.swift (ported from
+//     exelban/stats, MIT), read via the same read-only `SMC` class FanSampler
+//     uses. Role-accurate per-core sensors (E/P cores, GPU clusters) — wins
+//     for any role it covers.
+//   • **IOHID** — Apple's PRIVATE, un-entitled **IOHIDEventSystemClient** SPI:
+//     the temperature sensors on the AppleVendor HID page (PrimaryUsagePage
+//     0xff00 / PrimaryUsage 5), read as IEEE floats in °C via
+//     `kIOHIDEventTypeTemperature`. C prototypes live in
+//     QuickStatsPanel-Bridging-Header.h; symbols link via `-framework IOKit`.
+//     Fallback for roles the SMC table doesn't cover on this chip.
 // No root, no entitlement, no prompt — same trust level as IOReport (D-019) and
 // the AppleSMC fan reader (D-017). This feeds ONLY the Temperatures detail card;
 // the tile's always-visible headline is the public `ProcessInfo.thermalState`.
@@ -52,24 +60,47 @@ final class IOHIDTemperatureReader {
     /// `CopyServices` array. Empty ⇒ no usable sensors on this hardware.
     private var sensors: [(service: IOHIDServiceClient, role: String)] = []
 
-    /// True when ≥1 sensor mapped to a role at init. Drives the detail card's
-    /// sensor-rows-vs-`Pressure` fallback — NOT the tile's visibility (the tile is
-    /// always shown via the thermalState headline; D-018).
-    var isAvailable: Bool { !sensors.isEmpty }
+    /// Read-only SMC connection for the named-core keys, opened only when ≥1
+    /// table key answered at init (otherwise closed and nil — Intel, VM, or a
+    /// future chip the table doesn't know). Confined to the owner's serial
+    /// queue exactly like the IOHID client above and FanSampler's handle;
+    /// `SMC.deinit` closes the connection when the reader is dropped.
+    private var smc: SMC?
+
+    /// The SMCTemperatureTable subset this die actually answers, probed once at
+    /// init (absent keys never respond — binning; see the table's header).
+    private var smcSensors: [(key: String, role: String)] = []
+
+    /// True when ≥1 sensor mapped to a role at init (either source). Drives the
+    /// detail card's sensor-rows-vs-`Pressure` fallback — NOT the tile's
+    /// visibility (the tile is always shown via the thermalState headline; D-018).
+    var isAvailable: Bool { !sensors.isEmpty || !smcSensors.isEmpty }
 
     init() {
         client = IOHIDEventSystemClientCreate(kCFAllocatorDefault).takeRetainedValue()
         IOHIDEventSystemClientSetMatching(
             client, ["PrimaryUsagePage": 0xff00, "PrimaryUsage": 5] as CFDictionary)
 
-        guard let services = IOHIDEventSystemClientCopyServices(client) else { return }
-        for i in 0..<CFArrayGetCount(services) {
-            guard let raw = CFArrayGetValueAtIndex(services, i) else { continue }
-            let service = Unmanaged<IOHIDServiceClient>.fromOpaque(raw).takeUnretainedValue()
-            guard let name = IOHIDServiceClientCopyProperty(service, "Product" as CFString) as? String,
-                  let role = Self.role(for: name)
-            else { continue }   // skip unnamed / calibration / sentinel sensors
-            sensors.append((service, role))
+        if let services = IOHIDEventSystemClientCopyServices(client) {
+            for i in 0..<CFArrayGetCount(services) {
+                guard let raw = CFArrayGetValueAtIndex(services, i) else { continue }
+                let service = Unmanaged<IOHIDServiceClient>.fromOpaque(raw).takeUnretainedValue()
+                guard let name = IOHIDServiceClientCopyProperty(service, "Product" as CFString) as? String,
+                      let role = Self.role(for: name)
+                else { continue }   // skip unnamed / calibration / sentinel sensors
+                sensors.append((service, role))
+            }
+        }
+
+        // SMC named-core probe: keep the table keys this die answers with a
+        // plausible °C (the same 0<c<130 clamp `read()` applies per tick).
+        if !SMCTemperatureTable.sensors.isEmpty {
+            let handle = SMC()
+            smcSensors = SMCTemperatureTable.sensors.filter { probe in
+                guard let c = handle.value(forKey: probe.key) else { return false }
+                return c.isFinite && c > 0 && c < 130
+            }
+            if smcSensors.isEmpty { handle.close() } else { smc = handle }
         }
     }
 
@@ -91,17 +122,36 @@ final class IOHIDTemperatureReader {
     /// One averaged reading per present role, in `roleOrder`. Empty when no sensors
     /// enumerated. Drops non-finite / ≤0 / >130 °C readings (the `PMU tdev` sentinel
     /// and any momentary garbage). MUST be called on the owner's serial queue.
+    ///
+    /// Merge policy: SMC named-core keys win for every role they cover (they're
+    /// role-accurate per-core sensors); IOHID fills only the remaining roles.
+    /// "SoC" is additionally suppressed once SMC yields CPU — the anonymous
+    /// `PMU tdie` average measures the same silicon the named cores already
+    /// report, so showing both would present one die twice.
     func read() -> [TempReading] {
-        guard !sensors.isEmpty else { return [] }
-        let field = Int32(truncatingIfNeeded: kIOHIDEventTypeTemperature << 16)
+        guard isAvailable else { return [] }
 
         var sums: [String: (total: Double, count: Int)] = [:]
-        for (service, role) in sensors {
-            guard let event = IOHIDServiceClientCopyEvent(service, kIOHIDEventTypeTemperature, 0, 0) else { continue }
-            let c = IOHIDEventGetFloatValue(event.takeRetainedValue(), field)
-            guard c.isFinite, c > 0, c < 130 else { continue }   // drop sentinel/garbage
+        func add(_ role: String, _ c: Double) {
+            guard c.isFinite, c > 0, c < 130 else { return }   // drop sentinel/garbage
             let cur = sums[role] ?? (0, 0)
             sums[role] = (cur.total + c, cur.count + 1)
+        }
+
+        if let smc {
+            for (key, role) in smcSensors {
+                guard let c = smc.value(forKey: key) else { continue }
+                add(role, c)
+            }
+        }
+        let smcRoles = Set(sums.keys)
+
+        let field = Int32(truncatingIfNeeded: kIOHIDEventTypeTemperature << 16)
+        for (service, role) in sensors {
+            if smcRoles.contains(role) { continue }
+            if role == "SoC" && smcRoles.contains("CPU") { continue }
+            guard let event = IOHIDServiceClientCopyEvent(service, kIOHIDEventTypeTemperature, 0, 0) else { continue }
+            add(role, IOHIDEventGetFloatValue(event.takeRetainedValue(), field))
         }
 
         return Self.roleOrder.compactMap { role in

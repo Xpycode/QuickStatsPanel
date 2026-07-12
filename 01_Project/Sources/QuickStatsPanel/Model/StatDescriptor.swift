@@ -149,16 +149,23 @@ extension StatsStore {
     private func descriptor(for kind: StatKind) -> StatDescriptor? {
         switch kind {
         case .cpu:
+            var cpuDetail: [(String, String)] = [
+                ("User", "\(Int(cpu.userPercent.rounded()))%"),
+                ("System", "\(Int(cpu.systemPercent.rounded()))%"),
+                ("Idle", "\(Int(cpu.idlePercent.rounded()))%"),
+            ]
+            // Cross-tile touch (2026-07-12): surface this die's CPU temperature
+            // right where the load is read. Fed by the temps sample's per-role
+            // SMC/IOHID merge; absent (Intel/VM) ⇒ no row.
+            if let t = temps.sensors.first(where: { $0.label == "CPU" }) {
+                cpuDetail.append(("Temp", String(format: "%.0f°C", t.celsius)))
+            }
             return StatDescriptor(
                 kind: .cpu, symbol: "cpu",
                 value: "\(Int(cpu.totalUsagePercent.rounded()))%",
                 widestValue: "100%",
                 loadPercent: cpu.totalUsagePercent,
-                detail: [
-                    ("User", "\(Int(cpu.userPercent.rounded()))%"),
-                    ("System", "\(Int(cpu.systemPercent.rounded()))%"),
-                    ("Idle", "\(Int(cpu.idlePercent.rounded()))%"),
-                ],
+                detail: cpuDetail,
                 processSection: section("Top by CPU",
                                         topProcesses.cpuRows(Self.topProcessRows)))
 
@@ -170,6 +177,9 @@ extension StatsStore {
                 loadPercent: memory.pressurePercent,
                 detail: [
                     ("Used", memory.usedFormatted),
+                    ("App", memory.appFormatted),
+                    ("Wired", memory.wiredFormatted),
+                    ("Compressed", memory.compressedFormatted),
                     ("Total", memory.totalFormatted),
                     ("Pressure", "\(Int(memory.pressurePercent.rounded()))%"),
                 ],
@@ -194,6 +204,14 @@ extension StatsStore {
                 // isn't available to us. Disk shows aggregate Read/Write only.
 
         case .network:
+            var networkDetail: [(String, String)] = [
+                ("Down", network.downFormatted),
+                ("Up", network.upFormatted),
+            ]
+            // Which pipe is carrying this, and where we are on it (2026-07-12).
+            // No public IP by design — that would need an external request.
+            if let name = network.interfaceName { networkDetail.append(("Interface", name)) }
+            if let ip = network.localIP { networkDetail.append(("Local IP", ip)) }
             return StatDescriptor(
                 kind: .network, symbol: "network",
                 value: "↓ " + network.downFormatted,   // both directions at a glance —
@@ -201,24 +219,27 @@ extension StatsStore {
                 secondaryValue: "↑ " + network.upFormatted,  // no click needed for upload
                 widestSecondaryValue: "↑ 888 MB/s",
                 loadPercent: network.activityPercent,  // color: busier link = hotter
-                detail: [
-                    ("Down", network.downFormatted),
-                    ("Up", network.upFormatted),
-                ])
+                detail: networkDetail)
 
         case .battery:
             // Portables only — IOKit reports no source on desktop Macs.
             guard battery.isPresent else { return nil }
+            var batteryDetail: [(String, String)] = [
+                ("Charge", battery.percentFormatted),
+                ("State", battery.stateLabel),
+                ("Time", battery.timeFormatted),
+            ]
+            // Longevity rows from AppleSmartBattery (2026-07-12) — the numbers
+            // System Settings' Battery Health panel shows. Hidden when unreadable.
+            if let health = battery.healthFormatted { batteryDetail.append(("Health", health)) }
+            if let cycles = battery.cyclesFormatted { batteryDetail.append(("Cycles", cycles)) }
+            if let temp = battery.temperatureFormatted { batteryDetail.append(("Temp", temp)) }
             return StatDescriptor(
                 kind: .battery, symbol: battery.symbolName,  // level/charging-aware glyph
                 value: battery.percentFormatted,             // headline: charge %
                 widestValue: "100%",
                 loadPercent: battery.loadPercent,             // inverted: low charge = hot
-                detail: [
-                    ("Charge", battery.percentFormatted),
-                    ("State", battery.stateLabel),
-                    ("Time", battery.timeFormatted),
-                ])
+                detail: batteryDetail)
 
         case .gpu:
             // Hidden when no IOAccelerator exposes a utilization key (VM / headless),
@@ -226,6 +247,10 @@ extension StatsStore {
             guard gpu.isAvailable else { return nil }
             var detail: [(String, String)] = [("Utilization", gpu.percentFormatted)]
             if let name = gpu.deviceName { detail.append(("Device", name)) }
+            // Same cross-tile temperature touch as the CPU card (2026-07-12).
+            if let t = temps.sensors.first(where: { $0.label == "GPU" }) {
+                detail.append(("Temp", String(format: "%.0f°C", t.celsius)))
+            }
             return StatDescriptor(
                 kind: .gpu, symbol: "cpu.fill",         // kept in design pass 2026-07-03 (see settingsSymbol)
                 value: gpu.percentFormatted,            // headline: GPU load %
@@ -254,18 +279,24 @@ extension StatsStore {
             // Hidden when the IOReport "Energy Model" CPU/GPU channels don't resolve
             // (Intel Macs / renamed future chips), mirroring Battery/GPU/Fan's gate.
             guard power.isAvailable else { return nil }
+            // Whole-machine context after the SoC split: "System" = everything the
+            // Mac draws (display, SSD, …) via SMC PSTR; "DC In" = charger input via
+            // PDTR. Rows absent when this Mac lacks the keys (nil-formatted).
+            var powerDetail: [(String, String)] = [
+                ("CPU", power.cpuFormatted),
+                ("GPU", power.gpuFormatted),
+                ("ANE", power.aneFormatted),
+                ("DRAM", power.dramFormatted),
+                ("Total", power.totalFormatted),
+            ]
+            if let system = power.systemFormatted { powerDetail.append(("System", system)) }
+            if let dcIn = power.dcInFormatted { powerDetail.append(("DC In", dcIn)) }
             return StatDescriptor(
                 kind: .power, symbol: "bolt.fill",
                 value: power.headlineFormatted,         // headline: "cpu·gpu W" split
                 widestValue: "88·88 W",                 // worst-case slot (D-008); Ultra GPU >99W clips, acceptable
                 loadPercent: power.loadPercent,         // color: total ÷ session-peak (set by the sampler)
-                detail: [
-                    ("CPU", power.cpuFormatted),
-                    ("GPU", power.gpuFormatted),
-                    ("ANE", power.aneFormatted),
-                    ("DRAM", power.dramFormatted),
-                    ("Total", power.totalFormatted),
-                ])
+                detail: powerDetail)
 
         case .temps:
             // Always visible — the headline is ProcessInfo.thermalState, which
