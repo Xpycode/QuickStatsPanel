@@ -1,8 +1,0 @@
-{
-  "_comment": "Merge this `statusLine` key into ~/.claude/settings.json (top-level). Do not replace the whole file.",
-  "statusLine": {
-    "type": "command",
-    "command": "~/.claude/statusline.sh",
-    "padding": 0
-  }
-}

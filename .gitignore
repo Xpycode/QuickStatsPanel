@@ -25,6 +25,9 @@ default.profraw
 .env
 *.local.json
 
+# Personal MCP server config — local dev environment, not part of the app
+.mcp.json
+
 # Signing / notary material — NEVER commit (lives in ~/ProgrammingProjects/99-AUTH/)
 *.p8
 *.p12

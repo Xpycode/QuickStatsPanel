@@ -4,7 +4,7 @@ A macOS 15+ utility that summons a **wide, glanceable HUD panel** of live Mac
 stats with a **global keyboard shortcut**. Think "iStat at a glance" — quick,
 shallow, dismissible — not a deep monitoring suite.
 
-> Full docs: `docs/00_base.md` · Current state: `docs/PROJECT_STATE.md` · Decisions: `docs/decisions.md`
+> Current state: `docs/PROJECT_STATE.md` · Decisions: `docs/decisions.md` · Directions system: read on-demand from your `~/.claude/CLAUDE.md` Directions Index (master, not copied here)
 
 ---
 
