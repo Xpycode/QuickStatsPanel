@@ -63,9 +63,11 @@ xcrun notarytool store-credentials "Manifest" \
 ```
 Test: `xcrun notarytool history --keychain-profile "Manifest"`.
 
-> Manifest's stored profile is named **`Manifest`**; key at
-> `~/ProgrammingProjects/99-AUTH/AuthKey_6HTCUZ9L7L.p8` (Key ID `6HTCUZ9L7L`,
-> Issuer `935e3a4d-b8fc-4110-a24f-89d7da84b6ab`).
+> Manifest's stored profile is named **`Manifest`**. The API key `.p8`, its Key ID,
+> and the Issuer UUID live only in `~/ProgrammingProjects/99-AUTH/` (outside git,
+> never committed): the `AuthKey_*.p8` file plus a one-line `notary-issuer` file.
+> `scripts/package-dmg.sh` derives the Key ID from the filename and reads the issuer
+> from `notary-issuer` (or `$NOTARY_ISSUER`) — no signing identifiers live in the repo.
 
 ## The release chain
 

@@ -10,6 +10,7 @@
   <img src="https://img.shields.io/badge/platform-macOS%2015%2B-blue" alt="macOS 15+">
   <img src="https://img.shields.io/badge/swift-5.10-orange" alt="Swift 5.10">
   <img src="https://img.shields.io/badge/version-1.0.0-green" alt="1.0.0">
+  <img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-blueviolet" alt="License: PolyForm Noncommercial 1.0.0">
 </p>
 
 ---
@@ -125,6 +126,18 @@ xcodebuild -scheme QuickStatsPanel -destination 'platform=macOS' build
 ```
 
 Requires Xcode 16+ and [xcodegen](https://github.com/yonaskolb/XcodeGen).
+
+## License
+
+QuickStatsPanel is **source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE)**.
+Use, study, modify, and share it freely for any **noncommercial** purpose — personal
+use, education, research, hobby projects, and nonprofit/government use all qualify.
+
+**Commercial use requires a separate license.** For that, reach out via
+[apps.lucesumbrarum.com](https://apps.lucesumbrarum.com).
+
+This is deliberately *not* an OSI "open source" license: the source is open to read
+and build, but commercial exploitation is reserved.
 
 ---
 

@@ -38,9 +38,17 @@ AUTH_DIR="$HOME/ProgrammingProjects/99-AUTH"
 if [ -n "${NOTARY_PROFILE:-}" ]; then
   NOTARY_ARGS=(--keychain-profile "$NOTARY_PROFILE")
 else
-  NOTARY_ARGS=(--key "$AUTH_DIR/AuthKey_6HTCUZ9L7L.p8"
-               --key-id 6HTCUZ9L7L
-               --issuer 935e3a4d-b8fc-4110-a24f-89d7da84b6ab)
+  # API-key auth. The .p8 private key, its Key ID, and the Issuer UUID live ONLY in
+  # 99-AUTH/ (outside this repo, never committed). Nothing secret is hardcoded here:
+  #   • KEY_FILE : $NOTARY_KEY, else the sole AuthKey_*.p8 in 99-AUTH/
+  #   • KEY_ID   : derived from the AuthKey_<KEYID>.p8 filename
+  #   • ISSUER   : $NOTARY_ISSUER, else the one-line file 99-AUTH/notary-issuer
+  KEY_FILE="${NOTARY_KEY:-$(ls "$AUTH_DIR"/AuthKey_*.p8 2>/dev/null | head -1)}"
+  [ -f "${KEY_FILE:-}" ] || { echo "✗ No notary API key (.p8) in $AUTH_DIR — see docs/61"; exit 1; }
+  KEY_ID="$(basename "$KEY_FILE" .p8 | sed 's/^AuthKey_//')"
+  ISSUER="${NOTARY_ISSUER:-$(cat "$AUTH_DIR/notary-issuer" 2>/dev/null || true)}"
+  [ -n "${ISSUER:-}" ] || { echo "✗ No issuer — set NOTARY_ISSUER or create $AUTH_DIR/notary-issuer"; exit 1; }
+  NOTARY_ARGS=(--key "$KEY_FILE" --key-id "$KEY_ID" --issuer "$ISSUER")
 fi
 
 echo "▸ App:     $APP"
