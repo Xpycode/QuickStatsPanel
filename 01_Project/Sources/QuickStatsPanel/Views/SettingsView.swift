@@ -29,8 +29,10 @@ struct SettingsView: View {
         } detail: {
             // NavigationSplitView fills its container, so the detail carries the size
             // floor (the window controller sets the default + min window size to match).
+            // Floor raised for the Stats pane's list + options split (D-025):
+            // at the old 380 the two columns squeezed the pickers into ellipses.
             detail
-                .frame(minWidth: 380, minHeight: 420)
+                .frame(minWidth: 480, minHeight: 420)
         }
         .navigationSplitViewStyle(.balanced)
     }
@@ -78,47 +80,121 @@ private enum SettingsPane: String, CaseIterable, Identifiable {
 private struct StatsSettingsPane: View {
     @Bindable private var settings = AppSettings.shared
 
+    /// Which stat the options pane is editing. Optional because a `List`
+    /// selection binding on macOS is optional; the pane shows a placeholder
+    /// rather than defaulting, so nothing is ever edited by accident.
+    @State private var selected: StatKind?
+
     var body: some View {
-        // A bare List that *fills* the pane (not a fixed-height List nested in a
-        // grouped Form) — one natural scroll container, so the list scrolls only when
-        // the stats overflow rather than the whole pane gaining a spurious scrollbar.
-        // Order here = strip order. Drag to reorder; toggle to show/hide. Unavailable
-        // stats (e.g. battery on a desktop) stay listed but won't appear in the strip —
-        // availability is filtered in `visibleStats`.
+        // The list keeps its own scroll container (see the D-020 note about a bare
+        // List filling the pane); the per-stat options sit beside it rather than
+        // inside the row. A second control *in* the row would re-enter exactly the
+        // macOS 26 conflict D-024 fixed — an interactive control wins the
+        // mouse-down and .onMove's drag recognizer never fires — so the options
+        // deliberately live outside the drag surface.
         VStack(spacing: 0) {
-            List {
-                ForEach(settings.statOrder) { kind in
-                    // Checkbox and label are SEPARATE views: when the Toggle owned
-                    // the whole row (label included), every point in the row was an
-                    // interactive control, and under macOS 26 the control wins the
-                    // mouse-down — .onMove's per-row drag recognizer never fires and
-                    // reorders silently stop committing to `statOrder`. With the
-                    // label inert, it (plus the spacer) initiates the row drag; only
-                    // the checkbox itself toggles. (Trade-off: clicking the row text
-                    // no longer flips the toggle — it drags instead.)
-                    HStack(spacing: 8) {
-                        Toggle("", isOn: enabledBinding(kind))
-                            .labelsHidden()
-                        Label(kind.displayName, systemImage: kind.settingsSymbol)
-                        Spacer(minLength: 0)
-                    }
-                    .contentShape(Rectangle())
-                }
-                .onMove { settings.statOrder.move(fromOffsets: $0, toOffset: $1) }
+            HStack(spacing: 0) {
+                statList
+                Divider()
+                optionsPane
+                    .frame(width: 230)
             }
-            .listStyle(.inset)
 
             Divider()
-            Text("Drag to reorder · toggle to show or hide")
+            Text("Drag to reorder · toggle to show or hide · select a stat to configure it")
                 .font(.caption).foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16).padding(.vertical, 10)
         }
     }
 
+    /// Order here = strip order. Unavailable stats (e.g. battery on a desktop)
+    /// stay listed but won't appear in the strip — availability is filtered in
+    /// `visibleStats`.
+    private var statList: some View {
+        // `id: \.self` so each row's selection tag is the StatKind itself and not
+        // its String id — the same trap the sidebar hit in D-020, where tagging by
+        // Identifiable id meant the selection binding never updated.
+        List(selection: $selected) {
+            ForEach(settings.statOrder, id: \.self) { kind in
+                // Checkbox and label are SEPARATE views: when the Toggle owned
+                // the whole row (label included), every point in the row was an
+                // interactive control, and under macOS 26 the control wins the
+                // mouse-down — .onMove's per-row drag recognizer never fires and
+                // reorders silently stop committing to `statOrder`. With the
+                // label inert, it (plus the spacer) initiates the row drag; only
+                // the checkbox itself toggles. (Trade-off: clicking the row text
+                // no longer flips the toggle — it drags instead.)
+                HStack(spacing: 8) {
+                    Toggle("", isOn: enabledBinding(kind))
+                        .labelsHidden()
+                    Label(kind.displayName, systemImage: kind.settingsSymbol)
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .onMove { settings.statOrder.move(fromOffsets: $0, toOffset: $1) }
+        }
+        .listStyle(.inset)
+    }
+
+    /// Per-stat display options (D-025): **which** value the tile headlines and
+    /// **how** it is drawn — two orthogonal settings, matching how both reference
+    /// products model this rather than one flat combined enum.
+    @ViewBuilder
+    private var optionsPane: some View {
+        if let kind = selected {
+            Form {
+                Section(kind.displayName) {
+                    if let pair = kind.valuePair {
+                        Picker("Value", selection: valueModeBinding(kind)) {
+                            ForEach(TileValueMode.allCases) { mode in
+                                Text(mode.displayName(pair: pair)).tag(mode)
+                            }
+                        }
+                    }
+
+                    if kind.supportsGraph {
+                        Picker("Strip", selection: styleBinding(kind)) {
+                            ForEach(TileStyle.allCases) { style in
+                                Text(style.displayName).tag(style)
+                            }
+                        }
+                        Text("The detail card always shows the graph.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+
+                    if kind.valuePair == nil && !kind.supportsGraph {
+                        Text("This stat has a single value and no history to plot.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .formStyle(.grouped)
+        } else {
+            VStack {
+                Spacer()
+                Text("Select a stat")
+                    .font(.callout).foregroundStyle(.secondary)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
     private func enabledBinding(_ kind: StatKind) -> Binding<Bool> {
         Binding(get: { settings.isEnabled(kind) },
                 set: { settings.setEnabled(kind, $0) })
+    }
+
+    private func valueModeBinding(_ kind: StatKind) -> Binding<TileValueMode> {
+        Binding(get: { settings.valueMode(kind) },
+                set: { settings.setValueMode(kind, $0) })
+    }
+
+    private func styleBinding(_ kind: StatKind) -> Binding<TileStyle> {
+        Binding(get: { settings.style(kind) },
+                set: { settings.setStyle(kind, $0) })
     }
 }
 

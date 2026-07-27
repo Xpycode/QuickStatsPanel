@@ -33,7 +33,9 @@ struct NetworkSample: Equatable, Sendable {
     var downFormatted: String { Self.rate(downBytesPerSec) }
     var upFormatted: String { Self.rate(upBytesPerSec) }
 
-    private static func rate(_ bytesPerSec: Double) -> String {
+    /// Internal (not private) so the graph legend can format a peak rate with the
+    /// exact same units as the tile value it sits beneath.
+    static func rate(_ bytesPerSec: Double) -> String {
         // Mirror DiskSample: allowsNonnumericFormatting = NO so idle reads "0 KB/s"
         // rather than ByteCountFormatter's spelled-out "Zero KB/s".
         let f = ByteCountFormatter()

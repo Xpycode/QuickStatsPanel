@@ -46,6 +46,17 @@ struct Theme: Sendable {
         var calm: Color
         var busy: Color
         var hot: Color
+        /// The two activity-graph series colors (D-025). Deliberately **not** the
+        /// calm/busy/hot band colors: those carry *severity* meaning, and painting
+        /// Download green while Upload is red would assert that uploading is bad.
+        /// These are neutral series identities with no status semantics.
+        ///
+        /// Mono sets both to the same neutral tint — in the mirrored two-series
+        /// form the series are told apart by which side of the baseline they sit
+        /// on, so position carries the distinction and no hue is required (the
+        /// same non-color-cue reasoning as the `weight(for:)` severity ramp).
+        var graphPrimary: Color
+        var graphSecondary: Color
     }
 
     /// Layout density knobs (font/spacing/radius). Panel **height is NOT here** —
@@ -140,7 +151,9 @@ struct Theme: Sendable {
                 primaryText:   .dynamic(light: .black, dark: .white),
                 secondaryText: .dynamic(light: .black.opacity(0.55), dark: .white.opacity(0.55)),
                 divider:       .dynamic(light: .black.opacity(0.12), dark: .white.opacity(0.12)),
-                calm: .green, busy: .yellow, hot: .red
+                calm: .green, busy: .yellow, hot: .red,
+                graphPrimary:   Color(red: 1.00, green: 0.35, blue: 0.65),   // upper series
+                graphSecondary: Color(red: 0.35, green: 0.65, blue: 1.00)    // lower series
             ),
             metrics: makeMetrics(density: .comfortable, cornerRadius: 12),
             fonts:   makeFonts(density: .comfortable),
@@ -159,7 +172,12 @@ struct Theme: Sendable {
                 secondaryText: .dynamic(light: .black.opacity(0.5), dark: .white.opacity(0.5)),
                 divider:       .dynamic(light: .black.opacity(0.1), dark: .white.opacity(0.1)),
                 // Suppressed at render time, but defined so `color(for:)` is total.
-                calm: neutral, busy: neutral, hot: neutral
+                calm: neutral, busy: neutral, hot: neutral,
+                // Same tint for both series: the mirror axis distinguishes them.
+                // The lower series is drawn slightly softer so a single-glance
+                // read still separates them without introducing hue.
+                graphPrimary:   neutral,
+                graphSecondary: neutral.opacity(0.55)
             ),
             metrics: makeMetrics(density: .compact, cornerRadius: 8),
             fonts:   makeFonts(density: .compact),
@@ -178,7 +196,9 @@ struct Theme: Sendable {
                 divider:       .dynamic(light: .black.opacity(0.14), dark: .white.opacity(0.14)),
                 calm: Color(red: 0.30, green: 0.85, blue: 0.45),
                 busy: Color(red: 1.00, green: 0.78, blue: 0.20),
-                hot:  Color(red: 1.00, green: 0.30, blue: 0.30)
+                hot:  Color(red: 1.00, green: 0.30, blue: 0.30),
+                graphPrimary:   Color(red: 0.98, green: 0.40, blue: 0.62),
+                graphSecondary: Color(red: 0.30, green: 0.62, blue: 0.98)
             ),
             metrics: makeMetrics(density: .comfortable, cornerRadius: 12),
             fonts:   makeFonts(density: .comfortable),
@@ -199,7 +219,9 @@ struct Theme: Sendable {
                 divider:       Color(red: 0.0, green: 1.0, blue: 0.85).opacity(0.18),
                 calm: Color(red: 0.20, green: 1.00, blue: 0.80),
                 busy: Color(red: 1.00, green: 0.85, blue: 0.20),
-                hot:  Color(red: 1.00, green: 0.25, blue: 0.55)
+                hot:  Color(red: 1.00, green: 0.25, blue: 0.55),
+                graphPrimary:   Color(red: 0.20, green: 1.00, blue: 0.80),
+                graphSecondary: Color(red: 0.65, green: 0.45, blue: 1.00)
             ),
             metrics: makeMetrics(density: .comfortable, cornerRadius: 12),
             fonts:   makeFonts(density: .comfortable),
@@ -222,7 +244,13 @@ struct Theme: Sendable {
                 divider:       accent.opacity(0.14),
                 // Custom keeps the standard semantic bands; only the surface/accent
                 // are user-driven for now (per-band custom colors are out of scope).
-                calm: .green, busy: .yellow, hot: .red
+                calm: .green, busy: .yellow, hot: .red,
+                // **Derived**, not stored. Adding two color fields to `ThemeData`
+                // would change the persisted custom-theme JSON and require a
+                // migration for anyone who already saved one; deriving from the
+                // accent the user already picked costs nothing and stays on-theme.
+                graphPrimary:   accent,
+                graphSecondary: accent.opacity(0.5)
             ),
             metrics: makeMetrics(density: data.density, cornerRadius: CGFloat(data.cornerRadius)),
             fonts:   makeFonts(density: data.density),

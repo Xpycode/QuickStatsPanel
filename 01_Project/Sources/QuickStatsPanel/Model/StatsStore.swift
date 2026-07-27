@@ -25,6 +25,51 @@ final class StatsStore {
     var topProcesses: TopProcessesSample = .empty
     private(set) var isRunning = false
 
+    // MARK: - History (D-025)
+
+    /// How much past to keep for the activity graphs.
+    static let historyDuration: TimeInterval = 60
+
+    /// Retained sample count — **derived from the duration and the user's refresh
+    /// interval, never a fixed number**. At 0.5 s the buffer holds 120 samples for
+    /// the same minute of history; at 5 s it holds 12. A hardcoded count would
+    /// silently mean "two minutes" or "five seconds" depending on the slider.
+    private static func historyCapacity(interval: TimeInterval) -> Int {
+        Int((historyDuration / max(interval, 0.1)).rounded(.up))
+    }
+
+    // Whole samples, not extracted numbers, so switching a tile's value mode
+    // re-plots the history already collected (see `RingBuffer`).
+    private(set) var cpuHistory = RingBuffer<CPUSample>(capacity: 1)
+    private(set) var memoryHistory = RingBuffer<MemorySample>(capacity: 1)
+    private(set) var diskHistory = RingBuffer<DiskSample>(capacity: 1)
+    private(set) var networkHistory = RingBuffer<NetworkSample>(capacity: 1)
+    private(set) var gpuHistory = RingBuffer<GPUSample>(capacity: 1)
+
+    /// Per-series peak memory for `.perSeriesPeak` graphs, in the same shape as
+    /// `lastBands` below: `@ObservationIgnored` because it is scale bookkeeping
+    /// written *during* a body read, and tracking it would risk a render loop.
+    @ObservationIgnored private var lastPeaks: [String: Double] = [:]
+
+    /// Resolve the value that maps to a full-height bar for one graph series,
+    /// remembering it so `PeakStrategy` can smooth or ratchet across ticks.
+    ///
+    /// ⚠️ Called from `visibleStats`, which runs in **every** body pass that reads
+    /// it — currently the strip *and* the open detail card, so twice per tick, and
+    /// more if a view re-renders for an unrelated reason. The two strategies that
+    /// are idempotent in `previous` (plain window max, and `max` for a session
+    /// peak) are unaffected. A **decaying** peak is not: it would fall once per
+    /// render rather than once per sample, so its rate would depend on how many
+    /// panels happen to be open. Decay needs a tick counter or a timestamp, not a
+    /// per-call step.
+    func graphPeak(_ kind: StatKind, series: String, windowMax: Double) -> Double {
+        let key = "\(kind.rawValue).\(series)"
+        let resolved = PeakStrategy.resolve(windowMax: windowMax,
+                                            previous: lastPeaks[key] ?? 0)
+        lastPeaks[key] = resolved
+        return resolved
+    }
+
     private var cpuSampler: CPUSampler?
     private var memorySampler: MemorySampler?
     private var diskSampler: DiskSampler?
@@ -69,23 +114,50 @@ final class StatsStore {
         // re-reads it after the user changes the interval).
         let interval = AppSettings.shared.interval
 
+        // Rebuild the history buffers for this interval. This also **clears** them,
+        // which is the point: `restart()` runs on an interval change, and splicing
+        // points sampled 1 s apart onto points sampled 5 s apart would draw a graph
+        // whose x-axis silently changes scale partway across.
+        let capacity = Self.historyCapacity(interval: interval)
+        cpuHistory = RingBuffer(capacity: capacity)
+        memoryHistory = RingBuffer(capacity: capacity)
+        diskHistory = RingBuffer(capacity: capacity)
+        networkHistory = RingBuffer(capacity: capacity)
+        gpuHistory = RingBuffer(capacity: capacity)
+        lastPeaks.removeAll()   // peaks belong to the discarded time base too
+
         let cpu = CPUSampler(interval: interval) { [weak self] sample in
-            Task { @MainActor in self?.cpu = sample }
+            Task { @MainActor in
+                self?.cpu = sample
+                self?.cpuHistory.append(sample)
+            }
         }
         let mem = MemorySampler(interval: interval) { [weak self] sample in
-            Task { @MainActor in self?.memory = sample }
+            Task { @MainActor in
+                self?.memory = sample
+                self?.memoryHistory.append(sample)
+            }
         }
         let disk = DiskSampler(interval: interval) { [weak self] sample in
-            Task { @MainActor in self?.disk = sample }
+            Task { @MainActor in
+                self?.disk = sample
+                self?.diskHistory.append(sample)
+            }
         }
         let net = NetworkSampler(interval: interval) { [weak self] sample in
-            Task { @MainActor in self?.network = sample }
+            Task { @MainActor in
+                self?.network = sample
+                self?.networkHistory.append(sample)
+            }
         }
         let battery = BatterySampler(interval: interval) { [weak self] sample in
             Task { @MainActor in self?.battery = sample }
         }
         let gpu = GPUSampler(interval: interval) { [weak self] sample in
-            Task { @MainActor in self?.gpu = sample }
+            Task { @MainActor in
+                self?.gpu = sample
+                self?.gpuHistory.append(sample)
+            }
         }
         let fan = FanSampler(interval: interval) { [weak self] sample in
             Task { @MainActor in self?.fan = sample }

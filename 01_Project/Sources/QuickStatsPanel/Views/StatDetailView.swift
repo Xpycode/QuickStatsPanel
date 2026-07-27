@@ -15,6 +15,11 @@ struct StatDetailView: View {
     let store: StatsStore
     let kind: StatKind
 
+    /// Card graph geometry. Wide enough for roughly a minute of 2pt bars — the
+    /// same buffer the 34pt strip slot shows only the tail of.
+    private static let graphWidth: CGFloat = 220
+    private static let graphHeight: CGFloat = 44
+
     var body: some View {
         let theme = AppSettings.shared.theme
         // Tolerate the stat vanishing while open (e.g. battery unplugged) by
@@ -35,6 +40,22 @@ struct StatDetailView: View {
     @ViewBuilder
     private func content(_ descriptor: StatDescriptor, theme: Theme) -> some View {
         VStack(alignment: .leading, spacing: 6) {
+            // Activity graph (D-025). Present whenever the stat keeps history —
+            // the per-stat *style* setting governs the strip only, where width is
+            // scarce; the card always has room, matching iStat, whose dropdown
+            // always carries the graph regardless of the menu-bar element.
+            //
+            // Fixed size on purpose: `DetailPanelController` measures this card
+            // exactly once when it opens, so a graph that grew with its sample
+            // count would be clipped for the rest of the card's life.
+            if let graph = descriptor.graph {
+                ActivityGraphView(data: graph,
+                                  width: Self.graphWidth,
+                                  height: Self.graphHeight)
+                ActivityGraphLegend(data: graph)
+                Divider().padding(.vertical, 2)
+            }
+
             ForEach(descriptor.detail, id: \.0) { row in
                 HStack {
                     Text(row.0)

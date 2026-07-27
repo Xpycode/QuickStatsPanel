@@ -68,6 +68,9 @@ struct StatDescriptor: Identifiable {
     let detail: [(String, String)]
     /// Optional iStat-Menus-style "top processes" list shown beneath `detail`.
     let processSection: ProcessSection?
+    /// Activity history for this stat, already scaled (D-025). `nil` for stats
+    /// that keep no history — a graph of free disk space is a flat line.
+    let graph: GraphData?
 
     /// Status band for this reading, resolved in `visibleStats` with hysteresis.
     /// Drives the non-color severity cue (font-weight ramp) so "hot" is legible in
@@ -92,7 +95,9 @@ struct StatDescriptor: Identifiable {
     init(kind: StatKind, symbol: String, value: String, widestValue: String,
          secondaryValue: String? = nil, widestSecondaryValue: String? = nil,
          loadPercent: Double, detail: [(String, String)],
-         processSection: ProcessSection? = nil) {
+         processSection: ProcessSection? = nil,
+         graph: GraphData? = nil) {
+        self.graph = graph
         self.kind = kind
         self.symbol = symbol
         self.value = value
@@ -146,6 +151,54 @@ extension StatsStore {
                                                            reservedRows: Self.topProcessRows)
     }
 
+    // MARK: - Value mode (D-025)
+
+    /// Resolve a stat's two candidate values against the user's chosen mode into
+    /// the primary/secondary slots `StatTileView` renders.
+    ///
+    /// Markers ("U", "F", "↓") appear **only** in the combined modes: with two
+    /// numbers side by side "16,85 GB  617,24 GB" is ambiguous, while a lone value
+    /// is unambiguous by construction — so single-value modes stay exactly as
+    /// narrow as they are today.
+    private func resolved(_ kind: StatKind, _ first: TileValue, _ second: TileValue)
+    -> (value: String, widest: String, secondary: String?, widestSecondary: String?) {
+        let mode = AppSettings.shared.valueMode(kind)
+        let combined = mode.isCombined
+        switch mode {
+        case .both:
+            return (first.rendered(combined: combined), first.renderedWidest(combined: combined),
+                    second.rendered(combined: combined), second.renderedWidest(combined: combined))
+        case .bothReversed:
+            return (second.rendered(combined: combined), second.renderedWidest(combined: combined),
+                    first.rendered(combined: combined), first.renderedWidest(combined: combined))
+        case .first:
+            return (first.rendered(combined: false), first.renderedWidest(combined: false), nil, nil)
+        case .second:
+            return (second.rendered(combined: false), second.renderedWidest(combined: false), nil, nil)
+        }
+    }
+
+    // MARK: - Graph construction (D-025)
+
+    /// A percentage series against the implicit 0–100 ceiling. No legend peak —
+    /// printing "Peak 100%" would state the axis, not a measurement.
+    private func percentSeries(_ values: [Double], label: String) -> GraphSeries {
+        GraphSeries(values: values, label: label, marker: "",
+                    peak: 100, peakFormatted: nil)
+    }
+
+    /// A byte-rate series normalized to its own rolling peak, which the legend
+    /// then prints. Each series gets its own peak: on a link doing 34 MB/s down
+    /// and 124 KB/s up, a shared scale would flatten the upload series into the
+    /// baseline and show nothing at all.
+    private func rateSeries(_ values: [Double], kind: StatKind, key: String,
+                            label: String, marker: String) -> GraphSeries {
+        let windowMax = values.max() ?? 0
+        let peak = graphPeak(kind, series: key, windowMax: windowMax)
+        return GraphSeries(values: values, label: label, marker: marker,
+                           peak: peak, peakFormatted: NetworkSample.rate(peak))
+    }
+
     private func descriptor(for kind: StatKind) -> StatDescriptor? {
         switch kind {
         case .cpu:
@@ -167,16 +220,37 @@ extension StatsStore {
                 loadPercent: cpu.totalUsagePercent,
                 detail: cpuDetail,
                 processSection: section("Top by CPU",
-                                        topProcesses.cpuRows(Self.topProcessRows)))
+                                        topProcesses.cpuRows(Self.topProcessRows)),
+                graph: GraphData(
+                    upper: percentSeries(cpuHistory.elements.map(\.totalUsagePercent),
+                                         label: "CPU"),
+                    lower: nil))
 
         case .memory:
+            let mem = resolved(.memory,
+                               TileValue(label: "Used", marker: "U",
+                                         text: memory.usedFormatted, widest: "888,88 GB"),
+                               TileValue(label: "Free", marker: "F",
+                                         text: memory.freeFormatted, widest: "888,88 GB"))
+            // Plot used *as a share of total*, matching the headline. Pressure has
+            // its own detail row and a different meaning — a Mac can sit at 90%
+            // used with low pressure, so graphing pressure under a "Used" headline
+            // would draw a line that contradicts the number above it.
+            let memoryUsage = memoryHistory.elements.map { sample -> Double in
+                sample.totalBytes > 0
+                    ? Double(sample.usedBytes) / Double(sample.totalBytes) * 100
+                    : 0
+            }
             return StatDescriptor(
                 kind: .memory, symbol: "memorychip",
-                value: memory.usedFormatted,
-                widestValue: "888,88 GB",
+                value: mem.value,
+                widestValue: mem.widest,
+                secondaryValue: mem.secondary,
+                widestSecondaryValue: mem.widestSecondary,
                 loadPercent: memory.pressurePercent,
                 detail: [
                     ("Used", memory.usedFormatted),
+                    ("Free", memory.freeFormatted),
                     ("App", memory.appFormatted),
                     ("Wired", memory.wiredFormatted),
                     ("Compressed", memory.compressedFormatted),
@@ -184,13 +258,26 @@ extension StatsStore {
                     ("Pressure", "\(Int(memory.pressurePercent.rounded()))%"),
                 ],
                 processSection: section("Top by memory",
-                                        topProcesses.memoryRows(Self.topProcessRows)))
+                                        topProcesses.memoryRows(Self.topProcessRows)),
+                graph: GraphData(upper: percentSeries(memoryUsage, label: "Used"),
+                                 lower: nil))
 
         case .disk:
+            let dsk = resolved(.disk,
+                               TileValue(label: "Free", marker: "F",
+                                         text: disk.freeFormatted, widest: "888,88 GB"),
+                               TileValue(label: "Used", marker: "U",
+                                         text: disk.usedFormatted, widest: "888,88 GB"))
+            // The graph plots **I/O throughput**, not capacity: capacity moves in
+            // gigabytes per hour and would draw a flat line at this timescale.
+            // Read above the baseline, Write below — matching iStat's arrangement.
+            let diskSamples = diskHistory.elements
             return StatDescriptor(
                 kind: .disk, symbol: "internaldrive",
-                value: disk.freeFormatted,             // headline: free space
-                widestValue: "888,88 GB",
+                value: dsk.value,
+                widestValue: dsk.widest,
+                secondaryValue: dsk.secondary,
+                widestSecondaryValue: dsk.widestSecondary,
                 loadPercent: disk.usedPercent,         // color: fuller = hotter
                 detail: [
                     ("Used", disk.usedFormatted),
@@ -198,7 +285,14 @@ extension StatsStore {
                     ("Total", disk.totalFormatted),
                     ("Read", disk.readFormatted),       // live I/O throughput
                     ("Write", disk.writeFormatted),
-                ])
+                ],
+                graph: GraphData(
+                    upper: rateSeries(diskSamples.map(\.readBytesPerSec),
+                                      kind: .disk, key: "read",
+                                      label: "Read", marker: "R"),
+                    lower: rateSeries(diskSamples.map(\.writeBytesPerSec),
+                                      kind: .disk, key: "write",
+                                      label: "Write", marker: "W")))
                 // No per-process "Top by disk I/O": `top` has no per-process disk
                 // column, and the entitled API behind Activity Monitor's Disk tab
                 // isn't available to us. Disk shows aggregate Read/Write only.
@@ -212,14 +306,30 @@ extension StatsStore {
             // No public IP by design — that would need an external request.
             if let name = network.interfaceName { networkDetail.append(("Interface", name)) }
             if let ip = network.localIP { networkDetail.append(("Local IP", ip)) }
+            // Network shipped showing both directions, so its markers are the
+            // arrows it already used — `.both` here reproduces the current strip
+            // byte for byte, and the other modes trade a direction for width.
+            let net = resolved(.network,
+                               TileValue(label: "Down", marker: "↓",
+                                         text: network.downFormatted, widest: "888 MB/s"),
+                               TileValue(label: "Up", marker: "↑",
+                                         text: network.upFormatted, widest: "888 MB/s"))
+            let netSamples = networkHistory.elements
             return StatDescriptor(
                 kind: .network, symbol: "network",
-                value: "↓ " + network.downFormatted,   // both directions at a glance —
-                widestValue: "↓ 888 MB/s",
-                secondaryValue: "↑ " + network.upFormatted,  // no click needed for upload
-                widestSecondaryValue: "↑ 888 MB/s",
+                value: net.value,
+                widestValue: net.widest,
+                secondaryValue: net.secondary,
+                widestSecondaryValue: net.widestSecondary,
                 loadPercent: network.activityPercent,  // color: busier link = hotter
-                detail: networkDetail)
+                detail: networkDetail,
+                graph: GraphData(
+                    upper: rateSeries(netSamples.map(\.upBytesPerSec),
+                                      kind: .network, key: "up",
+                                      label: "Up", marker: "↑"),
+                    lower: rateSeries(netSamples.map(\.downBytesPerSec),
+                                      kind: .network, key: "down",
+                                      label: "Down", marker: "↓")))
 
         case .battery:
             // Portables only — IOKit reports no source on desktop Macs.
@@ -256,7 +366,11 @@ extension StatsStore {
                 value: gpu.percentFormatted,            // headline: GPU load %
                 widestValue: "100%",
                 loadPercent: gpu.utilizationPercent,    // color: busier = hotter
-                detail: detail)
+                detail: detail,
+                graph: GraphData(
+                    upper: percentSeries(gpuHistory.elements.map(\.utilizationPercent),
+                                         label: "GPU"),
+                    lower: nil))
 
         case .fan:
             // Hidden on fanless Macs (FNum == 0) or SMC read failure.

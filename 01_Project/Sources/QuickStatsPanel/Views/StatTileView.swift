@@ -26,9 +26,25 @@ struct StatTileView: View {
     let band: Band
     /// Resolved status color for the icon (neutral under Mono).
     let tint: Color
+    /// How this tile draws (D-025). `.text` is the shipped appearance.
+    var style: TileStyle = .text
+    /// Activity history, when the stat keeps any. Ignored unless `style` asks
+    /// for a graph.
+    var graph: GraphData? = nil
     /// Called when the tile is clicked, so the owner can toggle this stat's detail
     /// card. The owner anchors the card and pulls live detail rows from the store.
     let onTap: () -> Void
+
+    /// Strip graph slot. Constant, deliberately: deriving the width from the
+    /// sample count would make the strip grow for the first minute after launch.
+    static let stripGraphWidth: CGFloat = 34
+
+    /// Graph height tracks the user's strip-height slider (D-006's 22–44pt range)
+    /// so the graph stays proportionate, with a floor that keeps a mirrored pair
+    /// legible — below ~12pt each half is too short to read.
+    static var stripGraphHeight: CGFloat {
+        min(max(AppSettings.shared.stripHeight - 14, 12), 26)
+    }
 
     var body: some View {
         let theme = AppSettings.shared.theme
@@ -40,24 +56,37 @@ struct StatTileView: View {
                     .foregroundStyle(tint)
                     // Fixed width so the icon's weight ramp can't shift the value.
                     .frame(width: 16, alignment: .center)
-                // Hidden template reserves the worst-case width at the *heaviest*
-                // weight; the visible value rides on top with its current weight
-                // (never wider), so the field holds size as value AND band change.
-                ZStack(alignment: .leading) {
-                    Text(widestValue).fontWeight(.heavy).hidden()
-                    Text(value).fontWeight(weight)
-                }
-                .font(theme.fonts.value)
-                .foregroundStyle(theme.colors.primaryText)
-                // Second section (e.g. upload) in its own reserved slot, so the
-                // down/up fields can't push each other around as digits change.
-                if let secondaryValue, let widestSecondaryValue {
+                if style.showsText {
+                    // Hidden template reserves the worst-case width at the *heaviest*
+                    // weight; the visible value rides on top with its current weight
+                    // (never wider), so the field holds size as value AND band change.
                     ZStack(alignment: .leading) {
-                        Text(widestSecondaryValue).fontWeight(.heavy).hidden()
-                        Text(secondaryValue).fontWeight(weight)
+                        Text(widestValue).fontWeight(.heavy).hidden()
+                        Text(value).fontWeight(weight)
                     }
                     .font(theme.fonts.value)
                     .foregroundStyle(theme.colors.primaryText)
+                    // Second section (e.g. upload) in its own reserved slot, so the
+                    // down/up fields can't push each other around as digits change.
+                    if let secondaryValue, let widestSecondaryValue {
+                        ZStack(alignment: .leading) {
+                            Text(widestSecondaryValue).fontWeight(.heavy).hidden()
+                            Text(secondaryValue).fontWeight(weight)
+                        }
+                        .font(theme.fonts.value)
+                        .foregroundStyle(theme.colors.primaryText)
+                    }
+                }
+                // Graph slot: a **constant** width, so accumulating history can
+                // never widen the tile and shift every tile beside it (D-008).
+                // Thinner bars than the detail card — 34pt has to show a useful
+                // stretch of time, not six fat columns.
+                if style.showsGraph, let graph {
+                    ActivityGraphView(data: graph,
+                                      width: Self.stripGraphWidth,
+                                      height: Self.stripGraphHeight,
+                                      barWidth: 1,
+                                      barGap: 0.5)
                 }
             }
             .contentShape(Rectangle())

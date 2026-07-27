@@ -24,6 +24,17 @@ struct MemorySample: Equatable, Sendable {
         ByteCountFormatter.string(fromByteCount: Int64(totalBytes), countStyle: .memory)
     }
 
+    /// Memory not currently in use. Derived rather than sampled — the same
+    /// `total − used` relation `DiskSample` uses — so it can never disagree with
+    /// the "Used" figure sitting next to it in the tile. Guarded against
+    /// underflow: both operands are unsigned, and a stale `totalBytes` of 0 on the
+    /// `.empty` sample would otherwise wrap to 16 exabytes.
+    var freeBytes: UInt64 { totalBytes > usedBytes ? totalBytes - usedBytes : 0 }
+
+    var freeFormatted: String {
+        ByteCountFormatter.string(fromByteCount: Int64(freeBytes), countStyle: .memory)
+    }
+
     var appFormatted: String {
         ByteCountFormatter.string(fromByteCount: Int64(appBytes), countStyle: .memory)
     }

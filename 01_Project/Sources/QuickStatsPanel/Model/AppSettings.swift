@@ -39,6 +39,22 @@ final class AppSettings {
         didSet { persistEnabledStats(); onStatsChanged?() }
     }
 
+    // MARK: - Per-stat tile configuration (D-025)
+
+    /// Which value each stat headlines. Sparse on purpose — a stat absent here
+    /// uses `StatKind.defaultValueMode`, so the stored dictionary only ever holds
+    /// choices the user actually made, and changing a default in a later version
+    /// reaches everyone who never overrode it.
+    var tileValueModes: [StatKind: TileValueMode] {
+        didSet { persistTileValueModes(); onStatsChanged?() }
+    }
+
+    /// How each stat is drawn in the strip (text / text + graph / graph only).
+    /// Sparse for the same reason; absent ⇒ `.text`, today's appearance.
+    var tileStyles: [StatKind: TileStyle] {
+        didSet { persistTileStyles(); onStatsChanged?() }
+    }
+
     // MARK: - Sampling
 
     /// Seconds between sampler refreshes. Slider-bounded to a sane range in the UI.
@@ -218,6 +234,15 @@ final class AppSettings {
         // Record that the user has now "seen" every current stat.
         defaults.set(StatKind.allCases.map(\.rawValue), forKey: Keys.knownStats)
 
+        // Per-stat tile config: stored as [rawValue: rawValue] string maps. Both
+        // keys and values `compactMap` through their initializers, so an entry
+        // written by a future version (a stat or mode this build doesn't know) is
+        // dropped rather than crashing — same tolerance as `statOrder` above.
+        self.tileValueModes = Self.decodeMap(defaults.dictionary(forKey: Keys.tileValueModes),
+                                             TileValueMode.init(rawValue:))
+        self.tileStyles = Self.decodeMap(defaults.dictionary(forKey: Keys.tileStyles),
+                                         TileStyle.init(rawValue:))
+
         let storedInterval = defaults.double(forKey: Keys.interval)
         self.interval = storedInterval > 0 ? storedInterval : 1.0
 
@@ -294,6 +319,28 @@ final class AppSettings {
         if on { enabledStats.insert(kind) } else { enabledStats.remove(kind) }
     }
 
+    /// The value mode in force for `kind` — the user's choice, else the stat's
+    /// default (which reproduces the strip as it shipped).
+    func valueMode(_ kind: StatKind) -> TileValueMode {
+        tileValueModes[kind] ?? kind.defaultValueMode
+    }
+
+    func setValueMode(_ kind: StatKind, _ mode: TileValueMode) {
+        tileValueModes[kind] = mode
+    }
+
+    /// The strip style in force for `kind`. Stats that can't draw a graph are
+    /// pinned to `.text` regardless of what's stored, so a style left behind by
+    /// disabling a graph can never blank a tile.
+    func style(_ kind: StatKind) -> TileStyle {
+        guard kind.supportsGraph else { return .text }
+        return tileStyles[kind] ?? .text
+    }
+
+    func setStyle(_ kind: StatKind, _ style: TileStyle) {
+        tileStyles[kind] = style
+    }
+
     // MARK: - Persistence helpers
 
     private func persistStatOrder() {
@@ -302,11 +349,36 @@ final class AppSettings {
     private func persistEnabledStats() {
         defaults.set(enabledStats.map(\.rawValue), forKey: Keys.enabledStats)
     }
+    private func persistTileValueModes() {
+        defaults.set(Self.encodeMap(tileValueModes), forKey: Keys.tileValueModes)
+    }
+    private func persistTileStyles() {
+        defaults.set(Self.encodeMap(tileStyles), forKey: Keys.tileStyles)
+    }
+
+    /// `[StatKind: V]` → `[String: String]` for UserDefaults (plist-safe).
+    private static func encodeMap<V: RawRepresentable>(_ map: [StatKind: V]) -> [String: String]
+    where V.RawValue == String {
+        Dictionary(uniqueKeysWithValues: map.map { ($0.key.rawValue, $0.value.rawValue) })
+    }
+
+    /// The inverse, dropping any key or value this build doesn't recognize.
+    private static func decodeMap<V>(_ raw: [String: Any]?,
+                                     _ make: (String) -> V?) -> [StatKind: V] {
+        guard let raw else { return [:] }
+        return raw.reduce(into: [:]) { result, entry in
+            guard let kind = StatKind(rawValue: entry.key),
+                  let value = (entry.value as? String).flatMap(make) else { return }
+            result[kind] = value
+        }
+    }
 
     private enum Keys {
         static let statOrder      = "statOrder"
         static let enabledStats   = "enabledStats"
         static let knownStats     = "knownStats"
+        static let tileValueModes = "tileValueModes"
+        static let tileStyles     = "tileStyles"
         static let interval       = "interval"
         static let anchor         = "anchor"
         static let customX        = "customPositionX"
