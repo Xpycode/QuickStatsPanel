@@ -6,30 +6,25 @@
 <!-- Ideas and future work. Added by /interview, user input, or discovered during development. -->
 <!-- Priority: top = highest, bottom = lowest -->
 
-_(D-018 Temperatures queued — `ProcessInfo.thermalState` tile + best-effort IOHID per-sensor °C.)_
+The whole stats roadmap has shipped (D-017/D-018/D-019 + D-024). Remaining work is release
+ceremony and two designed-but-unstarted features. Full detail: `PROJECT_STATE.md` backlog.
+
+- [ ] **v1.1.0 release** — D-024's temps/power work has been on `main` since 2026-07-12 but is in
+      no tagged artifact. Notarize → staple → DMG chain is already proven; run `/check ship` first.
+- [ ] **Configurable tiles** — per-stat *value × style*. Designed 2026-07-27, **blocked** on the
+      Settings-UI-placement answer. Chokepoint `Model/StatDescriptor.swift:149`.
+- [ ] **Graphs / sparklines** — designed 2026-07-27, **blocked** on which-stats answer. Needs a new
+      decision entry first: this supersedes D-024's "charts rejected".
+- [ ] **Disk free-space accuracy** — `statfs f_bavail` reads 16.62 GB under Finder (purgeable gap).
+- [ ] **Updater** — SilentUpdateKit (recommended) vs full Sparkle ≥2.9.4.
 
 ## Current Sprint
 <!-- Active work. Populated by /plan or /execute. Keep focused (3-7 tasks). -->
 <!-- When done: /log moves to tasks-archive.md -->
 
-**D-019 Power tile via IOReport** — ✅ **SHIPPED 2026-06-15** (4 waves; commits `5778f09`+`fa713ff`+`0a520bd`+docs). Permission-free CPU·GPU split watts via the un-entitled `IOReport` "Energy Model" channels, hide-when-absent. Decision D-019; plan archived `docs/sessions/IMPLEMENTATION_PLAN-power-DONE.md`.
-
-- [x] T1.1 — Bridging header + `-lIOReport` + `Sampling/IOReport.swift` wrapper *(Wave 1 — validated un-elevated: CPU→~6 W under load, GPU/ANE flat)*
-- [x] T2.1 — `Sampling/PowerSampler.swift` + `PowerSample` (delta-per-tick, session-peak tint) *(Wave 2)*
-- [x] T3.1–3.3 — Wire into strip: `StatKind` `.power` + `StatsStore` sample/sampler + `descriptor(for:)` tile *(Wave 3, one compile unit)*
-- [x] T4 — Clean build (0 warnings), on-screen verify (tile + 5-row detail), migration AC-9 (data-layer), seed/leak paths *(Wave 4)*. **Left to user:** exact `sudo powermetrics` cross-check; **release gate:** `notarytool`+`-lIOReport` (unproven).
-
----
-
-### Shipped (awaiting archive by `/log`)
-
-**D-017 GPU + Fan stats — ✅ DONE** — plan archived: `docs/sessions/IMPLEMENTATION_PLAN-gpu-fan-DONE.md`
-
-- [x] T1.1 — `Sampling/SMC.swift`: read-only AppleSMC reader (flt-correct decode) *(Wave 1)* — verified: FNum=2, F0 range 2317–7826 rpm, flt decode proven sane
-- [x] T1.2 — `Sampling/GPUSampler.swift` + `GPUSample`: IOAccelerator utilization *(Wave 1)* — verified: isAvailable, 15%, AGXAcceleratorG16X (M4 Pro GPU)
-- [x] T2.1 — `Sampling/FanSampler.swift` + `FanSample`: FNum/F0Ac via SMC *(Wave 2)* — `1dc398a`; fastest-fan headline, clamped `loadPercent`
-- [x] T3.1–3.3 — Wire into strip: `StatKind` `.gpu`/`.fan` + `StatsStore` samples/samplers + `descriptor(for:)` tiles *(Wave 3)* — `31bf97f`
-- [x] T4 — Verify on-screen, migration + Settings, hide-paths, doc D-017 *(Wave 4)* — GPU tracks AM; fans 0→2483 rpm under stress; AC-7 verified; AC-2/4 by mechanism
+_Empty — D-019 and D-017 archived to `tasks-archive.md` on 2026-07-27 (both shipped 2026-06-15;
+they sat here for six weeks while D-020→D-024 shipped around them). Next sprint starts once the
+two blocking questions in `PROJECT_STATE.md` → Blockers are answered._
 
 ---
 
