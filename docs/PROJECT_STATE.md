@@ -28,6 +28,7 @@
 - **2026-07-27** — Tiles became configurable and gained activity graphs: each stat can headline a
   different value (or both), and CPU/GPU/Memory/Network/Disk draw a mirrored bar history like
   iStat's, with the peak printed beside it. Defaults leave the strip looking exactly as it did.
+  Same day: this file slimmed back to a digest, its open backlog moved to `TASKS.md`.
 - **2026-07-27** — Research-only day before that: found the app has **no update mechanism at all**,
   that per-tile options were mostly presentation work, and that graphs cost ~30 KB and no extra CPU.
   Also found disk "Free" reads 16.62 GB below Finder because it ignores purgeable space.
@@ -39,34 +40,29 @@
   distributable build was produced.
 
 ## What we're building
-Press a global hotkey → a **thin** horizontally-wide strip appears near the cursor showing live
-stats as compact tiles. Click a tile → detail card. Press again / Esc / click-away → dismiss.
-**No Dock icon, no menu-bar item** — settings and quit live in the panel. Small corner radius
-(deliberately *not* the heavy macOS "Tahoe" rounding).
+Press a global hotkey → a **thin** wide strip appears near the cursor showing live stats as compact
+tiles. Click a tile → detail card. Press again / Esc / click-away → dismiss. **No Dock icon, no
+menu-bar item** — settings and quit live in the panel. Small corner radius (deliberately *not* the
+heavy macOS "Tahoe" rounding).
 
-**Stats roadmap: complete.** Every planned stat ships — CPU, Memory, Disk, Network, Battery, Load,
-Uptime, Top-process, GPU, Fans, Power, Temperatures. Per-stat history graphs added 2026-07-27.
+**Stats roadmap: complete** — CPU, Memory, Disk, Network, Battery, Load, Uptime, Top-process, GPU,
+Fans, Power, Temperatures, plus per-stat history graphs (2026-07-27).
 
 ## Progress
-| Area | State |
-|---|---|
-| Features | ✅ roadmap complete + D-025 |
-| UI | ✅ strip, detail card, 5-pane Settings, themes |
-| Testing | 🔶 on-screen verification; no automated suite |
-| Docs | ✅ README + screenshots, decisions, session logs |
-| Distribution | 🔶 v1.0.0 notarized + released; **v1.1.0 untagged** |
+**Features** ✅ roadmap + D-025 · **UI** ✅ strip, card, 5-pane Settings, themes ·
+**Testing** 🔶 on-screen only, no automated suite · **Docs** ✅ ·
+**Distribution** 🔶 v1.0.0 notarized + released, **v1.1.0 untagged**
 
 ## Detail (read only if needed)
 - **Decisions:** `decisions.md` — D-001…D-025, full rationale for every locked choice. Load-bearing:
   **D-001** HUD `NSPanel` · **D-002** Carbon hotkey, no permissions · **D-003** `LSUIElement` ·
   **D-006** thin strip + click-to-expand · **D-008** content-driven width and fixed-width value
   slots (jitter discipline — read this before touching tile layout) · **D-015** self-drawn card.
-- **Backlog & tasks:** `TASKS.md` — release, updater choice, D-025 tails, disk-accuracy fix,
-  vertical strip, polish items.
+- **Backlog & tasks:** `TASKS.md` — release, updater, D-025 tails, disk accuracy, vertical strip, polish.
 - **Session history:** `sessions/_index.md` → individual logs.
 - **Design briefs:** `02_Design/design-prompts.md` — 6 paste-ready briefs + locked design-values table.
-- **⚠️ App Shell Standard does not apply here** — this is a HUD panel app, not a document/editor
-  app. Don't run `/shell-check` against it expecting HSplitView. See `CLAUDE.md`.
+- **⚠️ App Shell Standard does not apply here** — HUD panel app, not a document/editor app. Don't
+  run `/shell-check` against it expecting HSplitView. See `CLAUDE.md`.
 
 ---
 *Updated by Claude. Source of truth for project position.*
