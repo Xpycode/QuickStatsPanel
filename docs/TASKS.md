@@ -30,11 +30,6 @@ graphs shipped 2026-07-27 (D-025). Remaining work is release ceremony plus the t
       recorded — this repo is public.)
 
 ### D-025 tails
-- [ ] **Graph peak strategy** — `PeakStrategy.resolve` (`Model/StatHistory.swift`) returns plain
-      `windowMax`, so a spike ageing off the left edge rescales every bar at once. Three options
-      documented in-code. ⚠️ A *decaying* one needs a tick counter, not a per-call step: `graphPeak`
-      runs once per **body pass** (strip + open card = twice per tick). Plain-max and session-peak
-      are idempotent and immune.
 - [ ] **Detail-card headline pair** (optional) — the big `61 KB/s / Upload` block from the iStat
       reference. Omitted deliberately: the strip and the card's own rows already show those values.
 - [ ] **Text-template tile values** (power-user escape hatch) — Stats' `$capacity.free/$capacity.total`

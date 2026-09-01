@@ -3,10 +3,14 @@
 > **Completed tasks archive.** Used for progress calculation.
 
 ## Stats
-- **Total archived:** 15
-- **Last updated:** 2026-07-27
+- **Total archived:** 16
+- **Last updated:** 2026-09-01
 
 ## Completed
+
+- [x] **Graph peak strategy** — chose sample-driven 10% decay: peaks rise immediately and fall once
+      per new sample, never once per SwiftUI redraw; repeated strip/detail renders cannot accelerate
+      the scale. Hostless logic tests cover rise, decay, and redraw idempotence. (2026-09-01)
 
 <!-- Newest at top. Added by /log when tasks complete. -->
 <!-- Format: - [x] Task description (YYYY-MM-DD) -->

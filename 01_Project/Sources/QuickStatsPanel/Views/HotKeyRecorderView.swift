@@ -19,9 +19,9 @@ struct HotKeyRecorderView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Text(binding.displayString)
-                .font(.system(.body, design: .monospaced))
-                .frame(minWidth: 64, alignment: .leading)
+            Text(binding.spacedDisplayString)
+                .font(.system(size: 17, weight: .medium, design: .rounded))
+                .frame(minWidth: 92, alignment: .trailing)
                 .foregroundStyle(isRecording ? .secondary : .primary)
 
             Button(isRecording ? "Press a combo… (⎋ cancels)" : "Record") {

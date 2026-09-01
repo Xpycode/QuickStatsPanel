@@ -9,8 +9,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.10"
-    MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "2"
+    MARKETING_VERSION: "1.1.0"
+    CURRENT_PROJECT_VERSION: "3"
     GENERATE_INFOPLIST_FILE: NO
     INFOPLIST_FILE: Sources/QuickStatsPanel/Resources/Info.plist
     CODE_SIGN_ENTITLEMENTS: Sources/QuickStatsPanel/Resources/QuickStatsPanel.entitlements
@@ -55,3 +55,28 @@ targets:
         # symbols resolve from IOKit.framework — hence the explicit -framework IOKit.
         SWIFT_OBJC_BRIDGING_HEADER: Sources/QuickStatsPanel/QuickStatsPanel-Bridging-Header.h
         OTHER_LDFLAGS: -lIOReport -framework IOKit
+
+  QuickStatsPanelTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/QuickStatsPanelTests
+      # Hostless logic tests: importing the SwiftUI @main application as an XCTest
+      # host creates a second NSApplication and crashes before tests bootstrap.
+      # Compile the pure units under test into the bundle instead.
+      - path: Sources/QuickStatsPanel/Model/StatHistory.swift
+      - path: Sources/QuickStatsPanel/Sampling/NetworkSampler.swift
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.sim.QuickStatsPanelTests
+
+schemes:
+  QuickStatsPanel:
+    build:
+      targets:
+        QuickStatsPanel: all
+        QuickStatsPanelTests: [test]
+    test:
+      targets:
+        - QuickStatsPanelTests

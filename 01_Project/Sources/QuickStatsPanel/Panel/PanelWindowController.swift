@@ -59,6 +59,10 @@ final class PanelWindowController {
     /// observer — an exact match means we moved it, anything else is the user.
     private var lastAppliedOrigin: NSPoint?
 
+    /// Guards the native AppKit drag loop. SwiftUI only detects that a drag has
+    /// crossed its small threshold; AppKit then owns cursor tracking until mouse-up.
+    private var nativeDragActive = false
+
     /// Token for the window-move observer, removed on hide.
     private var moveObserver: NSObjectProtocol?
 
@@ -109,6 +113,7 @@ final class PanelWindowController {
         panel = nil
         hosting = nil
         lastAppliedOrigin = nil
+        nativeDragActive = false
         onVisibilityChanged?(false)
     }
 
@@ -123,6 +128,41 @@ final class PanelWindowController {
         panel.setFrame(NSRect(origin: origin, size: size), display: true)
     }
 
+    /// Hand a strip-wide SwiftUI drag to AppKit's native window-drag loop. Updating
+    /// `setFrameOrigin` from every SwiftUI gesture callback lags behind the pointer
+    /// because those callbacks are paced by view rendering. `performDrag` tracks at
+    /// the window server's cadence and returns only after mouse-up.
+    func drag(translation: CGSize, ended: Bool) {
+        if ended {
+            nativeDragActive = false
+            return
+        }
+        guard !nativeDragActive, let panel, let current = NSApp.currentEvent else { return }
+        nativeDragActive = true
+
+        // `performDrag` expects the initiating left-mouse-down event. SwiftUI calls
+        // us on the first dragged event, so synthesize an equivalent mouse-down at
+        // that exact window location, then let AppKit consume the remaining stream.
+        guard let mouseDown = NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: current.locationInWindow,
+            modifierFlags: current.modifierFlags,
+            timestamp: current.timestamp,
+            windowNumber: panel.windowNumber,
+            context: nil,
+            eventNumber: current.eventNumber,
+            clickCount: 1,
+            pressure: current.pressure
+        ) else {
+            nativeDragActive = false
+            return
+        }
+        panel.performDrag(with: mouseDown)
+        let origin = panel.frame.origin
+        lastAppliedOrigin = origin
+        onPanelMoved?(origin)
+    }
+
     // MARK: - Drag tracking
 
     /// Watch for window moves so user drags can be persisted as the custom
@@ -135,6 +175,7 @@ final class PanelWindowController {
         ) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self, let panel = self.panel else { return }
+                guard !self.nativeDragActive else { return }
                 let origin = panel.frame.origin
                 // Ignore our own `setFrame` echoes; only report genuine user drags.
                 if origin == self.lastAppliedOrigin { return }

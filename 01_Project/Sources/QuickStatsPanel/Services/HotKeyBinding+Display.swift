@@ -52,6 +52,19 @@ extension HotKeyService.Binding {
         return s
     }
 
+    /// Settings-friendly form with thin spaces between symbols (`⌃ ⌥ ⌘ Q`).
+    /// The compact form above stays appropriate in the narrow first-run hint;
+    /// recorder rows have room to favor recognition over density.
+    var spacedDisplayString: String {
+        var parts: [String] = []
+        if modifiers & UInt32(controlKey) != 0 { parts.append("⌃") }
+        if modifiers & UInt32(optionKey)  != 0 { parts.append("⌥") }
+        if modifiers & UInt32(shiftKey)   != 0 { parts.append("⇧") }
+        if modifiers & UInt32(cmdKey)     != 0 { parts.append("⌘") }
+        parts.append(Self.keyLabel(for: keyCode))
+        return parts.joined(separator: "\u{2009}")
+    }
+
     /// Best-effort label for a Carbon virtual key code. Covers the keys most
     /// people pick for a hotkey; anything else falls back to a numeric tag.
     private static func keyLabel(for code: UInt32) -> String {

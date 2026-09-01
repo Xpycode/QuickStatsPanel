@@ -125,17 +125,19 @@ enum PeakStrategy {
     ///      detail on quiet traffic; suffers the phantom rescale above, and an
     ///      idle graph looks identical to a saturated one.
     ///   2. **Decaying peak** — fall gradually toward `windowMax` instead of
-    ///      snapping, e.g. `windowMax >= previous ? windowMax
-    ///      : previous * 0.9 + windowMax * 0.1`. No phantom surge; the scale
-    ///      reads slightly high for a second or two after a spike ends.
+    ///      snapping. No phantom surge; the scale reads slightly high briefly
+    ///      after a spike ends.
     ///   3. **Session peak** — `max(windowMax, previous)`. Fully stable and
     ///      comparable across a whole session (this is what `PowerSampler`
     ///      already does for `loadPercent`); but one 900 MB/s burst flattens
     ///      everything after it into a floor-hugging line.
     ///
-    /// Currently option 1, so the feature builds and can be judged on screen.
-    static func resolve(windowMax: Double, previous: Double) -> Double {
-        // TODO(user): pick a strategy from the three above and replace this line.
-        windowMax
+    /// The chosen behavior is option 2. `advanced` is true exactly once per new
+    /// sample, never once per SwiftUI body evaluation, so opening a detail card
+    /// cannot make the scale decay faster.
+    static func resolve(windowMax: Double, previous: Double, advanced: Bool = true) -> Double {
+        guard advanced else { return max(windowMax, previous) }
+        guard previous > 0, windowMax < previous else { return windowMax }
+        return max(windowMax, previous * 0.9)
     }
 }

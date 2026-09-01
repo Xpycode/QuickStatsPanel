@@ -10,6 +10,10 @@ struct StatsStripView: View {
     /// Toggles the flat detail card for the tapped stat (handled by AppDelegate,
     /// which owns the DetailPanelController and anchors the card to the strip).
     var onTileTap: (StatKind) -> Void
+    /// Moves the panel from a strip-wide drag gesture. AppKit's
+    /// `isMovableByWindowBackground` does not receive drags swallowed by a SwiftUI
+    /// hosting view, so the gesture is forwarded to the window controller.
+    var onDrag: (CGSize, Bool) -> Void
 
     var body: some View {
         // Data-driven: the store maps its live samples to an ordered, availability-
@@ -51,6 +55,11 @@ struct StatsStripView: View {
                 .fill(theme.colors.background)
         )
         .clipShape(RoundedRectangle(cornerRadius: theme.metrics.cornerRadius, style: .continuous))
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 3, coordinateSpace: .global)
+                .onChanged { onDrag($0.translation, false) }
+                .onEnded { onDrag($0.translation, true) }
+        )
     }
 
     /// Leading pinned ("Keep on Screen") indicator. A *reserved inline slot*, not a

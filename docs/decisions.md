@@ -293,3 +293,24 @@ This file tracks the WHY behind technical and design decisions.
 - **The style setting governs the strip only.** The detail card always shows the graph for a graph-capable stat, matching iStat (whose dropdown always carries it) — the strip is where width is scarce, the card is not.
 **Consequences:** New `Model/TileMetric.swift`, `Model/StatHistory.swift`, `Views/ActivityGraphView.swift`. Touched `AppSettings` (two sparse persisted maps, rawValue-string idiom), `StatsStore` (5 ring buffers + peak memory), `StatDescriptor` (value-mode resolution + graph construction), `Theme` (2 tokens × 5 presets), `StatTileView`/`StatsStripView`/`StatDetailView`/`SettingsView`/`SettingsWindowController`, plus `MemorySample.freeBytes` (derived `total − used`, underflow-guarded) and the rate formatters on Network/Disk made internal so the legend formats peaks in the tile's own units. Detail cards for CPU/GPU/Memory/Network/Disk are now wider (fixed 220pt graph) — the sized-once-per-open contract is preserved because the graph geometry is constant.
 **Status:** ✅ Builds clean, **0 Swift warnings**. ⏳ Not yet verified on screen; peak strategy still an open user decision.
+
+### 2026-09-01 - D-026: v1.1 stabilization — physical network totals, sample-clocked graph decay, native panel drag
+**Context:** The unreleased D-025 graph build was still labeled v1.0.0, counted every BSD network
+interface (including loopback and VPN tunnel duplicates), snapped graph scale when a spike aged out,
+and relied on `isMovableByWindowBackground`, which SwiftUI's hosting view prevented from working.
+The first explicit SwiftUI drag implementation moved the panel but visibly lagged the cursor.
+**Decision:** Identify the candidate as v1.1.0 build 3. Count only active, running `en*` physical
+links so local-only and tunnel traffic cannot inflate the headline. Use a 10% decaying graph peak,
+advanced by a per-stat sample revision so extra SwiftUI body passes cannot accelerate decay. Detect
+a 3pt strip-wide drag in SwiftUI, then hand it to AppKit's native `performDrag` loop and persist the
+final position only after mouse-up. Display recorder shortcuts with spaced glyphs in a larger rounded
+font. Add hostless XCTest logic coverage for the ring buffer, peak behavior, and interface policy.
+**Rationale:** The displayed rates now mean physical bytes crossing the Mac, graph motion reflects
+samples rather than rendering frequency, and AppKit owns latency-sensitive window movement. Hostless
+tests avoid launching a second `NSApplication`, which crashes a SwiftUI `@main` test host.
+**Consequences:** VPN traffic is represented once at its physical link rather than separately by
+tunnel. Non-`en*` transports are deliberately absent until an interface-selection feature exists.
+The whole strip is a drag handle after 3pt while ordinary clicks still reach tiles and Settings.
+**Verified:** clean compile, 5/5 tests, user-verified drag smoothness, tile/Settings behavior and
+hotkey typography. Universal Developer ID archive/export succeeded; rebuild required before notary
+because the final drag and typography changes landed afterward.

@@ -49,7 +49,13 @@ final class StatsStore {
     /// Per-series peak memory for `.perSeriesPeak` graphs, in the same shape as
     /// `lastBands` below: `@ObservationIgnored` because it is scale bookkeeping
     /// written *during* a body read, and tracking it would risk a render loop.
-    @ObservationIgnored private var lastPeaks: [String: Double] = [:]
+    private struct PeakState {
+        var value: Double
+        var revision: Int
+    }
+
+    @ObservationIgnored private var peakStates: [String: PeakState] = [:]
+    @ObservationIgnored private var historyRevisions: [StatKind: Int] = [:]
 
     /// Resolve the value that maps to a full-height bar for one graph series,
     /// remembering it so `PeakStrategy` can smooth or ratchet across ticks.
@@ -64,9 +70,12 @@ final class StatsStore {
     /// per-call step.
     func graphPeak(_ kind: StatKind, series: String, windowMax: Double) -> Double {
         let key = "\(kind.rawValue).\(series)"
+        let revision = historyRevisions[kind, default: 0]
+        let previous = peakStates[key] ?? PeakState(value: 0, revision: -1)
         let resolved = PeakStrategy.resolve(windowMax: windowMax,
-                                            previous: lastPeaks[key] ?? 0)
-        lastPeaks[key] = resolved
+                                            previous: previous.value,
+                                            advanced: revision != previous.revision)
+        peakStates[key] = PeakState(value: resolved, revision: revision)
         return resolved
     }
 
@@ -124,30 +133,35 @@ final class StatsStore {
         diskHistory = RingBuffer(capacity: capacity)
         networkHistory = RingBuffer(capacity: capacity)
         gpuHistory = RingBuffer(capacity: capacity)
-        lastPeaks.removeAll()   // peaks belong to the discarded time base too
+        peakStates.removeAll()   // peaks belong to the discarded time base too
+        historyRevisions.removeAll()
 
         let cpu = CPUSampler(interval: interval) { [weak self] sample in
             Task { @MainActor in
                 self?.cpu = sample
                 self?.cpuHistory.append(sample)
+                self?.historyRevisions[.cpu, default: 0] += 1
             }
         }
         let mem = MemorySampler(interval: interval) { [weak self] sample in
             Task { @MainActor in
                 self?.memory = sample
                 self?.memoryHistory.append(sample)
+                self?.historyRevisions[.memory, default: 0] += 1
             }
         }
         let disk = DiskSampler(interval: interval) { [weak self] sample in
             Task { @MainActor in
                 self?.disk = sample
                 self?.diskHistory.append(sample)
+                self?.historyRevisions[.disk, default: 0] += 1
             }
         }
         let net = NetworkSampler(interval: interval) { [weak self] sample in
             Task { @MainActor in
                 self?.network = sample
                 self?.networkHistory.append(sample)
+                self?.historyRevisions[.network, default: 0] += 1
             }
         }
         let battery = BatterySampler(interval: interval) { [weak self] sample in
@@ -157,6 +171,7 @@ final class StatsStore {
             Task { @MainActor in
                 self?.gpu = sample
                 self?.gpuHistory.append(sample)
+                self?.historyRevisions[.gpu, default: 0] += 1
             }
         }
         let fan = FanSampler(interval: interval) { [weak self] sample in

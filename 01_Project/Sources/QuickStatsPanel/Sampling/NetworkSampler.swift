@@ -180,25 +180,20 @@ final class NetworkSampler {
 
     /// Decides whether an interface's bytes count toward the displayed throughput.
     ///
-    /// TODO(user): implement this — it's the one real design choice in this sampler.
-    ///
     /// `flags` is the interface's `ifa_flags`; test bits with the `IFF_*` constants,
     /// e.g. `(flags & IFF_LOOPBACK) != 0`, `(flags & IFF_UP) != 0`.
     /// `interfaceName` is the BSD name: "lo0" (loopback), "en0"/"en1" (Ethernet/
     /// Wi-Fi), "utun*"/"ipsec*" (VPN tunnels), "bridge*", "awdl0" (AirDrop), etc.
     ///
-    /// Trade-offs to weigh:
-    ///   • Count *everything* → simplest, but loopback (lo0) inflates the number
-    ///     with local-only traffic, and tunnels can double-count VPN bytes.
-    ///   • Exclude loopback only → closest to "real network I/O" with one check.
-    ///   • Only physical interfaces (en*) → cleanest "internet" reading, but misses
-    ///     traffic on a VPN tunnel or a USB-tethered interface.
-    /// Returning `true` for all is a valid starting point you can tighten later.
-    private static func shouldCount(interfaceName: String, flags: Int32) -> Bool {
-        // Start simple: count every interface, including loopback (lo0). The number
-        // will read higher than "internet traffic" because local-only lo0 chatter
-        // (apps talking to each other, localhost servers) is included. To tighten
-        // later, drop loopback with: `(flags & IFF_LOOPBACK) == 0`.
-        return true
+    /// Count active physical network links. VPN/tunnel counters represent the
+    /// same payload before encryption and would double-count it alongside the
+    /// underlying Wi-Fi/Ethernet interface. Peer-to-peer and software bridge
+    /// links are excluded for the same reason. macOS exposes built-in, USB and
+    /// Thunderbolt network adapters as `en*` devices.
+    static func shouldCount(interfaceName: String, flags: Int32) -> Bool {
+        guard (flags & IFF_UP) != 0,
+              (flags & IFF_RUNNING) != 0,
+              (flags & IFF_LOOPBACK) == 0 else { return false }
+        return interfaceName.hasPrefix("en")
     }
 }

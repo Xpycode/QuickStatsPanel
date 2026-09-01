@@ -128,7 +128,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             StatsStripView(
                 store: store,
                 onOpenSettings: { [weak self] in self?.openSettings() },
-                onTileTap: { [weak self] kind in self?.toggleDetail(for: kind) }
+                onTileTap: { [weak self] kind in self?.toggleDetail(for: kind) },
+                onDrag: { [weak self] translation, ended in
+                    self?.panel.drag(translation: translation, ended: ended)
+                }
             )
         }
     }
