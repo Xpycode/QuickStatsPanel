@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>method</key><string>developer-id</string>
+  <key>teamID</key><string>FDMSRXXN73</string>
+  <key>signingStyle</key><string>manual</string>
+  <key>signingCertificate</key><string>Developer ID Application</string>
+  <!-- Xcode 17 can mutate the executable while stripping after it has been
+       signed, leaving the exported Developer ID app with an invalid seal. -->
+  <key>stripSwiftSymbols</key><false/>
+</dict>
+</plist>

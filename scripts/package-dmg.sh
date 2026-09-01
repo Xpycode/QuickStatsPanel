@@ -4,8 +4,10 @@
 #
 # Adapted from ClipSmart's scripts/package-dmg.sh (see docs 61), simplified:
 #   • No Sparkle → no inside-out nested re-signing, no appcast step.
-#   • The app is expected to come from `xcodebuild -exportArchive` with the
-#     developer-id method, which already signs with Developer ID + hardened
+#   • The app is expected to come from `xcodebuild -exportArchive` using the
+#     tracked `scripts/exportOptions.plist`. Its `stripSwiftSymbols=false`
+#     avoids an Xcode 17 export bug that can mutate the executable after signing.
+#     That export uses the developer-id method, which already signs with Developer ID + hardened
 #     runtime + secure timestamp and WITHOUT get-task-allow. This script
 #     VERIFIES that instead of re-signing — if verification fails, re-export
 #     rather than patching signatures here.
