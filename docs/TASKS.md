@@ -11,6 +11,10 @@ graphs shipped 2026-07-27 (D-025). Remaining work is release ceremony plus the t
 **This file is the backlog** — `PROJECT_STATE.md` is a digest and points here.
 
 ### Release
+**v1.1 ships when:** the signed Release build preserves v1.0 preferences, the strip/detail graphs,
+dragging, hotkeys, Settings and launch-at-login pass an installed-app smoke test, and both app + DMG
+are notarized, stapled and Gatekeeper-accepted. Everything else defaults to a later release.
+
 - [ ] **v1.1.0 release** — D-024's temps/power work has been on `main` since 2026-07-12 and D-025's
       tiles/graphs since 2026-07-27; neither is in a tagged artifact. Notarize → staple → DMG chain
       is already proven; run `/check ship` first (phase is shipping).

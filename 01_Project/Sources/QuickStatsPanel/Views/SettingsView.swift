@@ -433,6 +433,11 @@ private struct AboutSettingsPane: View {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
     }
 
+    /// Monotonic release identifier used by the future update feed.
+    private var build: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+    }
+
     var body: some View {
         VStack(spacing: 16) {
             // The bundled AppIcon — valid even for an LSUIElement agent app, which
@@ -444,7 +449,7 @@ private struct AboutSettingsPane: View {
             VStack(spacing: 2) {
                 Text("QuickStatsPanel")
                     .font(.title2).bold()
-                Text("Version \(version)")
+                Text("Version \(version) (build \(build))")
                     .font(.subheadline).foregroundStyle(.secondary)
             }
 

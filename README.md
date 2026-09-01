@@ -9,7 +9,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/platform-macOS%2015%2B-blue" alt="macOS 15+">
   <img src="https://img.shields.io/badge/swift-5.10-orange" alt="Swift 5.10">
-  <img src="https://img.shields.io/badge/version-1.0.0-green" alt="1.0.0">
+  <img src="https://img.shields.io/badge/version-1.1.0-green" alt="1.1.0">
   <img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-blueviolet" alt="License: PolyForm Noncommercial 1.0.0">
 </p>
 
@@ -87,7 +87,7 @@ simply don't appear. Every stat can be toggled and reordered in Settings.
 
 ## Install
 
-1. Download `QuickStatsPanel-1.0.0.dmg`.
+1. Download `QuickStatsPanel-1.1.0.dmg`.
 2. Open it and drag **QuickStatsPanel** to **Applications**.
 3. Launch it, then press **⌃⌥⌘Q** whenever you want your stats.
 
@@ -95,6 +95,18 @@ The app is code-signed and notarized by Apple — no Gatekeeper hoops.
 
 **Requirements:** macOS 15 (Sequoia) or later. The Power and Temperature
 tiles need Apple silicon; on other Macs they step aside gracefully.
+
+## What's new in 1.1
+
+- Configure each tile's headline value and choose text, text + graph, or graph-only presentation.
+- Mirrored one-minute activity graphs for CPU, GPU, memory, network, and disk.
+- Real per-core temperatures, whole-machine power detail, and richer Memory, Battery, Network,
+  CPU, and GPU detail rows.
+- More accurate physical-link network totals without loopback or VPN double-counting.
+- Smooth sample-driven graph scaling and native panel dragging.
+- Clearer hotkey recording and the first automated logic tests.
+
+See [CHANGELOG.md](CHANGELOG.md) for the complete release history.
 
 ## Keyboard & mouse
 
