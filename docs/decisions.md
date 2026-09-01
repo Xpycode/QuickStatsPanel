@@ -314,3 +314,19 @@ The whole strip is a drag handle after 3pt while ordinary clicks still reach til
 **Verified:** clean compile, 5/5 tests, user-verified drag smoothness, tile/Settings behavior and
 hotkey typography. Universal Developer ID archive/export succeeded; rebuild required before notary
 because the final drag and typography changes landed afterward.
+
+### 2026-09-01 - D-027: v1.1 release identity and stable Developer ID export
+**Context:** The stabilized candidate still used build 3, About omitted the build identifier, and
+Xcode 17's `-exportArchive` could report success and initially verify before mutating the executable's
+signature seal seconds later. Shipping that artifact would fail notarization despite a successful archive.
+**Decision:** Ship marketing version 1.1.0 with monotonic build 1100 and show both in About. Keep the
+Developer ID export configuration in tracked `scripts/exportOptions.plist`, with
+`stripSwiftSymbols=false`; Xcode's archive already strips the installed Release binary, while disabling
+the exporter's second stripping pass prevents post-sign mutation. `package-dmg.sh` continues to reject
+anything that does not pass strict signature, hardened-runtime, timestamp and entitlement checks.
+**Rationale:** Build 1100 sorts naturally for the planned updater feed, and a tracked export policy is
+reproducible across Macs. Verification must be repeated after export settles, not inferred from Xcode's
+success message.
+**Verified:** universal arm64+x86_64 Release; 5/5 tests; stable strict Developer ID verification; installed
+v1.0→v1.1 upgrade preserved preferences; user verified graphs, detail cards, dragging, Settings and hotkeys.
+**Status:** ✅ Release preparation complete. Notarization, stapling, DMG validation and publication remain.

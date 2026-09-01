@@ -11,18 +11,20 @@
 
 ## Now
 - **Funnel:** build · **Phase:** Shipping — v1.0.0 notarized and published <!-- Phase changed: 2026-07-12 -->
-- **Focus:** v1.1.0 build 3 is stabilized and user-verified: accurate physical-link network totals,
-  smooth sample-driven graph scaling, native panel dragging, clearer hotkey labels, and the first
-  automated tests. A signed universal Developer ID archive/export was proven in `/tmp`.
-- **Blockers:** Release candidate must be rebuilt after the final drag/typography fixes, then run
-  through `/check ship`, notarization, packaging, and a final installed-app smoke test.
-- **Next:** Rebuild the signed **v1.1.0** archive, run `/check ship`, notarize/staple/package it, then
-  add the updater feed/install path. Do not publish the earlier pre-drag `/tmp` export.
-- **Build status:** ✅ clean compile, **5/5 tests**, user-verified UI; Developer ID signing/export
-  proven for build 3. Notarization proven end to end for v1.0.0, not yet run on this candidate.
+- **Focus:** v1.1.0 build 1100 passed `/check ship`, strict Developer ID verification, and an
+  installed upgrade smoke test from v1.0.0 with preferences preserved. User verified graphs,
+  detail cards, dragging, Settings, and hotkeys in the installed `/Applications` build.
+- **Blockers:** The app and DMG still need notarization, stapling, and Gatekeeper validation before
+  tagging or publishing v1.1.0. A clean-preferences launch remains part of that final pass.
+- **Next:** Notarize and staple the installed-smoke-tested **v1.1.0** app, package/sign/notarize the
+  DMG, validate both with Gatekeeper, then tag/publish and update the website metadata.
+- **Build status:** ✅ universal Release, **5/5 tests**, strict Developer ID signature, installed
+  upgrade smoke passed. Notarization proven for v1.0.0; not yet run on v1.1.0 build 1100.
 - **Last updated:** 2026-09-01
 
 ## Recent
+- **2026-09-01** — Prepared v1.1.0 build 1100 for release, fixed Xcode 17's delayed export-signature
+  corruption, and passed the installed upgrade smoke test with v1.0 preferences intact.
 - **2026-09-01** — Stabilized v1.1.0: fixed inflated network totals and graph rescaling, restored
   smooth native dragging, clarified hotkey glyphs, added five passing tests, and proved signing.
 - **2026-07-27** — Tiles became configurable and gained activity graphs: each stat can headline a
@@ -34,8 +36,6 @@
   Also found disk "Free" reads 16.62 GB below Finder because it ignores purgeable space.
 - **2026-07-12** — Real per-core temperatures and whole-machine watts, plus richer detail rows,
   using exelban/stats' crowd-sourced sensor-key tables. Fixed Settings reorder being dead on macOS 26.
-- **2026-07-12** — Shipped **v1.0.0**: notarized DMG, GitHub release, README; then made the repo
-  **public** under a noncommercial license after a clean full-history secret audit.
 
 ## What we're building
 Press a global hotkey → a **thin** wide strip appears near the cursor showing live stats as compact
@@ -48,11 +48,11 @@ Fans, Power, Temperatures, plus per-stat history graphs (2026-07-27).
 
 ## Progress
 **Features** ✅ roadmap + D-025 · **UI** ✅ strip, card, 5-pane Settings, themes ·
-**Testing** 🔶 on-screen only, no automated suite · **Docs** ✅ ·
+**Testing** 🔶 5 logic tests + installed upgrade smoke · **Docs** ✅ ·
 **Distribution** 🔶 v1.0.0 notarized + released, **v1.1.0 untagged**
 
 ## Detail (read only if needed)
-- **Decisions:** `decisions.md` — D-001…D-025, full rationale for every locked choice. Load-bearing:
+- **Decisions:** `decisions.md` — D-001…D-027, full rationale for every locked choice. Load-bearing:
   **D-001** HUD `NSPanel` · **D-002** Carbon hotkey, no permissions · **D-003** `LSUIElement` ·
   **D-006** thin strip + click-to-expand · **D-008** content-driven width and fixed-width value
   slots (jitter discipline — read this before touching tile layout) · **D-015** self-drawn card.
