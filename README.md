@@ -100,7 +100,7 @@ tiles need Apple silicon; on other Macs they step aside gracefully.
 
 - Configure each tile's headline value and choose text, text + graph, or graph-only presentation.
 - Mirrored one-minute activity graphs for CPU, GPU, memory, network, and disk.
-- Real per-core temperatures, whole-machine power detail, and richer Memory, Battery, Network,
+- CPU/GPU temperature sensors, whole-machine power detail, and richer Memory, Battery, Network,
   CPU, and GPU detail rows.
 - More accurate physical-link network totals without loopback or VPN double-counting.
 - Smooth sample-driven graph scaling and native panel dragging.

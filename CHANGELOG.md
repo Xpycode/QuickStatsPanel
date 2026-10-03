@@ -1,12 +1,12 @@
 # Changelog
 
-## [1.1.0] — 2026-09-01
+## [1.1.0] — 2026-10-03
 
 ### Added
 
 - Configurable headline values and text, graph, or combined presentation per tile.
 - Mirrored one-minute activity graphs for CPU, GPU, memory, network, and disk.
-- Per-core CPU/GPU temperatures, whole-machine power detail, and richer detail-card rows.
+- CPU/GPU temperature sensors, whole-machine power detail, and richer detail-card rows.
 - Automated logic tests for history scaling, ring-buffer ordering, and network-interface filtering.
 
 ### Improved
