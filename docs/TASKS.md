@@ -7,17 +7,16 @@
 <!-- Priority: top = highest, bottom = lowest -->
 
 The whole stats roadmap has shipped (D-017/D-018/D-019 + D-024), and configurable tiles + activity
-graphs shipped 2026-07-27 (D-025). Remaining work is release ceremony plus the tails below.
+graphs shipped 2026-07-27 (D-025). v1.1.0 was published 2026-10-03. Remaining work is the follow-up backlog below.
 **This file is the backlog** — `PROJECT_STATE.md` is a digest and points here.
 
-### Release
-**v1.1 ships when:** the signed Release build preserves v1.0 preferences, the strip/detail graphs,
-dragging, hotkeys, Settings and launch-at-login pass an installed-app smoke test, and both app + DMG
-are notarized, stapled and Gatekeeper-accepted. Everything else defaults to a later release.
+### History and transfer totals
+- [ ] **Longer graphs and cumulative transfer totals** — user requested network download/upload
+      and disk read/write history (2026-10-03). Define retained periods, persistence across app
+      restarts, total/reset semantics and sleep/interface-change handling before implementation.
+      Existing one-minute graphs remain available in v1.1. No storage design approved yet.
 
-- [ ] **v1.1.0 release** — D-024's temps/power work has been on `main` since 2026-07-12 and D-025's
-      tiles/graphs since 2026-07-27; neither is in a tagged artifact. Notarize → staple → DMG chain
-      is already proven; run `/check ship` first (phase is shipping).
+### Distribution
 - [ ] **Updater** — QSP has **no updater of any kind**. "Sparkle *vs* SilentUpdateKit" is a false
       dichotomy: they're different halves. **Sparkle 2** = discovery (appcast) + install + UI, the
       de-facto house standard (ClipSmart, Magpie, DiskVerdict, Conjoyn, TimeCodeEditor,
@@ -42,6 +41,12 @@ are notarized, stapled and Gatekeeper-accepted. Everything else defaults to a la
       per-stat enums ever feel limiting. Not for v1.
 
 ### Accuracy
+- [ ] **Actual memory pressure and swap** — current `MemorySampler.pressurePercent` is used RAM
+      divided by total RAM and is labeled "Pressure" in the detail card. Keep utilization distinct
+      from system memory-pressure state; consider swap detail (confirmed source review 2026-10-03).
+- [ ] **Transfer-rate continuity** — track per-interface baselines and elapsed time so interface
+      reconnection or delayed ticks cannot inflate rates; assess disk timing too. Relevant prerequisite
+      for cumulative transfer history (source review 2026-10-03; no runtime failure reproduced).
 - [ ] **Disk free-space accuracy** — `DiskSampler.swift:108` (`statfs f_bavail`) reads **600.62 GB**
       where Finder shows **617.24 GB**: a **16.62 GB** purgeable gap, twice-measured. exelban/stats
       matches Finder via `CSDiskSpaceGetRecoveryEstimate` (CoreServices, cached 30 s,
@@ -63,19 +68,27 @@ are notarized, stapled and Gatekeeper-accepted. Everything else defaults to a la
 - [ ] **Per-app CPU smoothing** — only if grouped readings flicker; revisit grouping edge cases
       (apps outside an `.app` bundle).
 
+### Release tooling
+- [ ] **Fail packaging on rejected Gatekeeper assessment** — `package-dmg.sh` currently masks
+      the final `spctl` result with `|| true`. v1.1 passed independent required app/DMG checks;
+      make those checks mandatory in the script for future releases.
+
 ### Polish / nice-to-haves (from visual verify)
 - [ ] **⏳ USER:** tune `Theme.loadColor(forPercent:)` thresholds — at-a-glance color bands.
       Open questions: same bands for CPU vs memory? gradient vs steps? hysteresis to stop flicker?
 - [ ] Memory readout shows 2 decimals ("16,85 GB") — consider 1 decimal for faster glancing.
 - [ ] `cornerRadius` 12pt reads fine at the snug width — revisit if it ever feels too round.
 
+## Inbox
+- [ ] **Power sampler stop/restart race — awaiting reproduction (2026-10-03).** Review found
+      timer cancellation followed by main-thread reader/SMC teardown while a queued tick may still
+      run. No crash reproduced. Validate queue-confined teardown before changing sampler lifecycle.
+
 ## Current Sprint
 <!-- Active work. Populated by /plan or /execute. Keep focused (3-7 tasks). -->
 <!-- When done: /log moves to tasks-archive.md -->
 
-_Empty — D-019 and D-017 archived to `tasks-archive.md` on 2026-07-27 (both shipped 2026-06-15;
-they sat here for six weeks while D-020→D-024 shipped around them). D-025 shipped same-day and
-never entered a sprint. Next obvious sprint is the **v1.1.0 release**._
+_Empty — v1.1.0 release completed 2026-10-03. Next: define history and transfer totals._
 
 ---
 

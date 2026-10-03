@@ -10,19 +10,19 @@
 - **Started:** 2026-06-04 · **Target:** macOS 15+ · **License:** PolyForm Noncommercial 1.0.0 (public repo)
 
 ## Now
-- **Funnel:** build · **Phase:** Shipping — v1.0.0 notarized and published <!-- Phase changed: 2026-07-12 -->
-- **Focus:** v1.1.0 build 1100 passed `/check ship`, strict Developer ID verification, and an
-  installed upgrade smoke test from v1.0.0 with preferences preserved. User verified graphs,
-  detail cards, dragging, Settings, and hotkeys in the installed `/Applications` build.
-- **Blockers:** The app and DMG still need notarization, stapling, and Gatekeeper validation before
-  tagging or publishing v1.1.0. A clean-preferences launch remains part of that final pass.
-- **Next:** Notarize and staple the installed-smoke-tested **v1.1.0** app, package/sign/notarize the
-  DMG, validate both with Gatekeeper, then tag/publish and update the website metadata.
-- **Build status:** ✅ universal Release, **5/5 tests**, strict Developer ID signature, installed
-  upgrade smoke passed. Notarization proven for v1.0.0; not yet run on v1.1.0 build 1100.
-- **Last updated:** 2026-09-01
+- **Funnel:** build · **Phase:** Shipping — v1.1.0 published <!-- Phase changed: 2026-10-03 -->
+- **Focus:** v1.1.0 (1100) is signed, notarized, stapled, installed and published on GitHub
+  and the product website. User accepted the exact installed release before publication.
+- **Blockers:** none for v1.1; longer-history persistence and retention requirements remain open.
+- **Next:** Define longer network/disk graphs and cumulative downloaded/uploaded/read/written
+  totals, including whether history survives app restarts and which time ranges to retain.
+- **Build status:** ✅ universal Release, **5/5 tests**, preserved all 14 existing preference values,
+  clean-launch hint, installed smoke acceptance, app/DMG Gatekeeper checks and download checksums.
+- **Last updated:** 2026-10-03
 
 ## Recent
+- **2026-10-03** — Released v1.1.0 after fresh universal build, clean/upgrade smoke checks and
+  Apple notarization; GitHub and website downloads verified against the final artifacts.
 - **2026-09-01** — Prepared v1.1.0 build 1100 for release, fixed Xcode 17's delayed export-signature
   corruption, and passed the installed upgrade smoke test with v1.0 preferences intact.
 - **2026-09-01** — Stabilized v1.1.0: fixed inflated network totals and graph rescaling, restored
@@ -34,8 +34,6 @@
 - **2026-07-27** — Research-only day before that: found the app has **no update mechanism at all**,
   that per-tile options were mostly presentation work, and that graphs cost ~30 KB and no extra CPU.
   Also found disk "Free" reads 16.62 GB below Finder because it ignores purgeable space.
-- **2026-07-12** — Real per-core temperatures and whole-machine watts, plus richer detail rows,
-  using exelban/stats' crowd-sourced sensor-key tables. Fixed Settings reorder being dead on macOS 26.
 
 ## What we're building
 Press a global hotkey → a **thin** wide strip appears near the cursor showing live stats as compact
@@ -48,8 +46,8 @@ Fans, Power, Temperatures, plus per-stat history graphs (2026-07-27).
 
 ## Progress
 **Features** ✅ roadmap + D-025 · **UI** ✅ strip, card, 5-pane Settings, themes ·
-**Testing** 🔶 5 logic tests + installed upgrade smoke · **Docs** ✅ ·
-**Distribution** 🔶 v1.0.0 notarized + released, **v1.1.0 untagged**
+**Testing** ✅ 5 logic tests + clean/upgrade smoke + user acceptance · **Docs** ✅ ·
+**Distribution** ✅ v1.1.0 notarized + released; GitHub and website downloads verified
 
 ## Detail (read only if needed)
 - **Decisions:** `decisions.md` — D-001…D-027, full rationale for every locked choice. Load-bearing:

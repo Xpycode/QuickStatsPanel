@@ -3,10 +3,14 @@
 > **Completed tasks archive.** Used for progress calculation.
 
 ## Stats
-- **Total archived:** 16
-- **Last updated:** 2026-09-01
+- **Total archived:** 17
+- **Last updated:** 2026-10-03
 
 ## Completed
+
+- [x] **v1.1.0 release** — universal 1100 build, 5/5 tests, clean/upgrade preference checks,
+      user-approved installed artifact, app/DMG notarized and stapled; GitHub release and website
+      published, downloaded checksums verified. (2026-10-03)
 
 - [x] **Graph peak strategy** — chose sample-driven 10% decay: peaks rise immediately and fall once
       per new sample, never once per SwiftUI redraw; repeated strip/detail renders cannot accelerate
