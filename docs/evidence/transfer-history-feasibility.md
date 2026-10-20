@@ -119,3 +119,45 @@ Intermediate compilation artifact:
 This is not the integrated user-testing artifact and was not launched. Final runnable build and
 launch preflight remain task 6.1. Repository source/tests were frozen for compilation; persistence
 tests were not executed by this selected check. No app startup or live-profile/storage writes.
+
+## Phase 2 repository validation
+
+Task 3.1: versioned bounded packed segments/checkpoints, current/prior atomic recovery, per-chunk
+checksums, protected-reference GC, bounded quarantine, immutable-file reuse and injected storage
+roots. Payload/rename/directory ordering uses macOS full-sync barriers. Actual physical power loss
+was not exercised; deterministic crash injection establishes app-crash transaction ordering.
+Independent reviewer reproduced and confirmed fixes for post-commit cleanup status, oversized
+future-version preservation, unreadable-current fallback, invalid sealed watermark bounds and
+excess inventory preserving recoverable cumulative state. Decoder/filename/resource bounds and
+parent-directory synchronization reviewed. No unresolved named finding remained.
+
+From `/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project`:
+
+```sh
+xcodebuild -scheme QuickStatsPanel -configuration Debug -destination 'platform=macOS' -derivedDataPath build/TransferHistoryRun03 CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual -resultBundlePath build/TransferHistoryRun03PersistenceTests.xcresult -only-testing:QuickStatsPanelTests/TransferPersistenceTests test
+```
+
+Exit 0, **17 tests passed** in 15.3 s. All storage paths were unique disposable test directories;
+no app startup, live history/preferences or hardware manipulation. Raw log:
+`/tmp/qsp-transfer-run03-persistence-tests.log`. Structured result:
+`/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/TransferHistoryRun03PersistenceTests.xcresult`.
+
+Official worst-day fixture, 864,000 records (both stats, periodic plus reset boundaries):
+
+| Measurement | Bytes |
+|---|---:|
+| Packed day | 34,560,000 |
+| Final logical files | 34,734,336 |
+| Final allocated files | 35,545,088 |
+| Peak allocated, including prior and pending | 35,737,600 |
+| Maximum active checkpoint (payload plus references/metadata) | 191,984 |
+| Normal 30-second checkpoint | 83,984 |
+| Saving resident increment | 47,857,664 |
+| Loading resident increment | 5,832,704 |
+| Combined history resident increment | 53,690,368 |
+
+Disk and incremental memory are below 64 MiB. Combined active *interval payload* plus planned
+headers remains below 128 KiB; whole checkpoint includes bounded references/metadata and is below
+256 KiB. Sealed-file mtime remains unchanged across another checkpoint, proving no full-day rewrite.
+Per-segment autorelease pools prevent decoded temporary data accumulating across a day. Isolated
+owner/reviewer logs/harnesses under `/tmp` are supplemental; official values above are canonical.

@@ -1,7 +1,7 @@
 # Implementation Plan — 24-hour transfer history and totals
 
-**Created:** 2026-10-20 · **State:** executing; tasks 3.1/3.2 in progress
-**Progress:** 4/8 implementation tasks complete; external acceptance **E1 open**.
+**Created:** 2026-10-20 · **State:** executing; task 4.1 lifecycle integration in progress
+**Progress:** 5/8 implementation tasks complete; external acceptance **E1 open**.
 **Execution:** one continuous run, organized into three phases; no per-phase approval stops.
 Unchecked tasks are pending unless explicitly annotated implemented-unverified or blocked.
 This file owns task status/evidence; `docs/TASKS.md` retains backlog mappings.
@@ -268,7 +268,7 @@ blocker/scope decision or the final user acceptance, not to ask permission for t
 
 ### Phase 2 — add retained storage and graph presentation (3.1, 3.2)
 
-- [ ] **3.1 — Implement bounded checkpoint persistence and failure recovery.**
+- [x] **3.1 — Implement bounded checkpoint persistence and failure recovery.**
   - Depends on: 1.1, 2.2. External gates: none.
   - Owns: `Sources/QuickStatsPanel/Model/TransferHistoryRepository.swift`,
     `Tests/QuickStatsPanelTests/TransferPersistenceTests.swift`.
@@ -423,8 +423,9 @@ validated in 3.1 without expanding the accepted source/storage scope.
 
 | Phase 1 / 1.1 | Fresh agent `counter_contract`; independent read-only `contract_review`; coordinator runs shared checks | **15/15 accounting + 3/3 probe tests passed**, no skips. [Feasibility evidence](docs/evidence/transfer-history-feasibility.md). Corrected unknown-provider classification and combined active payload budget. | `62605f9`; prior dirty preferences/entrypoint/docs excluded and preserved. | Gate passed; 2.1 and 2.2 assigned to independent fresh agents. |
 | Phase 1 / 2.1, 2.2 | Fresh agents `transfer_samplers` and `transfer_timeline`; independent `timeline_review` plus coordinator reader/lifecycle review; disjoint files, serialized builds | Run02 **51/51** selected tests passed; final route-snapshot identity fix **22/22** affected tests passed. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-1-sampler-and-timeline-validation). | `df247f3` | Phase 1 complete; 3.1/3.2 ready and assigned. |
-| Phase 2 / 3.2 | Fresh agent `transfer_presentation`; coordinator source review; idle peak corrected before validation | **8/8** presentation tests and standalone app compilation passed. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-2-presentation-validation). | Scoped local checkpoint pending | UI presentation ready for integration; no pixel/manual acceptance claim. |
-| Phase 2 / 3.1 | Fresh agent `transfer_persistence`; independent `repository_review` | Crash/recovery/resource tests in progress; concrete durability/future-version/fallback fixes under review | Pending validation | Finish repository checks, then task 4.1. |
+| Phase 2 / 3.2 | Fresh agent `transfer_presentation`; coordinator source review; idle peak corrected before validation | **8/8** presentation tests and standalone app compilation passed. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-2-presentation-validation). | `bd2b247` | UI presentation ready for integration; no pixel/manual acceptance claim. |
+| Phase 2 / 3.1 | Fresh agent `transfer_persistence`; independent `repository_review` with five isolated repros | **17/17** official tests passed; crash/fallback/version/watermark/full-sync fixes verified. Peak disk **35,737,600 B**, incremental history memory **53,690,368 B**. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-2-repository-validation). | Scoped local checkpoint pending | Phase 2 complete; task 4.1 ready. |
+| Phase 3 / 4.1 | Fresh agent `transfer_lifecycle` owns controller/tests; coordinator owns StatsStore/AppDelegate integration; independent `lifecycle_review` | In progress; no completion claimed | Pending validation | Verify load/tick/reset/save/sleep/termination journey, then 5.1. |
 
 Keep this plan active until required implementation and acceptance are complete. Archive with its
 evidence and update incoming links only after acceptance or explicit scoped deferral.
