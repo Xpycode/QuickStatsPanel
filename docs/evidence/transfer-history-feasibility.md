@@ -228,3 +228,56 @@ Intermediate artifact:
 `/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/TransferHistoryRun05/Build/Products/Debug/QuickStatsPanel.app`.
 No launch/app control/live storage writes. The final task will create a separate integrated artifact
 for user testing; no intermediate build is handed off as the final accepted feature.
+
+## Final integration validation — 2026-10-21
+
+Task 6.1's three journeys enter the actual StatsStore selection/confirmation facade, manual real
+sampler accounting and the disposable on-disk repository. The main fixture proves separate
+100,000,000/20,000,000 Network and 80,000,000/40,000,000 Disk bytes and elapsed rates; 0.25/5 s
+cadence replacement; fresh-store reopen without lifetime-counter backfill; cancelled/confirmed
+scoped Network/Disk resets with distinct persisted start times; and >24-hour expiry preserving
+cumulative epochs. Additional journeys prove continued collection through save failure/retry and
+truthful older-checkpoint recovery warnings. Fixtures do not operate native controls or launch apps.
+
+A bounded optimized synthetic benchmark at 864,000 intervals measured both-stat queries at
+0.05 ms (minute), 2.23 ms (hour), 40.09 ms (day), mean of ten iterations. Coordinator fixed a
+confirmed performance issue: continuous selected-day queries would keep running after dismissal.
+Only open transfer cards now receive continuous expensive summaries; collection/checkpoints remain
+active while hidden, and opening immediately refreshes the selected range. A lifecycle fixture
+proves hidden query suppression plus continued durable collection. Independent visibility review
+found no blocking issue; AppDelegate visibility wiring is source-reviewed, while the journey's
+forced barriers intentionally bypass visibility gating. Actual native facade behavior remains E1.
+Benchmark source/binary: `/tmp/qsp-query-bench-20261020` (no hardware or live storage).
+
+From `/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project`, after XcodeGen:
+
+```sh
+xcodebuild -scheme QuickStatsPanel -configuration Debug -destination 'platform=macOS' -derivedDataPath build/TransferHistoryRun06 CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual -resultBundlePath build/TransferHistoryRun06AllTests.xcresult test
+xcodebuild -scheme QuickStatsPanel -configuration Debug -destination 'platform=macOS' -derivedDataPath build/TransferHistoryRun06 CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual build
+```
+
+Both producer exits **0**; **113 tests passed, zero failures**, no hardware skips. Full test
+execution/teardown completed. Final source edits preceded the test/build; later changes are docs.
+Raw logs `/tmp/qsp-transfer-run06-all-tests.log`, `/tmp/qsp-transfer-run06-final-build.log`.
+Structured result:
+`/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/TransferHistoryRun06AllTests.xcresult`.
+
+Final resource remeasurement: logical 34,734,336 B, allocated 35,545,088 B, peak allocated
+35,737,600 B; saving resident increment 39,141,376 B, loading increment 7,553,024 B, combined
+history increment **46,694,400 B**. Normal checkpoint 83,984 B; max active checkpoint 191,984 B.
+All remain below their budgets. Real adapters again validated clock/boot identity, seven network
+and two physical disk sources, with ten virtual layers excluded. Broader hardware remains E1.
+`git diff --check` passed. Existing preferences source and AGENTS/CLAUDE baseline hashes unchanged.
+
+### Exact final artifact and launch result
+
+Folder: `/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/TransferHistoryRun06/Build/Products/Debug`.
+App: `QuickStatsPanel.app`; bundle `com.sim.QuickStatsPanel`, version 1.1.0/build 1100, LSUIElement true.
+Executable SHA-256: `0271bcd38e82224d65e557c1d8b481937ac7b99592eb83a78209913e45b0a6e5`.
+
+Launch **deferred**, not attempted: read-only executable-path preflight found PID **52821** at
+`/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/PreferencesRedesign/Build/Products/Debug/QuickStatsPanel.app/Contents/MacOS/QuickStatsPanel`.
+The selector was verified against a positive fake artifact and negative shell path. Existing app
+was not quit/relaunched; no windows, input, clipboard, preferences or live history were changed.
+User quits the current app and opens the exact final artifact above for E1. No new temporary
+profile/restoration obligation was introduced. This is unreleased; no push/publication occurred.

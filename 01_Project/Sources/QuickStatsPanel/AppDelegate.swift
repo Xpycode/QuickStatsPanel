@@ -200,11 +200,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func toggleDetail(for kind: StatKind) {
         guard let stripFrame = panel.frame else { return }
         store.dismissTransferDetails()
+        let wasOpen = detailPanel.openKind == kind
         detailPanel.toggle(kind: kind,
                            stripFrame: stripFrame,
                            anchorX: NSEvent.mouseLocation.x) { [store] in
             StatDetailView(store: store, kind: kind)
         }
+        store.setTransferDetailVisible(wasOpen ? nil : kind)
     }
 
     /// Open our settings window. Uses a self-managed `NSWindow` rather than the
@@ -252,6 +254,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // strip goes (toggle, Esc, click-away), they go with it.
                 self.detailPanel.hide()
                 self.store.dismissTransferDetails()
+                self.store.setTransferDetailVisible(nil)
                 self.hintPanel.hide()
             }
         }

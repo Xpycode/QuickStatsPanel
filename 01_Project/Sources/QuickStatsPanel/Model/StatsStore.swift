@@ -71,8 +71,14 @@ final class StatsStore {
         transferHistoryController = controller
         controller.start()
         for stat in TransferStat.allCases {
+            controller.setPresentationActive(false, for: stat)
             controller.selectPeriod(transferDetailStates[stat]?.period ?? .minute, for: stat)
         }
+    }
+
+    func setTransferDetailVisible(_ kind: StatKind?) {
+        transferHistoryController?.setPresentationActive(kind == .network, for: .network)
+        transferHistoryController?.setPresentationActive(kind == .disk, for: .disk)
     }
 
     func selectTransferPeriod(_ period: TransferHistoryPeriod, for stat: TransferStat) {

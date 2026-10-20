@@ -1,7 +1,7 @@
 # Implementation Plan — 24-hour transfer history and totals
 
-**Created:** 2026-10-20 · **State:** executing; task 6.1 final integration validation in progress
-**Progress:** 7/8 implementation tasks complete; external acceptance **E1 open**.
+**Created:** 2026-10-20 · **State:** implementation validated; awaiting external acceptance E1 (plan remains active)
+**Progress:** 8/8 implementation tasks complete; external acceptance **E1 open**.
 **Execution:** one continuous run, organized into three phases; no per-phase approval stops.
 Unchecked tasks are pending unless explicitly annotated implemented-unverified or blocked.
 This file owns task status/evidence; `docs/TASKS.md` retains backlog mappings.
@@ -329,7 +329,7 @@ blocker/scope decision or the final user acceptance, not to ask permission for t
   - Backpressure: T selecting `TransferDetailStateTests`; B; source review against UI constraints.
     Actual click/binding/geometry/keyboard behavior is explicitly not validated until E1.
 
-- [ ] **6.1 — Verify complete journey and prepare one finite user acceptance handoff.**
+- [x] **6.1 — Verify complete journey and prepare one finite user acceptance handoff.**
   - Depends on: 1.1, 2.1, 2.2, 3.1, 3.2, 4.1, 5.1. External gates: none for automated work;
     E1 separately gates overall product completion.
   - Owns: `Tests/QuickStatsPanelTests/TransferHistoryIntegrationTests.swift`; coordinator owns
@@ -410,11 +410,14 @@ the normal tool approval path, keeping command/log/exit status and real `.xcresu
 
 ## Blocked tasks and open decisions
 
-Task 1.1 feasibility gate passed on this Mac; see the execution evidence. Its physical-provider
-classification excludes virtual image layers and reports unknown metadata as incomplete coverage.
-Integrated persistence resource measurement and final real-device acceptance remain required. No user-facing requirements remain unspecified. E1 is open and will need
-the integrated build and user availability. Protocol/encoding details must be frozen by 1.1 and
-validated in 3.1 without expanding the accepted source/storage scope.
+All eight implementation tasks are validated. **E1 is the only remaining gate**; it requires
+user-operated checks of the exact fresh artifact. The finite batch and launch steps are in the
+[2026-10-21 handoff](docs/sessions/2026-10-21.md#e1-acceptance).
+Read-only preflight found the earlier PreferencesRedesign instance (PID 52821); fresh launch was
+deferred and the existing app was not controlled. There is no half-done source edit or failed check.
+Live focus/geometry, actual sleep/reconnect/hot-plug and app cross-launch behavior are not inferred
+from fixtures. Unsupported hardware coverage remains explicit. Keep this plan active until E1
+passes or the user explicitly scopes a deferral; do not archive it from automated evidence alone.
 
 ## Execution log
 
@@ -425,9 +428,9 @@ validated in 3.1 without expanding the accepted source/storage scope.
 | Phase 1 / 2.1, 2.2 | Fresh agents `transfer_samplers` and `transfer_timeline`; independent `timeline_review` plus coordinator reader/lifecycle review; disjoint files, serialized builds | Run02 **51/51** selected tests passed; final route-snapshot identity fix **22/22** affected tests passed. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-1-sampler-and-timeline-validation). | `df247f3` | Phase 1 complete; 3.1/3.2 ready and assigned. |
 | Phase 2 / 3.2 | Fresh agent `transfer_presentation`; coordinator source review; idle peak corrected before validation | **8/8** presentation tests and standalone app compilation passed. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-2-presentation-validation). | `bd2b247` | UI presentation ready for integration; no pixel/manual acceptance claim. |
 | Phase 2 / 3.1 | Fresh agent `transfer_persistence`; independent `repository_review` with five isolated repros | **17/17** official tests passed; crash/fallback/version/watermark/full-sync fixes verified. Peak disk **35,737,600 B**, incremental history memory **53,690,368 B**. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-2-repository-validation). | `f4ef0a3` | Phase 2 complete; task 4.1 ready. |
-| Phase 3 / 4.1 | Fresh agent `transfer_lifecycle` owns controller/tests; coordinator owns StatsStore/AppDelegate; independent `lifecycle_review` | **66/66** selected lifecycle/dependency tests passed; standalone B passed. Dedicated 30-second dirty deadline and short-sleep fixture corrected. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-3-lifecycle-validation). | Coherent lifecycle/UI checkpoint pending | 5.1 ready and assigned. AppDelegate two-second deadline source-reviewed; actual NSApplication termination untested. |
-| Phase 3 / 5.1 | Fresh agent `transfer_detail_ui`; coordinator reviewed native bindings/geometry and fixed seconds in start timestamps | **37/37** state/presentation/existing metric/history tests and standalone B passed. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-3-detail-card-validation). | Coherent lifecycle/UI checkpoint pending | 6.1 ready and assigned; E1 live geometry/focus/controls remain open. |
-| Phase 3 / 6.1 | Fresh agent `transfer_integration` owns journey tests; coordinator owns final validation/artifact/docs | In progress; no completion claimed | Pending validation | Full fixture journey and complete suite, final standalone build and exact artifact launch preflight. |
+| Phase 3 / 4.1 | Fresh agent `transfer_lifecycle` owns controller/tests; coordinator owns StatsStore/AppDelegate; independent `lifecycle_review` | **66/66** selected lifecycle/dependency tests passed; standalone B passed. Dedicated 30-second dirty deadline and short-sleep fixture corrected. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-3-lifecycle-validation). | `e8c2f1a` | 5.1 ready and assigned. AppDelegate two-second deadline source-reviewed; actual NSApplication termination untested. |
+| Phase 3 / 5.1 | Fresh agent `transfer_detail_ui`; coordinator reviewed native bindings/geometry and fixed seconds in start timestamps | **37/37** state/presentation/existing metric/history tests and standalone B passed. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-3-detail-card-validation). | `e8c2f1a` | 6.1 ready and assigned; E1 live geometry/focus/controls remain open. |
+| Phase 3 / 6.1 | Fresh agent `transfer_integration` owns journey tests; coordinator owns performance fix/final validation; independent `final_visibility_review` | **113/113** full tests passed, no hardware skips; final standalone B and whitespace check passed. [Final evidence](docs/evidence/transfer-history-feasibility.md#final-integration-validation--2026-10-21). | Final source checkpoint mapping in [session](docs/sessions/2026-10-21.md) | All implementation tasks complete; **E1 open**. Launch deferred: existing PreferencesRedesign instance PID 52821 left untouched. |
 
 Keep this plan active until required implementation and acceptance are complete. Archive with its
 evidence and update incoming links only after acceptance or explicit scoped deferral.

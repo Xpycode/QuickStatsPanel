@@ -28,6 +28,7 @@ final class TransferHistoryController: @unchecked Sendable {
     private var started = false
     private var timer: DispatchSourceTimer?
     private var selected: [TransferStat: TransferHistoryPeriod] = [.network: .minute, .disk: .minute]
+    private var activePresentations = Set(TransferStat.allCases)
     private var pendingPresentation = Set<TransferStat>()
     private var queryScheduled = false
     private var revision: UInt64 = 0
@@ -73,7 +74,7 @@ final class TransferHistoryController: @unchecked Sendable {
             } else if let date = lastSaved { durability = .saved(date) }
             else { durability = .unsaved(lastSaved: nil) }
             pendingPresentation = Set(TransferStat.allCases)
-            publishPending()
+            publishPending(force: true)
             if automaticallySchedules {
                 let source = DispatchSource.makeTimerSource(queue: queue)
                 source.schedule(deadline: .now() + 1, repeating: 1)
@@ -127,6 +128,18 @@ final class TransferHistoryController: @unchecked Sendable {
         queue.async { [self] in selected[stat] = period; requestPresentation(stat) }
     }
 
+    /// Collection and checkpoints continue when the HUD is hidden. Only expensive detail
+    /// summaries pause; opening a card immediately refreshes its selected period.
+    func setPresentationActive(_ active: Bool, for stat: TransferStat) {
+        queue.async { [self] in
+            if active {
+                activePresentations.insert(stat)
+                pendingPresentation.insert(stat)
+                publishPending()
+            } else { activePresentations.remove(stat) }
+        }
+    }
+
     /// Action runs off-main. Its sampler callback must only enqueue events (never queue.sync).
     /// Success resolves only after the matching ordered marker is included in a durable commit.
     func requestReset(stat: TransferStat, requestID: UUID,
@@ -160,8 +173,11 @@ final class TransferHistoryController: @unchecked Sendable {
     }
 
     /// A deterministic queue/presentation barrier, also useful after a manual maintenance tick.
-    func synchronize(completion: @escaping @Sendable () -> Void) {
-        queue.async { [self] in publishPending(); completion() }
+    func synchronize(publishPresentations: Bool = true, completion: @escaping @Sendable () -> Void) {
+        queue.async { [self] in
+            if publishPresentations { publishPending(force: true) }
+            completion()
+        }
     }
 
     func maintenance() { queue.async { [self] in maintain() } }
@@ -219,18 +235,21 @@ final class TransferHistoryController: @unchecked Sendable {
 
     private func requestPresentation(_ stat: TransferStat) {
         pendingPresentation.insert(stat)
-        guard !queryScheduled, automaticallySchedules else { return }
+        guard !queryScheduled, automaticallySchedules,
+              !pendingPresentation.isDisjoint(with: activePresentations) else { return }
         queryScheduled = true
         queue.asyncAfter(deadline: .now() + 0.25) { [weak self] in
             guard let self else { return }; self.queryScheduled = false; self.publishPending()
         }
     }
 
-    private func publishPending() {
+    private func publishPending(force: Bool = false) {
         guard let timeline, !pendingPresentation.isEmpty else { return }
+        let requested = force ? pendingPresentation : pendingPresentation.intersection(activePresentations)
+        guard !requested.isEmpty else { return }
         let now = clock.now() // One timestamp is shared by every graph, total and coverage query.
         revision &+= 1
-        let requested = pendingPresentation; pendingPresentation.removeAll()
+        pendingPresentation.subtract(requested)
         for stat in TransferStat.allCases where requested.contains(stat) {
             let period = selected[stat] ?? .minute
             let result = timeline.query(stat: stat, now: now, duration: period.duration)

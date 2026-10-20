@@ -255,4 +255,28 @@ final class TransferLifecycleTests: XCTestCase {
         XCTAssertEqual(f.publications.read() - count, 1)
         XCTAssertEqual(f.values.read()[.network]?.period, .minute)
     }
+
+    func testHiddenDetailDefersQueriesWhileCollectionAndCheckpointsContinue() throws {
+        let f = Fixture(), generation = UUID()
+        f.controller.start(); barrier(f.controller)
+        let count = f.publications.read()
+        for stat in TransferStat.allCases { f.controller.setPresentationActive(false, for: stat) }
+        f.controller.selectPeriod(.day, for: .network)
+        f.controller.admitGeneration(generation, for: .network)
+        f.controller.ingest(observation(f, generation: generation, sequence: 1, start: 0, end: 1, bytes: 100))
+        XCTAssertNil(flush(f.controller))
+        let hidden = expectation(description: "Hidden queue drained without forcing a graph query")
+        f.controller.synchronize(publishPresentations: false) { hidden.fulfill() }
+        wait(for: [hidden], timeout: 4)
+        XCTAssertEqual(f.publications.read(), count)
+        let saved = TransferHistoryRepository(root: f.root).load(now: f.clock.now())
+        XCTAssertEqual(saved.snapshot?.stats.first(where: { $0.stat == .network })?.cumulative.bytes.first, 100)
+        f.controller.setPresentationActive(true, for: .network)
+        let visible = expectation(description: "Opening refreshes the selected period")
+        f.controller.synchronize(publishPresentations: false) { visible.fulfill() }
+        wait(for: [visible], timeout: 4)
+        XCTAssertEqual(f.publications.read(), count + 1)
+        XCTAssertEqual(f.values.read()[.network]?.period, .day)
+        expectTotal(f, 100)
+    }
 }

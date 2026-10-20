@@ -1,8 +1,8 @@
 # Network and Disk History Specification
 
-**Status:** Executing — user-facing requirements confirmed; feasibility gate in progress
+**Status:** Implemented and automatically validated — external acceptance E1 pending
 **Created:** 2026-10-20
-**Last updated:** 2026-10-20
+**Last updated:** 2026-10-21
 
 ## Problem Statement
 
@@ -128,8 +128,9 @@ No background helper, new database dependency or expanded hardware permissions a
    explicit clock/reboot fallback; compact five-minute segments and atomic checkpoints every
    30 seconds plus reset/normal quit; 64 MiB disk and incremental-memory budgets; inline per-stat
    reset confirmation and queue-ordered boundary read. See the plan for exact contracts and limits.
-7. **Internal feasibility gate remains open:** prove 64-bit network counters, per-driver disk
-   identity, deterministic accounting and the fastest-cadence resource budget before dependent work.
+7. **Internal feasibility gate passed:** 64-bit network counters, physical per-driver identity,
+   deterministic accounting and fastest-cadence budgets were validated. Full suite: 113 passed;
+   final standalone Debug build passed. External acceptance E1 remains open in the selected plan.
 
 ## Implementation Plan
 
@@ -153,4 +154,4 @@ positively classified physical providers and exclude Virtual Interface or File/R
 Unknown classification is incomplete coverage; stacked retained physical-driver ancestors are
 rejected rather than summed twice. Boot-volume capacity remains independent. This implements
 whole-machine physical block-storage accounting; unobserved multipath/RAID behavior remains a
-real-hardware limitation, not a validated claim. Task 1.1 evidence and tests remain pending.
+real-hardware limitation, not a validated claim. Task 1.1 and all eight implementation tasks passed their required automated checks. E1 remains open.
