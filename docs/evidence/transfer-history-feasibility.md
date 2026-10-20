@@ -94,3 +94,28 @@ Log `/tmp/qsp-transfer-run02-route-tests.log`; structured result:
 `/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/TransferHistoryRun02RouteTests.xcresult`.
 No app launch or UI interaction; these remain intermediate test builds. Broader real-device/UI
 claims remain E1. Long-lived controller must retain reset admission across sampler replacements.
+
+## Phase 2 presentation validation
+
+Task 3.2 passed eight hostless tests: unsigned max/units/nonfinite handling, distinct direction
+markers, partial/missing coverage, boundary estimate disclosure, locale/date and save/recovery
+states, overflow, revision-gated independent peak memory and reset confirmation/pending/cancel.
+Coordinator review corrected an invented 1 B/s idle peak; idle now displays a true zero. Graph
+compilation used the real Theme and app wiring. Tests do not establish pixels, focus or native
+control behavior; those remain E1.
+
+From `/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project`, after `xcodegen generate`:
+
+```sh
+xcodebuild -scheme QuickStatsPanel -configuration Debug -destination 'platform=macOS' -derivedDataPath build/TransferHistoryRun03 CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual -resultBundlePath build/TransferHistoryRun03PresentationTests.xcresult -only-testing:QuickStatsPanelTests/TransferPresentationTests test
+xcodebuild -scheme QuickStatsPanel -configuration Debug -destination 'platform=macOS' -derivedDataPath build/TransferHistoryRun03 CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual build
+```
+
+Both exit 0; eight tests passed. Logs `/tmp/qsp-transfer-run03-presentation-tests.log` and
+`/tmp/qsp-transfer-run03-build.log`. Structured result:
+`/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/TransferHistoryRun03PresentationTests.xcresult`.
+Intermediate compilation artifact:
+`/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/TransferHistoryRun03/Build/Products/Debug/QuickStatsPanel.app`.
+This is not the integrated user-testing artifact and was not launched. Final runnable build and
+launch preflight remain task 6.1. Repository source/tests were frozen for compilation; persistence
+tests were not executed by this selected check. No app startup or live-profile/storage writes.
