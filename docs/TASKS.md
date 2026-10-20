@@ -10,6 +10,13 @@ The whole stats roadmap has shipped (D-017/D-018/D-019 + D-024), and configurabl
 graphs shipped 2026-07-27 (D-025). v1.1.0 was published 2026-10-03. Remaining work is the follow-up backlog below.
 **This file is the backlog** — `PROJECT_STATE.md` is a digest and points here.
 
+### Preferences redesign — next session
+- [ ] **Simplify the per-stat preferences layout** — user accepted the functionality on
+      2026-10-20 but finds the nested settings cumbersome. Review the narrow options column,
+      grouped-form spacing and scrolling; propose a clearer layout before implementing it.
+      Preserve all options and stored preferences. Screenshot reference:
+      `03_Screenshots/QSP-Settings/2026-10-20-Stats-before-redesign.png`.
+
 ### History and transfer totals
 - [ ] **Longer graphs and cumulative transfer totals** — user requested network download/upload
       and disk read/write history (2026-10-03). Define retained periods, persistence across app
@@ -88,7 +95,7 @@ graphs shipped 2026-07-27 (D-025). v1.1.0 was published 2026-10-03. Remaining wo
 <!-- Active work. Populated by /plan or /execute. Keep focused (3-7 tasks). -->
 <!-- When done: /log moves to tasks-archive.md -->
 
-_Empty — v1.1.0 release completed 2026-10-03. Next: define history and transfer totals._
+_Empty — display customization accepted 2026-10-20. Next: redesign per-stat preferences._
 
 ---
 

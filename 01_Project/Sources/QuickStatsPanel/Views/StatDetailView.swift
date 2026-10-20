@@ -40,6 +40,11 @@ struct StatDetailView: View {
     @ViewBuilder
     private func content(_ descriptor: StatDescriptor, theme: Theme) -> some View {
         VStack(alignment: .leading, spacing: 6) {
+            if descriptor.detail.isEmpty && descriptor.graph == nil && descriptor.processSection == nil {
+                Text("No detail rows selected.")
+                    .font(theme.fonts.detailTitle)
+                    .foregroundStyle(theme.colors.secondaryText)
+            }
             // Activity graph (D-025). Present whenever the stat keeps history —
             // the per-stat *style* setting governs the strip only, where width is
             // scarce; the card always has room, matching iStat, whose dropdown

@@ -102,9 +102,8 @@ extension StatKind {
 
     /// The two values this stat can headline, or `nil` when it has only one.
     ///
-    /// Power's `8·4 W` CPU·GPU split is deliberately absent: it is a single
-    /// pre-formatted string from `PowerSampler`, and re-plumbing its formatter to
-    /// fit this model would change nothing a user can see.
+    /// Power and load average use their own named metric choices rather than
+    /// this two-value model; see `PanelMetricOptions`.
     var valuePair: (first: String, second: String)? {
         switch self {
         case .memory:  return ("Used", "Free")

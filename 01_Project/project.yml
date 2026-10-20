@@ -63,13 +63,18 @@ targets:
       - path: Tests/QuickStatsPanelTests
       # Hostless logic tests: importing the SwiftUI @main application as an XCTest
       # host creates a second NSApplication and crashes before tests bootstrap.
-      # Compile the pure units under test into the bundle instead.
-      - path: Sources/QuickStatsPanel/Model/StatHistory.swift
-      - path: Sources/QuickStatsPanel/Sampling/NetworkSampler.swift
+      # Compile models and their dependencies into the bundle instead. Tests
+      # inject disposable defaults and never start samplers or register hotkeys.
+      - path: Sources/QuickStatsPanel/Model
+      - path: Sources/QuickStatsPanel/Sampling
+      - path: Sources/QuickStatsPanel/Theme.swift
+      - path: Sources/QuickStatsPanel/Services/HotKeyService.swift
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.sim.QuickStatsPanelTests
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/QuickStatsPanel/QuickStatsPanel-Bridging-Header.h
+        OTHER_LDFLAGS: -lIOReport -framework IOKit
 
 schemes:
   QuickStatsPanel:

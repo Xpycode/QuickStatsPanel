@@ -125,7 +125,7 @@ extension StatsStore {
         let settings = AppSettings.shared
         return settings.statOrder
             .filter(settings.isEnabled)
-            .compactMap(descriptor(for:))
+            .compactMap { descriptor(for: $0, settings: settings) }
             .map { desc in
                 // Resolve the status band + themed tint once, here — the single
                 // chokepoint. Battery is the only "less = worse" metric, so it
@@ -160,9 +160,9 @@ extension StatsStore {
     /// numbers side by side "16,85 GB  617,24 GB" is ambiguous, while a lone value
     /// is unambiguous by construction — so single-value modes stay exactly as
     /// narrow as they are today.
-    private func resolved(_ kind: StatKind, _ first: TileValue, _ second: TileValue)
+    private func resolved(_ kind: StatKind, _ first: TileValue, _ second: TileValue, settings: AppSettings)
     -> (value: String, widest: String, secondary: String?, widestSecondary: String?) {
-        let mode = AppSettings.shared.valueMode(kind)
+        let mode = settings.valueMode(kind)
         let combined = mode.isCombined
         switch mode {
         case .both:
@@ -199,7 +199,33 @@ extension StatsStore {
                            peak: peak, peakFormatted: NetworkSample.rate(peak))
     }
 
-    private func descriptor(for kind: StatKind) -> StatDescriptor? {
+    /// Common filtering keeps every detail card aligned with its persisted choices.
+    func descriptor(for kind: StatKind, settings: AppSettings) -> StatDescriptor? {
+        guard let descriptor = unfilteredDescriptor(for: kind, settings: settings) else { return nil }
+        return StatDescriptor(kind: descriptor.kind, symbol: descriptor.symbol,
+                              value: descriptor.value, widestValue: descriptor.widestValue,
+                              secondaryValue: descriptor.secondaryValue,
+                              widestSecondaryValue: descriptor.widestSecondaryValue,
+                              loadPercent: descriptor.loadPercent,
+                              detail: descriptor.detail.filter { settings.isDetailRowVisible(kind, $0.0) },
+                              processSection: descriptor.processSection, graph: descriptor.graph)
+    }
+
+    /// Sensor names can vary between Macs; expose actual labels as stable row IDs.
+    func detailRowOptions(for kind: StatKind) -> [String] {
+        if kind == .fan {
+            guard !fan.fans.isEmpty else { return ["Fan"] }
+            return fan.fans.indices.map { fan.fans.count > 1 ? "Fan \($0 + 1)" : "Fan" }
+        }
+        guard kind == .temps else { return kind.configurableDetailRows }
+        var labels = kind.configurableDetailRows
+        for sensor in temps.sensors where !labels.contains(sensor.label) {
+            labels.append(sensor.label)
+        }
+        return labels
+    }
+
+    private func unfilteredDescriptor(for kind: StatKind, settings: AppSettings) -> StatDescriptor? {
         switch kind {
         case .cpu:
             var cpuDetail: [(String, String)] = [
@@ -211,7 +237,7 @@ extension StatsStore {
             // right where the load is read. Fed by the temps sample's per-role
             // SMC/IOHID merge; absent (Intel/VM) ⇒ no row.
             if let t = temps.sensors.first(where: { $0.label == "CPU" }) {
-                cpuDetail.append(("Temp", String(format: "%.0f°C", t.celsius)))
+                cpuDetail.append(("Temp", settings.temperatureUnit.formatted(celsius: t.celsius)))
             }
             return StatDescriptor(
                 kind: .cpu, symbol: "cpu",
@@ -231,7 +257,7 @@ extension StatsStore {
                                TileValue(label: "Used", marker: "U",
                                          text: memory.usedFormatted, widest: "888,88 GB"),
                                TileValue(label: "Free", marker: "F",
-                                         text: memory.freeFormatted, widest: "888,88 GB"))
+                                         text: memory.freeFormatted, widest: "888,88 GB"), settings: settings)
             // Plot used *as a share of total*, matching the headline. Pressure has
             // its own detail row and a different meaning — a Mac can sit at 90%
             // used with low pressure, so graphing pressure under a "Used" headline
@@ -263,11 +289,21 @@ extension StatsStore {
                                  lower: nil))
 
         case .disk:
-            let dsk = resolved(.disk,
+            let dsk: (value: String, widest: String, secondary: String?, widestSecondary: String?)
+            switch settings.diskDisplayMode {
+            case .capacity:
+                dsk = resolved(.disk,
                                TileValue(label: "Free", marker: "F",
                                          text: disk.freeFormatted, widest: "888,88 GB"),
                                TileValue(label: "Used", marker: "U",
-                                         text: disk.usedFormatted, widest: "888,88 GB"))
+                                         text: disk.usedFormatted, widest: "888,88 GB"), settings: settings)
+            case .activity:
+                dsk = resolved(.disk,
+                               TileValue(label: "Read", marker: "R",
+                                         text: disk.readFormatted, widest: "888 MB/s"),
+                               TileValue(label: "Write", marker: "W",
+                                         text: disk.writeFormatted, widest: "888 MB/s"), settings: settings)
+            }
             // The graph plots **I/O throughput**, not capacity: capacity moves in
             // gigabytes per hour and would draw a flat line at this timescale.
             // Read above the baseline, Write below — matching iStat's arrangement.
@@ -313,7 +349,7 @@ extension StatsStore {
                                TileValue(label: "Down", marker: "↓",
                                          text: network.downFormatted, widest: "888 MB/s"),
                                TileValue(label: "Up", marker: "↑",
-                                         text: network.upFormatted, widest: "888 MB/s"))
+                                         text: network.upFormatted, widest: "888 MB/s"), settings: settings)
             let netSamples = networkHistory.elements
             return StatDescriptor(
                 kind: .network, symbol: "network",
@@ -343,7 +379,9 @@ extension StatsStore {
             // System Settings' Battery Health panel shows. Hidden when unreadable.
             if let health = battery.healthFormatted { batteryDetail.append(("Health", health)) }
             if let cycles = battery.cyclesFormatted { batteryDetail.append(("Cycles", cycles)) }
-            if let temp = battery.temperatureFormatted { batteryDetail.append(("Temp", temp)) }
+            if let temp = battery.temperatureC {
+                batteryDetail.append(("Temp", settings.temperatureUnit.formatted(celsius: temp)))
+            }
             return StatDescriptor(
                 kind: .battery, symbol: battery.symbolName,  // level/charging-aware glyph
                 value: battery.percentFormatted,             // headline: charge %
@@ -359,7 +397,7 @@ extension StatsStore {
             if let name = gpu.deviceName { detail.append(("Device", name)) }
             // Same cross-tile temperature touch as the CPU card (2026-07-12).
             if let t = temps.sensors.first(where: { $0.label == "GPU" }) {
-                detail.append(("Temp", String(format: "%.0f°C", t.celsius)))
+                detail.append(("Temp", settings.temperatureUnit.formatted(celsius: t.celsius)))
             }
             return StatDescriptor(
                 kind: .gpu, symbol: "cpu.fill",         // kept in design pass 2026-07-03 (see settingsSymbol)
@@ -405,10 +443,11 @@ extension StatsStore {
             ]
             if let system = power.systemFormatted { powerDetail.append(("System", system)) }
             if let dcIn = power.dcInFormatted { powerDetail.append(("DC In", dcIn)) }
+            let mode = settings.powerDisplayMode
             return StatDescriptor(
                 kind: .power, symbol: "bolt.fill",
-                value: power.headlineFormatted,         // headline: "cpu·gpu W" split
-                widestValue: "88·88 W",                 // worst-case slot (D-008); Ultra GPU >99W clips, acceptable
+                value: power.headline(for: mode),
+                widestValue: mode.widestValue,
                 loadPercent: power.loadPercent,         // color: total ÷ session-peak (set by the sampler)
                 detail: powerDetail)
 
@@ -419,23 +458,26 @@ extension StatsStore {
             // `Pressure: <state>` row when IOHID enumerates no sensors (Intel / VM).
             return StatDescriptor(
                 kind: .temps, symbol: "thermometer",
-                value: temps.headlineFormatted,     // headline: thermal-pressure word
-                widestValue: "Critical",            // widest state word — no jitter (AC-6)
+                value: temps.headline(for: settings.temperatureDisplayMode, unit: settings.temperatureUnit),
+                widestValue: settings.temperatureDisplayMode.widestValue(unit: settings.temperatureUnit),
                 loadPercent: temps.loadPercent,     // color/weight: calm→hot via state
-                detail: temps.detailRows)
+                detail: temps.detailRows(unit: settings.temperatureUnit))
 
         case .loadAverage:
+            let mode = settings.loadDisplayMode
+            let cores = max(1, ProcessInfo.processInfo.activeProcessorCount)
+            let detail: [(String, String)] = [
+                ("1 min", loadAverage.oneFormatted),
+                ("5 min", loadAverage.fiveFormatted),
+                ("15 min", loadAverage.fifteenFormatted),
+                ("Cores", "\(cores)"),
+            ]
             return StatDescriptor(
                 kind: .loadAverage, symbol: "speedometer",
-                value: loadAverage.oneFormatted,        // headline: 1-min load
-                widestValue: "88.88",
-                loadPercent: loadAverage.saturationPercent,  // color: load ÷ cores
-                detail: [
-                    ("1 min", loadAverage.oneFormatted),
-                    ("5 min", loadAverage.fiveFormatted),
-                    ("15 min", loadAverage.fifteenFormatted),
-                    ("Cores", "\(ProcessInfo.processInfo.activeProcessorCount)"),
-                ])
+                value: loadAverage.headline(for: mode, cores: cores),
+                widestValue: mode.widestValue,
+                loadPercent: loadAverage.saturationPercent(for: mode, cores: cores),
+                detail: detail)
 
         case .uptime:
             return StatDescriptor(

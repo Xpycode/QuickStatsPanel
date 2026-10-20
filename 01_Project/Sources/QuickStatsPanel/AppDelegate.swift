@@ -175,7 +175,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // full context, so close the strip as we open it. (hide() also resets pin
         // and tears down the detail/hint cards via onVisibilityChanged.)
         panel.hide()
-        settingsWindow.show()
+        settingsWindow.show(store: store)
     }
 
     // MARK: - Esc-to-dismiss

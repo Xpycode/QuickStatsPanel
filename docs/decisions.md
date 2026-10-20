@@ -330,3 +330,18 @@ success message.
 **Verified:** universal arm64+x86_64 Release; 5/5 tests; stable strict Developer ID verification; installed
 v1.0→v1.1 upgrade preserved preferences; user verified graphs, detail cards, dragging, Settings and hotkeys.
 **Status:** ✅ Release preparation complete. Notarization, stapling, DMG validation and publication remain.
+
+
+### 2026-10-20 - D-028: Explicit Power/Load headlines and selectable detail rows
+**Context:** The CPU·GPU power pair looked like a decimal watt reading, and raw load averages were unclear beside CPU utilization. User approved expanding Settings → Stats after reviewing the proposed choices.
+**Decision:** Add named headline selectors for Power and Load plus detail-row checkboxes for those two stats in the existing options pane. Default Power to whole-system watts; keep Load's 1-minute default. Label both CPU and GPU in combined mode and retain one decimal watt precision. Unsupported System/Charger readings show a dash rather than substituting another metric. Keep unavailable hardware rows omitted.
+**Rationale:** Distinguish measurements with different meanings, preserve the compact panel and expose existing sampled values without adding sampling or permissions. Explain load as averaged runnable work, with core count only a rough comparison, never CPU utilization. Apple's getloadavg manual confirms the 1/5/15-minute definitions: https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/getloadavg.3.html
+**Consequences:** New preferences use separate keys and sparse row exclusions; existing settings remain intact. New controls use AppKit wrappers. Row labels are persistence identifiers and must remain stable. All rows may be hidden; the card then explains that none are selected. Runtime visual acceptance remains a separate check from logic tests.
+
+
+### 2026-10-20 - D-029: Temperature/disk headlines and detail rows for every stat
+**Context:** User accepted the Power/Load settings and approved the recommended next additions: temperature choices, disk read/write headlines, and detail-row controls across all stats.
+**Decision:** Keep the existing Stats options area. Temperature can headline thermal status, CPU or GPU temperature, or status plus either sensor, with a shared Celsius/Fahrenheit display setting. Disk can headline capacity or read/write throughput using its existing first/second/both ordering choices. Expose detail-row exclusions across every stat and actual available fan/sensor names. Missing temperature measurements use a dash. Preserve previous defaults and all stored values.
+**Rationale:** Reuse sampled data, avoiding additional I/O or permissions. Thermal status and physical temperature remain distinct: Apple's thermalState values describe system conditions, so selecting a numeric sensor does not change the thermal-status color meaning. Disk color continues to describe capacity; its activity graph continues to show throughput.
+**Source:** https://developer.apple.com/documentation/foundation/processinfo/thermalstate-swift.enum
+**Consequences:** Preferences are presentation-only. Detail row filtering is shared by the panel and isolated tests; dynamic sensor/fan row exclusions survive missing hardware readings. Settings receives the existing live StatsStore to list actual hardware rows. Graphs and top-process sections retain their existing behavior.

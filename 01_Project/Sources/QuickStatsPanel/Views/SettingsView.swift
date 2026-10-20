@@ -11,6 +11,8 @@ import ServiceManagement
 /// (hotkey re-register, sampler restart, live theme rebuild) happen in the model's
 /// `didSet` hooks, so the views stay declarative.
 struct SettingsView: View {
+    let store: StatsStore
+
     // Single-select `List` wants an optional binding (macOS); default to the first
     // pane and coalesce nil → .stats in `detail` so a pane is always shown.
     @State private var selection: SettingsPane? = .stats
@@ -40,7 +42,7 @@ struct SettingsView: View {
     @ViewBuilder
     private var detail: some View {
         switch selection ?? .stats {
-        case .stats:      StatsSettingsPane()
+        case .stats:      StatsSettingsPane(store: store)
         case .appearance: AppearanceSettingsPane()
         case .panel:      PanelSettingsPane()
         case .hotkeys:    HotkeySettingsPane()
@@ -78,6 +80,7 @@ private enum SettingsPane: String, CaseIterable, Identifiable {
 // MARK: - Stats (toggle + drag-to-reorder)
 
 private struct StatsSettingsPane: View {
+    let store: StatsStore
     @Bindable private var settings = AppSettings.shared
 
     /// Which stat the options pane is editing. Optional because a `List`
@@ -97,7 +100,7 @@ private struct StatsSettingsPane: View {
                 statList
                 Divider()
                 optionsPane
-                    .frame(width: 230)
+                    .frame(width: 260)
             }
 
             Divider()
@@ -146,11 +149,68 @@ private struct StatsSettingsPane: View {
         if let kind = selected {
             Form {
                 Section(kind.displayName) {
-                    if let pair = kind.valuePair {
-                        Picker("Value", selection: valueModeBinding(kind)) {
-                            ForEach(TileValueMode.allCases) { mode in
-                                Text(mode.displayName(pair: pair)).tag(mode)
-                            }
+                    if kind == .power {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Panel value")
+                            MetricOptionPopup(items: PowerDisplayMode.allCases,
+                                              titleForItem: { $0.displayName },
+                                              selection: $settings.powerDisplayMode)
+                                .frame(height: 24)
+                        }
+                        Text("System is whole-machine power. Chip total adds CPU, GPU, Neural Engine and DRAM. Charger input can also supply battery charging. Unavailable readings appear as —.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Text("Power color reflects chip activity relative to its peak since sampling started.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else if kind == .temps {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Panel value")
+                            MetricOptionPopup(items: TemperatureDisplayMode.allCases,
+                                              titleForItem: { $0.displayName },
+                                              selection: $settings.temperatureDisplayMode)
+                                .frame(height: 24)
+                        }
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Temperature unit")
+                            MetricOptionPopup(items: TemperatureUnit.allCases,
+                                              titleForItem: { $0.displayName },
+                                              selection: $settings.temperatureUnit,
+                                              accessibilityLabel: "Temperature unit")
+                                .frame(height: 24)
+                        }
+                        Text("The unit applies to all temperature readings, including CPU, GPU and Battery detail cards. Unavailable sensor readings appear as —.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Text("Temperature color reflects macOS thermal status, regardless of the panel value.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else if kind == .disk {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Panel value")
+                            MetricOptionPopup(items: DiskDisplayMode.allCases,
+                                              titleForItem: { $0.displayName },
+                                              selection: $settings.diskDisplayMode)
+                                .frame(height: 24)
+                        }
+                        Text("Activity shows live read/write speeds. The graph always shows activity; disk color reflects used capacity.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else if kind == .loadAverage {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Panel value")
+                            MetricOptionPopup(items: LoadDisplayMode.allCases,
+                                              titleForItem: { $0.displayName },
+                                              selection: $settings.loadDisplayMode)
+                                .frame(height: 24)
+                        }
+                        Text("Load is runnable work averaged over 1, 5 or 15 minutes, not CPU usage %. Comparing load with the core count gives a rough guide to CPU demand.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+
+                    if let pair = valuePair(for: kind) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Value")
+                            MetricOptionPopup(items: TileValueMode.allCases,
+                                              titleForItem: { $0.displayName(pair: pair) },
+                                              selection: valueModeBinding(kind),
+                                              accessibilityLabel: "Value")
+                                .frame(height: 24)
                         }
                     }
 
@@ -164,9 +224,22 @@ private struct StatsSettingsPane: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }
 
-                    if kind.valuePair == nil && !kind.supportsGraph {
+                    if kind.valuePair == nil && !kind.supportsGraph && store.detailRowOptions(for: kind).isEmpty {
                         Text("This stat has a single value and no history to plot.")
                             .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+
+                if !store.detailRowOptions(for: kind).isEmpty {
+                    Section("Detail card") {
+                        Text("Choose the rows shown when this stat’s detail card opens. Unavailable hardware readings stay hidden.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        ForEach(store.detailRowOptions(for: kind), id: \.self) { label in
+                            MetricOptionCheckbox(title: label,
+                                                 isOn: detailRowBinding(kind, label))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .frame(height: 22)
+                        }
                     }
                 }
             }
@@ -182,6 +255,13 @@ private struct StatsSettingsPane: View {
         }
     }
 
+    private func valuePair(for kind: StatKind) -> (first: String, second: String)? {
+        if kind == .disk && settings.diskDisplayMode == .activity {
+            return ("Read", "Write")
+        }
+        return kind.valuePair
+    }
+
     private func enabledBinding(_ kind: StatKind) -> Binding<Bool> {
         Binding(get: { settings.isEnabled(kind) },
                 set: { settings.setEnabled(kind, $0) })
@@ -195,6 +275,11 @@ private struct StatsSettingsPane: View {
     private func styleBinding(_ kind: StatKind) -> Binding<TileStyle> {
         Binding(get: { settings.style(kind) },
                 set: { settings.setStyle(kind, $0) })
+    }
+
+    private func detailRowBinding(_ kind: StatKind, _ label: String) -> Binding<Bool> {
+        Binding(get: { settings.isDetailRowVisible(kind, label) },
+                set: { settings.setDetailRowVisible(kind, label, $0) })
     }
 }
 
@@ -492,6 +577,14 @@ private struct AboutSettingsPane: View {
     private func resetToDefaults() {
         settings.statOrder = StatKind.allCases
         settings.enabledStats = Set(StatKind.allCases)
+        settings.tileValueModes = [:]
+        settings.tileStyles = [:]
+        settings.powerDisplayMode = .system
+        settings.loadDisplayMode = .oneMinute
+        settings.temperatureDisplayMode = .status
+        settings.temperatureUnit = .celsius
+        settings.diskDisplayMode = .capacity
+        settings.hiddenDetailRows = [:]
         settings.interval = 1.0
         settings.anchor = .cursor
         settings.stripHeight = 36

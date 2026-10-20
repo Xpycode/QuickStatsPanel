@@ -55,6 +55,31 @@ final class AppSettings {
         didSet { persistTileStyles(); onStatsChanged?() }
     }
 
+    var powerDisplayMode: PowerDisplayMode {
+        didSet { defaults.set(powerDisplayMode.rawValue, forKey: Keys.powerDisplayMode); onStatsChanged?() }
+    }
+
+    var loadDisplayMode: LoadDisplayMode {
+        didSet { defaults.set(loadDisplayMode.rawValue, forKey: Keys.loadDisplayMode); onStatsChanged?() }
+    }
+
+    var temperatureDisplayMode: TemperatureDisplayMode {
+        didSet { defaults.set(temperatureDisplayMode.rawValue, forKey: Keys.temperatureDisplayMode); onStatsChanged?() }
+    }
+
+    var temperatureUnit: TemperatureUnit {
+        didSet { defaults.set(temperatureUnit.rawValue, forKey: Keys.temperatureUnit); onStatsChanged?() }
+    }
+
+    var diskDisplayMode: DiskDisplayMode {
+        didSet { defaults.set(diskDisplayMode.rawValue, forKey: Keys.diskDisplayMode); onStatsChanged?() }
+    }
+
+    /// Sparse exclusions: newly introduced rows remain visible by default.
+    var hiddenDetailRows: [StatKind: Set<String>] {
+        didSet { persistHiddenDetailRows(); onStatsChanged?() }
+    }
+
     // MARK: - Sampling
 
     /// Seconds between sampler refreshes. Slider-bounded to a sane range in the UI.
@@ -242,6 +267,25 @@ final class AppSettings {
                                              TileValueMode.init(rawValue:))
         self.tileStyles = Self.decodeMap(defaults.dictionary(forKey: Keys.tileStyles),
                                          TileStyle.init(rawValue:))
+        self.powerDisplayMode = defaults.string(forKey: Keys.powerDisplayMode)
+            .flatMap(PowerDisplayMode.init(rawValue:)) ?? .system
+        self.loadDisplayMode = defaults.string(forKey: Keys.loadDisplayMode)
+            .flatMap(LoadDisplayMode.init(rawValue:)) ?? .oneMinute
+        self.temperatureDisplayMode = defaults.string(forKey: Keys.temperatureDisplayMode)
+            .flatMap(TemperatureDisplayMode.init(rawValue:)) ?? .status
+        self.temperatureUnit = defaults.string(forKey: Keys.temperatureUnit)
+            .flatMap(TemperatureUnit.init(rawValue:)) ?? .celsius
+        self.diskDisplayMode = defaults.string(forKey: Keys.diskDisplayMode)
+            .flatMap(DiskDisplayMode.init(rawValue:)) ?? .capacity
+        self.hiddenDetailRows = (defaults.dictionary(forKey: Keys.hiddenDetailRows) ?? [:])
+            .reduce(into: [:]) { result, entry in
+                guard let kind = StatKind(rawValue: entry.key),
+                      let labels = entry.value as? [String] else { return }
+                let known = kind == .fan || kind == .temps
+                    ? Set(labels.filter { !$0.isEmpty })
+                    : Set(labels).intersection(kind.configurableDetailRows)
+                if !known.isEmpty { result[kind] = known }
+            }
 
         let storedInterval = defaults.double(forKey: Keys.interval)
         self.interval = storedInterval > 0 ? storedInterval : 1.0
@@ -341,6 +385,18 @@ final class AppSettings {
         tileStyles[kind] = style
     }
 
+    func isDetailRowVisible(_ kind: StatKind, _ label: String) -> Bool {
+        !(hiddenDetailRows[kind]?.contains(label) ?? false)
+    }
+
+    func setDetailRowVisible(_ kind: StatKind, _ label: String, _ visible: Bool) {
+        guard !label.isEmpty, kind == .fan || kind == .temps || kind.configurableDetailRows.contains(label) else { return }
+        var hidden = hiddenDetailRows[kind] ?? []
+        if visible { hidden.remove(label) } else { hidden.insert(label) }
+        if hidden.isEmpty { hiddenDetailRows.removeValue(forKey: kind) }
+        else { hiddenDetailRows[kind] = hidden }
+    }
+
     // MARK: - Persistence helpers
 
     private func persistStatOrder() {
@@ -354,6 +410,12 @@ final class AppSettings {
     }
     private func persistTileStyles() {
         defaults.set(Self.encodeMap(tileStyles), forKey: Keys.tileStyles)
+    }
+    private func persistHiddenDetailRows() {
+        let raw = Dictionary(uniqueKeysWithValues: hiddenDetailRows.map {
+            ($0.key.rawValue, $0.value.sorted())
+        })
+        defaults.set(raw, forKey: Keys.hiddenDetailRows)
     }
 
     /// `[StatKind: V]` → `[String: String]` for UserDefaults (plist-safe).
@@ -379,6 +441,12 @@ final class AppSettings {
         static let knownStats     = "knownStats"
         static let tileValueModes = "tileValueModes"
         static let tileStyles     = "tileStyles"
+        static let powerDisplayMode = "powerDisplayMode"
+        static let loadDisplayMode = "loadDisplayMode"
+        static let temperatureDisplayMode = "temperatureDisplayMode"
+        static let temperatureUnit = "temperatureUnit"
+        static let diskDisplayMode = "diskDisplayMode"
+        static let hiddenDetailRows = "hiddenDetailRows"
         static let interval       = "interval"
         static let anchor         = "anchor"
         static let customX        = "customPositionX"

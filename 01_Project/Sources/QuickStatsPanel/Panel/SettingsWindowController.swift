@@ -15,9 +15,9 @@ final class SettingsWindowController {
 
     private var window: NSWindow?
 
-    func show() {
+    func show(store: StatsStore) {
         if window == nil {
-            let hosting = NSHostingController(rootView: SettingsView())
+            let hosting = NSHostingController(rootView: SettingsView(store: store))
             let window = NSWindow(contentViewController: hosting)
             window.title = "QuickStatsPanel Settings"
             // Resizable: the sidebar `NavigationSplitView` fills its window rather than

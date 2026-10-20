@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+- Temperature headline choices: thermal status, CPU/GPU temperature, or status plus CPU/GPU; Celsius/Fahrenheit across temperature readouts.
+- Disk headline choices for capacity or live read/write activity.
+- Selectable detail rows across every stat, including available fan and temperature sensor rows.
+
+- Power headline choices: whole system (default), chip total, CPU, GPU, labeled CPU + GPU, or charger input.
+- Load headline choices: 1-, 5-, or 15-minute averages, or 1-minute load beside core count.
+- Configurable Power and Load detail rows, with metric explanations in Settings → Stats.
+- Reset to Defaults now also clears tile value and graph choices.
+
 ## [1.1.0] — 2026-10-03
 
 ### Added
