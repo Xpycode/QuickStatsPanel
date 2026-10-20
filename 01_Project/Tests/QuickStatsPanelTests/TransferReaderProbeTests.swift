@@ -153,4 +153,29 @@ final class TransferReaderProbeTests: XCTestCase {
         XCTAssertEqual(unknown, 0, "Hardware gate unresolved: unknown provider classification")
         print("Transfer hardware gate: \(physical) distinct physical drivers with paired 64-bit counters; \(virtual) virtual layers excluded; no physical ancestor stacking")
     }
+
+    func testCurrentValidatedClockAndProductionAdapters() throws {
+        // Bounded read-only smoke through the real adapters, not just the raw API probe.
+        // No timers, traffic generation, app startup, preferences, or filesystem access.
+        let clock = SystemTransferClock()
+        let first = clock.now(), second = clock.now()
+        XCTAssertTrue(first.isValid, "Hardware gate: validated continuous clock/boot identity unavailable")
+        XCTAssertNotNil(UUID(uuidString: first.bootID))
+        XCTAssertEqual(first.bootID, second.bootID)
+        XCTAssertGreaterThanOrEqual(second.continuousTime, first.continuousTime)
+        guard first.isValid else { return }
+        let generation = UUID()
+        let network = NetworkTransferCounterReader().read(generation: generation, sequence: 1, timestamp: first)
+        let disk = DiskTransferCounterReader().read(generation: generation, sequence: 1, timestamp: first)
+        XCTAssertTrue(network.enumeration == .complete)
+        XCTAssertTrue(disk.enumeration == .complete)
+        XCTAssertFalse(network.sources.isEmpty, "Current hardware gate needs an active physical link")
+        XCTAssertFalse(disk.sources.isEmpty, "Current hardware gate needs a physical block driver")
+        XCTAssertTrue(network.sources.allSatisfy { $0.bytes != nil })
+        XCTAssertTrue(disk.sources.allSatisfy { $0.bytes != nil })
+        XCTAssertEqual(Set(network.sources.map(\.id)).count, network.sources.count)
+        XCTAssertEqual(Set(disk.sources.map(\.id)).count, disk.sources.count)
+        print("Transfer production adapters: validated clock; \(network.sources.count) network and \(disk.sources.count) disk sources, paired counters")
+    }
+
 }

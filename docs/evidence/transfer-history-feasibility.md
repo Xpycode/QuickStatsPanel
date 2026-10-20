@@ -57,3 +57,40 @@ xcodebuild -scheme QuickStatsPanel -configuration Debug -destination 'platform=m
 Log: `/tmp/qsp-transfer-run01-probe.log`. Structured result:
 `/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/TransferHistoryRun01ProbeTests.xcresult`.
 `git diff --check` passed at this checkpoint. These were intermediate test builds; no launch.
+
+## Phase 1 sampler and timeline validation
+
+Task 2.1: per-source readers use snapshot-consistent RTAX_IFP network identity and positive physical
+provider classification; serial driver owns timer/read/accounting/start/stop/reset. Reset boundary
+read precedes its marker; rejected/duplicate/same-time actions do not change counters. Generation
+identity is attached to live callbacks. Actual adapter smoke confirmed a valid boot UUID/continuous
+clock and seven network/two disk paired sources outside the Codex shell sandbox. Shell-only clock
+probe was blocked by sandbox; product code was not changed for that environment restriction.
+
+Task 2.2: pure timeline keeps bounded immutable five-minute chunks and independent cumulative epochs.
+Snapshot slices share storage; a persisted per-segment offset places older-boot history without
+copying a day. Independent review/harness found and fixed restore fragmentation/cumulative loss,
+slot boundary byte loss at UInt64.max, impossible reboot aging, immediate fresh-generation reset,
+full-day temporary allocations and extreme finite clock-anchor overflow. Fixtures reproduce these
+cases. Reviewer also checked 20,000 random maximum-byte queries and 50,000 targeted boundary queries.
+
+Working directory and signing/effects class remain as above. Regenerated project and executed:
+
+```sh
+xcodebuild -scheme QuickStatsPanel -configuration Debug -destination 'platform=macOS' -derivedDataPath build/TransferHistoryRun02 CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual -resultBundlePath build/TransferHistoryRun02Tests.xcresult -only-testing:QuickStatsPanelTests/NetworkSamplerTests -only-testing:QuickStatsPanelTests/TransferSamplerTests -only-testing:QuickStatsPanelTests/TransferAccountingTests -only-testing:QuickStatsPanelTests/TransferReaderProbeTests -only-testing:QuickStatsPanelTests/TransferTimelineTests test
+```
+
+Exit 0, **51 tests passed**: Network 7, Sampler 10, Accounting 15, Probe 4 (no skips), Timeline 15.
+Log `/tmp/qsp-transfer-run02-tests.log`; structured result:
+`/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/TransferHistoryRun02Tests.xcresult`.
+The final network reader fix removed the separate name lookup race. Affected checks reran:
+
+```sh
+xcodebuild -scheme QuickStatsPanel -configuration Debug -destination 'platform=macOS' -derivedDataPath build/TransferHistoryRun02 CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual -resultBundlePath build/TransferHistoryRun02RouteTests.xcresult -only-testing:QuickStatsPanelTests/NetworkSamplerTests -only-testing:QuickStatsPanelTests/TransferSamplerTests -only-testing:QuickStatsPanelTests/TransferReaderProbeTests test
+```
+
+Exit 0, **22 tests passed**: Network 8, Sampler 10, Probe 4 (no skips).
+Log `/tmp/qsp-transfer-run02-route-tests.log`; structured result:
+`/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/TransferHistoryRun02RouteTests.xcresult`.
+No app launch or UI interaction; these remain intermediate test builds. Broader real-device/UI
+claims remain E1. Long-lived controller must retain reset admission across sampler replacements.

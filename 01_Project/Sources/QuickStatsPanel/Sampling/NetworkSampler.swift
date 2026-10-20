@@ -1,11 +1,8 @@
 import Foundation
 import SystemConfiguration
 
-// New sampler (roadmap v1.1). Permission-free, matching the app's no-permission
-// stance (D-002/D-003): network throughput comes from `getifaddrs(3)`, a BSD call
-// that needs no entitlement. Like DiskSampler's I/O counters, the per-interface
-// `ifi_ibytes`/`ifi_obytes` are cumulative-since-boot, so we report the delta
-// between ticks divided by the interval (bytes per second).
+// Permission-free 64-bit physical-link counters feed exact per-source accounting.
+// getifaddrs is used only for display metadata, never throughput accounting.
 
 struct NetworkSample: Equatable, Sendable {
     var downBytesPerSec: Double   // received  (sum of counted interfaces' ifi_ibytes delta)
@@ -41,112 +38,68 @@ struct NetworkSample: Equatable, Sendable {
         let f = ByteCountFormatter()
         f.countStyle = .file
         f.allowsNonnumericFormatting = false
-        return f.string(fromByteCount: Int64(max(0, bytesPerSec))) + "/s"
+        let safe = bytesPerSec.isFinite ? min(max(0, bytesPerSec), Double(Int64.max).nextDown) : 0
+        return f.string(fromByteCount: Int64(safe)) + "/s"
     }
 }
 
 /// Polls cumulative per-interface byte counters on a background timer and reports
 /// up/down throughput as a per-second delta. Structurally identical to DiskSampler.
-final class NetworkSampler {
-    private let interval: TimeInterval
-    private let onSample: @Sendable (NetworkSample) -> Void
-    private var timer: DispatchSourceTimer?
-    private let queue = DispatchQueue(label: "QuickStatsPanel.NetworkSampler")
+final class NetworkSampler: @unchecked Sendable {
+    private let driver: TransferSamplerDriver
+    var interval: TimeInterval { driver.interval }
+    var generation: UUID { driver.generation }
+    var sequence: UInt64 { driver.sequence }
 
-    /// Cumulative (received, sent) byte counters from the previous tick. Monotonic,
-    /// so we report their delta over `interval` — same idea as DiskSampler.previousIO.
-    private var previousBytes: (received: UInt64, sent: UInt64)?
-
-    /// BSD name → localized display name ("en0" → "Wi-Fi"), resolved once in
-    /// `start()` via SystemConfiguration. Interfaces hot-plugged mid-session fall
-    /// back to their bare BSD name until the next start — honest, not stale.
-    private var friendlyNames: [String: String] = [:]
-
-    init(interval: TimeInterval = 1.0, onSample: @escaping @Sendable (NetworkSample) -> Void) {
-        self.interval = interval
-        self.onSample = onSample
-    }
-
-    func start() {
-        friendlyNames = Self.localizedInterfaceNames()
-        let t = DispatchSource.makeTimerSource(queue: queue)
-        t.schedule(deadline: .now(), repeating: interval)
-        t.setEventHandler { [weak self] in self?.tick() }
-        t.resume()
-        self.timer = t
-    }
-
-    func stop() {
-        timer?.cancel()
-        timer = nil
-    }
-
-    private func tick() {
-        var downRate = 0.0
-        var upRate = 0.0
-        if let bytes = Self.readInterfaceBytes() {
-            if let prev = previousBytes {
-                // Guard against counter wraps/resets (e.g. interface bounce).
-                let dDown = bytes.received >= prev.received ? bytes.received - prev.received : 0
-                let dUp = bytes.sent >= prev.sent ? bytes.sent - prev.sent : 0
-                downRate = Double(dDown) / interval
-                upRate = Double(dUp) / interval
+    /// Callbacks run in order on the sampler queue; consumers should enqueue immutable values
+    /// onto their owner rather than block this queue. The identity callback permits rejection
+    /// of a live sample whose MainActor delivery was delayed past a restart.
+    init(interval: TimeInterval = 1.0,
+         reader: any TransferCounterReader = NetworkTransferCounterReader(),
+         clock: any TransferClock = SystemTransferClock(),
+         automaticallySchedules: Bool = true,
+         metadataProvider: (@Sendable () -> (interfaceName: String?, localIP: String?))? = nil,
+         onGeneration: @escaping @Sendable (UUID) -> Void = { _ in },
+         onTransferEvent: @escaping @Sendable (TransferEvent) -> Void = { _ in },
+         onSampleWithIdentity: (@Sendable (NetworkSample, UUID, UInt64) -> Void)? = nil,
+         onSample: @escaping @Sendable (NetworkSample) -> Void) {
+        precondition(reader.stat == .network)
+        let metadata = metadataProvider ?? { Self.displayMetadata() }
+        driver = TransferSamplerDriver(interval: interval, reader: reader, clock: clock,
+            automaticallySchedules: automaticallySchedules, onGeneration: onGeneration,
+            onEvent: onTransferEvent) { observation, generation, sequence in
+                let details = metadata()
+                let sample = NetworkSample(downBytesPerSec: observation?.interval.firstBytesPerSecond ?? 0,
+                    upBytesPerSec: observation?.interval.secondBytesPerSecond ?? 0,
+                    interfaceName: details.interfaceName, localIP: details.localIP)
+                onSample(sample)
+                onSampleWithIdentity?(sample, generation, sequence)
             }
-            previousBytes = bytes   // first tick only seeds the baseline (rates stay 0)
-        }
-
-        var interfaceName: String?
-        var localIP: String?
-        if let primary = Self.primaryInterface() {
-            interfaceName = friendlyNames[primary.bsdName]
-                .map { "\($0) (\(primary.bsdName))" } ?? primary.bsdName
-            localIP = primary.ip
-        }
-        onSample(NetworkSample(downBytesPerSec: downRate, upBytesPerSec: upRate,
-                               interfaceName: interfaceName, localIP: localIP))
     }
 
-    // MARK: - Interface counters (getifaddrs)
+    @discardableResult func start() -> UUID { driver.start() }
+    func stop() { driver.stop() }
+    func invalidate() { driver.invalidate() }
+    func sampleNow(expectedGeneration: UUID? = nil) { driver.sampleNow(expectedGeneration: expectedGeneration) }
+    @discardableResult func requestReset(requestID: UUID = UUID()) -> Bool { driver.requestReset(requestID: requestID) }
 
-    /// Sums received/sent bytes across the interfaces `shouldCount` accepts.
-    /// Returns nil if `getifaddrs` fails (so the caller leaves rates at 0).
-    private static func readInterfaceBytes() -> (received: UInt64, sent: UInt64)? {
-        var head: UnsafeMutablePointer<ifaddrs>?
-        guard getifaddrs(&head) == 0, let first = head else { return nil }
-        defer { freeifaddrs(head) }
-
-        var totalReceived: UInt64 = 0
-        var totalSent: UInt64 = 0
-
-        for ptr in sequence(first: first, next: { $0.pointee.ifa_next }) {
-            let ifa = ptr.pointee
-            // Byte counters live only on the link-layer (AF_LINK) record.
-            guard let addr = ifa.ifa_addr,
-                  addr.pointee.sa_family == UInt8(AF_LINK),
-                  let dataPtr = ifa.ifa_data else { continue }
-
-            let name = String(cString: ifa.ifa_name)
-            let flags = Int32(ifa.ifa_flags)
-            guard shouldCount(interfaceName: name, flags: flags) else { continue }
-
-            let data = dataPtr.assumingMemoryBound(to: if_data.self).pointee
-            totalReceived += UInt64(data.ifi_ibytes)
-            totalSent += UInt64(data.ifi_obytes)
-        }
-        return (totalReceived, totalSent)
+    private static func displayMetadata() -> (interfaceName: String?, localIP: String?) {
+        guard let primary = primaryInterface() else { return (nil, nil) }
+        let name = localizedInterfaceNames()[primary.bsdName].map { "\($0) (\(primary.bsdName))" } ?? primary.bsdName
+        return (name, primary.ip)
     }
 
     /// The interface shown in the detail card: up, running, non-loopback, with an
     /// IPv4 address — preferring "en0", then any "en*" (built-in before adapters),
     /// then anything else (VPN tunnel, tether). One getifaddrs walk; nil when
-    /// offline. Display-only — the throughput sum above still counts everything.
+    /// offline. Display-only — throughput accounting independently counts physical links.
     private static func primaryInterface() -> (bsdName: String, ip: String)? {
         var head: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&head) == 0, let first = head else { return nil }
         defer { freeifaddrs(head) }
 
         var candidates: [(bsdName: String, ip: String)] = []
-        for ptr in sequence(first: first, next: { $0.pointee.ifa_next }) {
+        for ptr in Swift.sequence(first: first, next: { $0.pointee.ifa_next }) {
             let ifa = ptr.pointee
             guard let addr = ifa.ifa_addr, addr.pointee.sa_family == UInt8(AF_INET) else { continue }
             let flags = Int32(ifa.ifa_flags)
@@ -165,7 +118,7 @@ final class NetworkSampler {
     }
 
     /// BSD name → localized service name ("en0" → "Wi-Fi") from SystemConfiguration
-    /// (public API, permission-free). Called once at `start()`.
+    /// (public API, permission-free). Used only for display metadata.
     private static func localizedInterfaceNames() -> [String: String] {
         guard let interfaces = SCNetworkInterfaceCopyAll() as? [SCNetworkInterface] else { return [:] }
         var map: [String: String] = [:]

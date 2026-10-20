@@ -31,7 +31,7 @@ struct DiskSample: Equatable, Sendable {
     var writeFormatted: String { Self.rate(writeBytesPerSec) }
 
     private static func size(_ bytes: UInt64) -> String {
-        ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+        ByteCountFormatter.string(fromByteCount: Int64(clamping: bytes), countStyle: .file)
     }
     /// Internal (not private) so the graph legend can format a peak rate with the
     /// exact same units as the tile value it sits beneath.
@@ -41,110 +41,63 @@ struct DiskSample: Equatable, Sendable {
         let f = ByteCountFormatter()
         f.countStyle = .file
         f.allowsNonnumericFormatting = false
-        return f.string(fromByteCount: Int64(max(0, bytesPerSec))) + "/s"
+        let safe = bytesPerSec.isFinite ? min(max(0, bytesPerSec), Double(Int64.max).nextDown) : 0
+        return f.string(fromByteCount: Int64(safe)) + "/s"
     }
 }
 
 /// Polls disk capacity + cumulative block-storage I/O counters on a background
 /// timer, reporting capacity directly and I/O as a per-second delta.
-final class DiskSampler {
-    private let interval: TimeInterval
-    private let onSample: @Sendable (DiskSample) -> Void
-    private var timer: DispatchSourceTimer?
-    private let queue = DispatchQueue(label: "QuickStatsPanel.DiskSampler")
+final class DiskSampler: @unchecked Sendable {
+    private let driver: TransferSamplerDriver
+    var interval: TimeInterval { driver.interval }
+    var generation: UUID { driver.generation }
+    var sequence: UInt64 { driver.sequence }
 
-    /// Cumulative (read, written) byte counters from the previous tick. Like
-    /// CPU ticks, the counters only grow, so we report their delta over `interval`.
-    private var previousIO: (read: UInt64, written: UInt64)?
-
-    init(interval: TimeInterval = 1.0, onSample: @escaping @Sendable (DiskSample) -> Void) {
-        self.interval = interval
-        self.onSample = onSample
-    }
-
-    func start() {
-        let t = DispatchSource.makeTimerSource(queue: queue)
-        t.schedule(deadline: .now(), repeating: interval)
-        t.setEventHandler { [weak self] in self?.tick() }
-        t.resume()
-        self.timer = t
-    }
-
-    func stop() {
-        timer?.cancel()
-        timer = nil
-    }
-
-    private func tick() {
-        let capacity = Self.readCapacity()
-
-        var readRate = 0.0
-        var writeRate = 0.0
-        if let io = Self.readBlockStorageBytes() {
-            if let prev = previousIO {
-                // Counters are monotonic; guard against wraps/resets just in case.
-                let dRead = io.read >= prev.read ? io.read - prev.read : 0
-                let dWrite = io.written >= prev.written ? io.written - prev.written : 0
-                readRate = Double(dRead) / interval
-                writeRate = Double(dWrite) / interval
+    init(interval: TimeInterval = 1.0,
+         reader: any TransferCounterReader = DiskTransferCounterReader(),
+         clock: any TransferClock = SystemTransferClock(),
+         automaticallySchedules: Bool = true,
+         capacityProvider: (@Sendable () -> (used: UInt64, free: UInt64, total: UInt64)?)? = nil,
+         onGeneration: @escaping @Sendable (UUID) -> Void = { _ in },
+         onTransferEvent: @escaping @Sendable (TransferEvent) -> Void = { _ in },
+         onSampleWithIdentity: (@Sendable (DiskSample, UUID, UInt64) -> Void)? = nil,
+         onSample: @escaping @Sendable (DiskSample) -> Void) {
+        precondition(reader.stat == .disk)
+        let capacity = capacityProvider ?? { Self.readCapacity() }
+        driver = TransferSamplerDriver(interval: interval, reader: reader, clock: clock,
+            automaticallySchedules: automaticallySchedules, onGeneration: onGeneration,
+            onEvent: onTransferEvent) { observation, generation, sequence in
+                let space = capacity()
+                let sample = DiskSample(usedBytes: space?.used ?? 0, freeBytes: space?.free ?? 0,
+                    totalBytes: space?.total ?? 0,
+                    readBytesPerSec: observation?.interval.firstBytesPerSecond ?? 0,
+                    writeBytesPerSec: observation?.interval.secondBytesPerSecond ?? 0)
+                onSample(sample)
+                onSampleWithIdentity?(sample, generation, sequence)
             }
-            previousIO = io   // first tick only seeds the baseline (rates stay 0)
-        }
-
-        onSample(DiskSample(
-            usedBytes: capacity?.used ?? 0,
-            freeBytes: capacity?.free ?? 0,
-            totalBytes: capacity?.total ?? 0,
-            readBytesPerSec: readRate,
-            writeBytesPerSec: writeRate
-        ))
     }
+
+    @discardableResult func start() -> UUID { driver.start() }
+    func stop() { driver.stop() }
+    func invalidate() { driver.invalidate() }
+    func sampleNow(expectedGeneration: UUID? = nil) { driver.sampleNow(expectedGeneration: expectedGeneration) }
+    @discardableResult func requestReset(requestID: UUID = UUID()) -> Bool { driver.requestReset(requestID: requestID) }
 
     // MARK: - Capacity (statfs)
 
     private static func readCapacity() -> (used: UInt64, free: UInt64, total: UInt64)? {
         var fs = statfs()
         guard statfs("/", &fs) == 0 else { return nil }
+        guard fs.f_bsize > 0 else { return nil }
         let blockSize = UInt64(fs.f_bsize)
-        let total = UInt64(fs.f_blocks) * blockSize
-        let free = UInt64(fs.f_bavail) * blockSize        // available to non-root
+        let totalProduct = UInt64(fs.f_blocks).multipliedReportingOverflow(by: blockSize)
+        let freeProduct = UInt64(fs.f_bavail).multipliedReportingOverflow(by: blockSize)
+        guard !totalProduct.overflow, !freeProduct.overflow else { return nil }
+        let total = totalProduct.partialValue
+        let free = freeProduct.partialValue        // available to non-root
         let used = total > free ? total - free : 0
         return (used, free, total)
     }
 
-    // MARK: - I/O counters (IOKit)
-
-    /// Sums cumulative bytes read/written across every `IOBlockStorageDriver`.
-    /// Returns nil if no driver exposes counters (so the caller leaves rates at 0).
-    private static func readBlockStorageBytes() -> (read: UInt64, written: UInt64)? {
-        guard let matching = IOServiceMatching("IOBlockStorageDriver") else { return nil }
-        var iterator: io_iterator_t = 0
-        guard IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iterator) == KERN_SUCCESS else {
-            return nil
-        }
-        defer { IOObjectRelease(iterator) }
-
-        var totalRead: UInt64 = 0
-        var totalWritten: UInt64 = 0
-        var found = false
-
-        var service = IOIteratorNext(iterator)
-        while service != 0 {
-            var props: Unmanaged<CFMutableDictionary>?
-            if IORegistryEntryCreateCFProperties(service, &props, kCFAllocatorDefault, 0) == KERN_SUCCESS,
-               let dict = props?.takeRetainedValue() as? [String: Any],
-               let stats = dict["Statistics"] as? [String: Any] {
-                // String keys per <IOKit/storage/IOBlockStorageDriver.h>.
-                if let r = (stats["Bytes (Read)"] as? NSNumber)?.uint64Value {
-                    totalRead += r; found = true
-                }
-                if let w = (stats["Bytes (Write)"] as? NSNumber)?.uint64Value {
-                    totalWritten += w; found = true
-                }
-            }
-            IOObjectRelease(service)
-            service = IOIteratorNext(iterator)
-        }
-        return found ? (totalRead, totalWritten) : nil
-    }
 }
