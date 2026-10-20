@@ -25,6 +25,122 @@ final class StatsStore {
     var topProcesses: TopProcessesSample = .empty
     private(set) var isRunning = false
 
+    // Retained transfer history is independent of the short strip buffers and sampler runs.
+    // Construction stays pure: existing hostless descriptor tests never open live storage.
+    private(set) var transferPresentations: [TransferStat: TransferHistoryPresentation] = [:]
+    private(set) var transferDetailStates = Dictionary(uniqueKeysWithValues:
+        TransferStat.allCases.map { ($0, TransferDetailState(stat: $0)) })
+    @ObservationIgnored private(set) var transferHistoryController: TransferHistoryController?
+    @ObservationIgnored private let transferHistoryRoot: URL?
+    @ObservationIgnored private let transferClock: (any TransferClock)?
+    @ObservationIgnored private let transferHistoryAutomaticallySchedules: Bool
+    @ObservationIgnored private let transferBoundaryReset: (@Sendable (TransferStat, UUID) -> Bool)?
+    @ObservationIgnored private var transferPublicationRevisions: [TransferStat: UInt64] = [:]
+    @ObservationIgnored private var transferResetRequests: [TransferStat: UUID] = [:]
+    @ObservationIgnored private var liveTransferSequences: [TransferStat: UInt64] = [:]
+    @ObservationIgnored private var diskGeneration: UUID?
+    @ObservationIgnored private var networkGeneration: UUID?
+    @ObservationIgnored private var transferSleeping = false
+    @ObservationIgnored private var terminating = false
+
+    init(transferHistoryRoot: URL? = nil, transferClock: (any TransferClock)? = nil,
+         transferHistoryAutomaticallySchedules: Bool = true,
+         transferBoundaryReset: (@Sendable (TransferStat, UUID) -> Bool)? = nil) {
+        self.transferHistoryRoot = transferHistoryRoot
+        self.transferClock = transferClock
+        self.transferHistoryAutomaticallySchedules = transferHistoryAutomaticallySchedules
+        self.transferBoundaryReset = transferBoundaryReset
+    }
+
+    func startTransferHistory() {
+        guard transferHistoryController == nil else { return }
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
+        let root = transferHistoryRoot ?? support.appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.sim.QuickStatsPanel")
+            .appendingPathComponent("TransferHistory/v1", isDirectory: true)
+        let controller = TransferHistoryController(root: root, clock: transferClock ?? SystemTransferClock(),
+                                                   automaticallySchedules: transferHistoryAutomaticallySchedules) {
+            [weak self] stat, revision, period, presentation in
+            Task { @MainActor in
+                guard let self, self.transferDetailStates[stat]?.period == period,
+                      revision > self.transferPublicationRevisions[stat, default: 0] else { return }
+                self.transferPublicationRevisions[stat] = revision
+                self.transferPresentations[stat] = presentation
+            }
+        }
+        transferHistoryController = controller
+        controller.start()
+        for stat in TransferStat.allCases {
+            controller.selectPeriod(transferDetailStates[stat]?.period ?? .minute, for: stat)
+        }
+    }
+
+    func selectTransferPeriod(_ period: TransferHistoryPeriod, for stat: TransferStat) {
+        transferDetailStates[stat]?.select(period)
+        transferHistoryController?.selectPeriod(period, for: stat)
+    }
+
+    func requestTransferReset(for stat: TransferStat) { transferDetailStates[stat]?.requestReset() }
+    func cancelTransferReset(for stat: TransferStat) { transferDetailStates[stat]?.cancelReset() }
+    func dismissTransferDetails() {
+        for stat in TransferStat.allCases { transferDetailStates[stat]?.dismiss() }
+    }
+
+    func confirmTransferReset(for stat: TransferStat) {
+        guard let controller = transferHistoryController,
+              transferDetailStates[stat]?.beginReset() == true else { return }
+        let requestID = UUID()
+        transferResetRequests[stat] = requestID
+        let net = networkSampler, disk = diskSampler, boundary = transferBoundaryReset
+        controller.requestReset(stat: stat, requestID: requestID, performBoundaryReset: { id in
+            if let boundary { return boundary(stat, id) }
+            switch stat {
+            case .network: return net?.requestReset(requestID: id) ?? false
+            case .disk: return disk?.requestReset(requestID: id) ?? false
+            }
+        }) { [weak self] error in
+            Task { @MainActor in
+                guard let self, self.transferResetRequests[stat] == requestID else { return }
+                self.transferResetRequests.removeValue(forKey: stat)
+                self.transferDetailStates[stat]?.completeReset(error: error)
+            }
+        }
+    }
+
+    /// Stop transfer timers before sleep, so a resumed timer cannot beat the wake notification
+    /// and count a short sleep interval. Wake admits fresh runs with fresh hardware baselines.
+    func transferWillSleep() {
+        transferSleeping = true
+        diskGeneration = nil; networkGeneration = nil
+        diskSampler?.stop(); networkSampler?.stop()
+        transferHistoryController?.flush { error in
+            if let error { NSLog("Transfer history sleep save: %@", error) }
+        }
+    }
+
+    func transferDidWake() {
+        transferSleeping = false
+        guard isRunning, !terminating else { return }
+        liveTransferSequences.removeAll()
+        diskGeneration = diskSampler?.start()
+        networkGeneration = networkSampler?.start()
+    }
+
+    /// Caller owns a two-second deadline. Draining transfer readers and syncing storage happen
+    /// off-main; a stalled filesystem cannot prevent the caller replying to app termination.
+    func prepareForTermination(completion: @escaping @Sendable (String?) -> Void) {
+        terminating = true
+        let net = networkSampler, disk = diskSampler, controller = transferHistoryController
+        networkSampler = nil; diskSampler = nil
+        networkGeneration = nil; diskGeneration = nil
+        stop()
+        DispatchQueue.global(qos: .utility).async {
+            net?.stop(); disk?.stop()
+            if let controller { controller.flush(completion: completion) }
+            else { completion(nil) }
+        }
+    }
+
     // MARK: - History (D-025)
 
     /// How much past to keep for the activity graphs.
@@ -116,7 +232,9 @@ final class StatsStore {
     }
 
     func start() {
-        guard !isRunning else { return }
+        guard !isRunning, !terminating else { return }
+        startTransferHistory()
+        guard let transfers = transferHistoryController else { return }
         isRunning = true
 
         // Refresh cadence comes from user settings (read once per run; `restart()`
@@ -150,20 +268,34 @@ final class StatsStore {
                 self?.historyRevisions[.memory, default: 0] += 1
             }
         }
-        let disk = DiskSampler(interval: interval) { [weak self] sample in
+        let disk = DiskSampler(interval: interval,
+            onGeneration: { transfers.admitGeneration($0, for: .disk) },
+            onTransferEvent: { transfers.ingest($0) },
+            onSampleWithIdentity: { [weak self] sample, generation, sequence in
             Task { @MainActor in
-                self?.disk = sample
-                self?.diskHistory.append(sample)
-                self?.historyRevisions[.disk, default: 0] += 1
+                guard let self, self.isRunning, !self.transferSleeping,
+                      self.diskGeneration == generation,
+                      sequence > self.liveTransferSequences[.disk, default: 0] else { return }
+                self.liveTransferSequences[.disk] = sequence
+                self.disk = sample
+                self.diskHistory.append(sample)
+                self.historyRevisions[.disk, default: 0] += 1
             }
-        }
-        let net = NetworkSampler(interval: interval) { [weak self] sample in
+        }, onSample: { _ in })
+        let net = NetworkSampler(interval: interval,
+            onGeneration: { transfers.admitGeneration($0, for: .network) },
+            onTransferEvent: { transfers.ingest($0) },
+            onSampleWithIdentity: { [weak self] sample, generation, sequence in
             Task { @MainActor in
-                self?.network = sample
-                self?.networkHistory.append(sample)
-                self?.historyRevisions[.network, default: 0] += 1
+                guard let self, self.isRunning, !self.transferSleeping,
+                      self.networkGeneration == generation,
+                      sequence > self.liveTransferSequences[.network, default: 0] else { return }
+                self.liveTransferSequences[.network] = sequence
+                self.network = sample
+                self.networkHistory.append(sample)
+                self.historyRevisions[.network, default: 0] += 1
             }
-        }
+        }, onSample: { _ in })
         let battery = BatterySampler(interval: interval) { [weak self] sample in
             Task { @MainActor in self?.battery = sample }
         }
@@ -194,8 +326,11 @@ final class StatsStore {
         }
         cpu.start()
         mem.start()
-        disk.start()
-        net.start()
+        liveTransferSequences.removeAll()
+        if !transferSleeping {
+            diskGeneration = disk.start()
+            networkGeneration = net.start()
+        }
         battery.start()
         gpu.start()
         fan.start()
@@ -219,6 +354,8 @@ final class StatsStore {
     }
 
     func stop() {
+        isRunning = false
+        diskGeneration = nil; networkGeneration = nil
         cpuSampler?.stop()
         memorySampler?.stop()
         diskSampler?.stop()

@@ -161,3 +161,70 @@ headers remains below 128 KiB; whole checkpoint includes bounded references/meta
 256 KiB. Sealed-file mtime remains unchanged across another checkpoint, proving no full-day rewrite.
 Per-segment autorelease pools prevent decoded temporary data accumulating across a day. Isolated
 owner/reviewer logs/harnesses under `/tmp` are supplemental; official values above are canonical.
+
+## Phase 3 lifecycle validation
+
+Task 4.1: dedicated serial history owner loads before FIFO buffered events, admits fresh runs,
+rejects stale callbacks, coalesces immutable range summaries, checkpoints 30 seconds from the first
+dirty observation and confirms resets only after matching durable watermarks. Recovery warnings
+remain visible while current data is dirty. StatsStore keeps one owner across interval restarts,
+checks live run/sequence on MainActor and stops only transfer timers across sleep. Wake seeds new
+generations; a three-second fixture proves explicit lifecycle gaps below automatic delay rejection.
+AppDelegate drains transfer readers/flushes off-main and schedules an idempotent two-second quit
+reply deadline. This NSApplication deadline is source-reviewed, not automatically executed.
+
+Independent reviewer found/fixed 1-second maintenance quantization could delay the dirty save to
+31 seconds; a dedicated deadline now schedules from first-dirty/last-save-attempt. No unresolved
+blocking source finding. Eleven lifecycle fixtures include blocked-load events, duplicate recovery,
+old run rejection, ordered/two-stat/immediate reset, cross-replacement throttling, unsaved reset,
+30-second failure/retry cadence, async slow flush, sticky warning and coalesced period selection.
+
+From `/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project`, after XcodeGen:
+
+```sh
+xcodebuild -scheme QuickStatsPanel -configuration Debug -destination 'platform=macOS' -derivedDataPath build/TransferHistoryRun04 CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual -resultBundlePath build/TransferHistoryRun04LifecycleTests.xcresult -only-testing:QuickStatsPanelTests/TransferLifecycleTests -only-testing:QuickStatsPanelTests/TransferAccountingTests -only-testing:QuickStatsPanelTests/TransferTimelineTests -only-testing:QuickStatsPanelTests/TransferPersistenceTests -only-testing:QuickStatsPanelTests/TransferPresentationTests test
+xcodebuild -scheme QuickStatsPanel -configuration Debug -destination 'platform=macOS' -derivedDataPath build/TransferHistoryRun04 CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual build
+```
+
+Both exit 0. **66 tests passed** (11 lifecycle, 15 accounting, 15 timeline, 17 persistence,
+8 presentation). Logs `/tmp/qsp-transfer-run04-lifecycle-tests.log`, `/tmp/qsp-transfer-run04-build.log`.
+Structured result:
+`/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/TransferHistoryRun04LifecycleTests.xcresult`.
+Intermediate artifact:
+`/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/TransferHistoryRun04/Build/Products/Debug/QuickStatsPanel.app`.
+No launch, NSApplication startup, hotkeys, live storage/preferences or desktop interaction.
+Root presentation follow-up for 5.1 adds seconds to displayed timestamps so reset within one minute
+changes visibly; its new fixture is pending the affected 5.1/presentation check.
+
+## Phase 3 detail-card validation
+
+Task 5.1 adds native segmented period selection and scoped inline reset actions following the
+existing refreshed AppKit coordinator bindings. Fixed transfer content width is 260 pt (284 pt
+including padding), with the existing 220×44 plot. Loading, coverage, save/error and confirmation
+slots reserve height. Period mismatch displays loading for graph/period totals, preserving current
+cumulative state. Network legacy rows reserve configured slots through disconnect/reconnect and
+truncate long metadata with full help; all-hidden legacy rows still expose the transfer controls.
+Other-stat detail rendering and the panel controller remain unchanged. Coordinator source review
+confirmed no activation/alert or app-shell changes. Native pixels, focus and click/keyboard actions
+are E1, not proven by compilation or pure state tests.
+
+Root added seconds to localized timestamps and a regression for visibly distinct resets within
+one minute. Store injection supports disposable history roots/clocks/manual scheduling and a
+manual boundary action so the final journey can enter the same selection/confirmation facade
+without starting unrelated hardware samplers or standard preferences. Defaults preserve runtime.
+
+From `/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project`, after XcodeGen:
+
+```sh
+xcodebuild -scheme QuickStatsPanel -configuration Debug -destination 'platform=macOS' -derivedDataPath build/TransferHistoryRun05 CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual -resultBundlePath build/TransferHistoryRun05DetailTests.xcresult -only-testing:QuickStatsPanelTests/TransferDetailStateTests -only-testing:QuickStatsPanelTests/TransferPresentationTests -only-testing:QuickStatsPanelTests/PanelMetricOptionsTests -only-testing:QuickStatsPanelTests/ExtendedMetricOptionsTests -only-testing:QuickStatsPanelTests/StatHistoryTests -only-testing:QuickStatsPanelTests/NetworkSamplerTests test
+xcodebuild -scheme QuickStatsPanel -configuration Debug -destination 'platform=macOS' -derivedDataPath build/TransferHistoryRun05 CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual build
+```
+
+Both exit 0; **37 tests passed** (5 detail state, 9 presentation, 6 panel options, 6 extended
+options, 3 existing history, 8 network). Logs `/tmp/qsp-transfer-run05-detail-tests.log` and
+`/tmp/qsp-transfer-run05-build.log`. Structured result:
+`/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/TransferHistoryRun05DetailTests.xcresult`.
+Intermediate artifact:
+`/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/TransferHistoryRun05/Build/Products/Debug/QuickStatsPanel.app`.
+No launch/app control/live storage writes. The final task will create a separate integrated artifact
+for user testing; no intermediate build is handed off as the final accepted feature.

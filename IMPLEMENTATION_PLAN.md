@@ -1,7 +1,7 @@
 # Implementation Plan — 24-hour transfer history and totals
 
-**Created:** 2026-10-20 · **State:** executing; task 4.1 lifecycle integration in progress
-**Progress:** 5/8 implementation tasks complete; external acceptance **E1 open**.
+**Created:** 2026-10-20 · **State:** executing; task 6.1 final integration validation in progress
+**Progress:** 7/8 implementation tasks complete; external acceptance **E1 open**.
 **Execution:** one continuous run, organized into three phases; no per-phase approval stops.
 Unchecked tasks are pending unless explicitly annotated implemented-unverified or blocked.
 This file owns task status/evidence; `docs/TASKS.md` retains backlog mappings.
@@ -297,7 +297,7 @@ blocker/scope decision or the final user acceptance, not to ask permission for t
 
 ### Phase 3 — integrate the feature and validate the fresh app (4.1, 5.1, 6.1)
 
-- [ ] **4.1 — Connect sampling, recovery, save cadence, clock/sleep and reset ordering.**
+- [x] **4.1 — Connect sampling, recovery, save cadence, clock/sleep and reset ordering.**
   - Depends on: 2.1, 2.2, 3.1. External gates: none.
   - Owns: new `Sources/QuickStatsPanel/Model/TransferHistoryController.swift`,
     `Sources/QuickStatsPanel/Model/StatsStore.swift`, `Sources/QuickStatsPanel/AppDelegate.swift`,
@@ -314,7 +314,7 @@ blocker/scope decision or the final user acceptance, not to ask permission for t
     B. Include tick-during-load, interval restart, reset-vs-tick, queued-stop, two-stat reset isolation,
     sleep/wake and failed quit-flush fixture cases.
 
-- [ ] **5.1 — Add period, totals, coverage/save status and confirmed scoped reset controls.**
+- [x] **5.1 — Add period, totals, coverage/save status and confirmed scoped reset controls.**
   - Depends on: 3.2, 4.1. External gates: none for implementation; E1 gates live UI acceptance.
   - Owns: `Sources/QuickStatsPanel/Views/StatDetailView.swift`, new
     `Sources/QuickStatsPanel/Views/AppKit/TransferHistoryControls.swift`,
@@ -424,8 +424,10 @@ validated in 3.1 without expanding the accepted source/storage scope.
 | Phase 1 / 1.1 | Fresh agent `counter_contract`; independent read-only `contract_review`; coordinator runs shared checks | **15/15 accounting + 3/3 probe tests passed**, no skips. [Feasibility evidence](docs/evidence/transfer-history-feasibility.md). Corrected unknown-provider classification and combined active payload budget. | `62605f9`; prior dirty preferences/entrypoint/docs excluded and preserved. | Gate passed; 2.1 and 2.2 assigned to independent fresh agents. |
 | Phase 1 / 2.1, 2.2 | Fresh agents `transfer_samplers` and `transfer_timeline`; independent `timeline_review` plus coordinator reader/lifecycle review; disjoint files, serialized builds | Run02 **51/51** selected tests passed; final route-snapshot identity fix **22/22** affected tests passed. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-1-sampler-and-timeline-validation). | `df247f3` | Phase 1 complete; 3.1/3.2 ready and assigned. |
 | Phase 2 / 3.2 | Fresh agent `transfer_presentation`; coordinator source review; idle peak corrected before validation | **8/8** presentation tests and standalone app compilation passed. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-2-presentation-validation). | `bd2b247` | UI presentation ready for integration; no pixel/manual acceptance claim. |
-| Phase 2 / 3.1 | Fresh agent `transfer_persistence`; independent `repository_review` with five isolated repros | **17/17** official tests passed; crash/fallback/version/watermark/full-sync fixes verified. Peak disk **35,737,600 B**, incremental history memory **53,690,368 B**. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-2-repository-validation). | Scoped local checkpoint pending | Phase 2 complete; task 4.1 ready. |
-| Phase 3 / 4.1 | Fresh agent `transfer_lifecycle` owns controller/tests; coordinator owns StatsStore/AppDelegate integration; independent `lifecycle_review` | In progress; no completion claimed | Pending validation | Verify load/tick/reset/save/sleep/termination journey, then 5.1. |
+| Phase 2 / 3.1 | Fresh agent `transfer_persistence`; independent `repository_review` with five isolated repros | **17/17** official tests passed; crash/fallback/version/watermark/full-sync fixes verified. Peak disk **35,737,600 B**, incremental history memory **53,690,368 B**. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-2-repository-validation). | `f4ef0a3` | Phase 2 complete; task 4.1 ready. |
+| Phase 3 / 4.1 | Fresh agent `transfer_lifecycle` owns controller/tests; coordinator owns StatsStore/AppDelegate; independent `lifecycle_review` | **66/66** selected lifecycle/dependency tests passed; standalone B passed. Dedicated 30-second dirty deadline and short-sleep fixture corrected. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-3-lifecycle-validation). | Coherent lifecycle/UI checkpoint pending | 5.1 ready and assigned. AppDelegate two-second deadline source-reviewed; actual NSApplication termination untested. |
+| Phase 3 / 5.1 | Fresh agent `transfer_detail_ui`; coordinator reviewed native bindings/geometry and fixed seconds in start timestamps | **37/37** state/presentation/existing metric/history tests and standalone B passed. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-3-detail-card-validation). | Coherent lifecycle/UI checkpoint pending | 6.1 ready and assigned; E1 live geometry/focus/controls remain open. |
+| Phase 3 / 6.1 | Fresh agent `transfer_integration` owns journey tests; coordinator owns final validation/artifact/docs | In progress; no completion claimed | Pending validation | Full fixture journey and complete suite, final standalone build and exact artifact launch preflight. |
 
 Keep this plan active until required implementation and acceptance are complete. Archive with its
 evidence and update incoming links only after acceptance or explicit scoped deferral.

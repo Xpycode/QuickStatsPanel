@@ -66,7 +66,7 @@ enum TransferHistoryFormat {
         guard value.timeIntervalSince1970.isFinite else { return "Time unavailable" }
         let formatter = DateFormatter()
         formatter.locale = locale; formatter.timeZone = timeZone
-        formatter.dateStyle = .medium; formatter.timeStyle = .short
+        formatter.dateStyle = .medium; formatter.timeStyle = .medium
         return formatter.string(from: value)
     }
 
@@ -190,7 +190,8 @@ struct TransferHistoryPresentation: Equatable, Sendable {
 
     init(result: TransferPeriodResult, period: TransferHistoryPeriod, cumulative: TransferCumulativeEpoch,
          durability: TransferHistorySaveState, warnings: Set<TransferTimelineWarning> = [],
-         graph: TransferHistoryGraph? = nil, locale: Locale = .current, timeZone: TimeZone = .current) {
+         graph: TransferHistoryGraph? = nil, persistenceWarning: String? = nil,
+         locale: Locale = .current, timeZone: TimeZone = .current) {
         stat = result.stat; self.period = period
         self.graph = graph ?? TransferHistoryGraph(result: result, period: period, locale: locale)
         let labels = result.stat == .network ? ("Downloaded", "Uploaded", "↓", "↑") : ("Read", "Written", "R", "W")
@@ -222,6 +223,9 @@ struct TransferHistoryPresentation: Equatable, Sendable {
             saveText = "Unsaved · \(savedSuffix(date))"; messages.append("Save failed: \(message)")
         case .recovered(let date, let message):
             saveText = "Recovered · \(savedSuffix(date))"; messages.append(message)
+        }
+        if let persistenceWarning, !persistenceWarning.isEmpty, !messages.contains(persistenceWarning) {
+            messages.append(persistenceWarning)
         }
         if result.accountingOverflow || cumulative.accountingOverflow || warnings.contains(.accountingOverflow) {
             messages.append("Accounting unavailable after byte overflow.")

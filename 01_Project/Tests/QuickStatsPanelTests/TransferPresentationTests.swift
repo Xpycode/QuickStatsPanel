@@ -90,6 +90,12 @@ final class TransferPresentationTests: XCTestCase {
         XCTAssertNotEqual(french.resetStartedText, recovered.resetStartedText)
     }
 
+    func testResetStartChangesVisiblyForResetsWithinOneMinute() {
+        let first = TransferHistoryFormat.date(Date(timeIntervalSince1970: 100), locale: locale, timeZone: zone)
+        let second = TransferHistoryFormat.date(Date(timeIntervalSince1970: 101), locale: locale, timeZone: zone)
+        XCTAssertNotEqual(first, second, "A confirmed reset must show a visibly new start time even within the same minute")
+    }
+
     func testRelativeAxisAndPeakCacheAdvanceOnlyOnNewRevisionAndStayPerStatPeriod() {
         XCTAssertEqual(TransferHistoryPeriod.minute.axisLabels, ["−1 min", "−30 s", "Now"])
         XCTAssertEqual(TransferHistoryPeriod.hour.axisLabels, ["−1 h", "−30 min", "Now"])

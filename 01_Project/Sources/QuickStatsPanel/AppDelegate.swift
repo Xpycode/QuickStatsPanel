@@ -43,6 +43,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Global mouse monitor for click-away dismissal. A *mouse* monitor needs no
     /// special permission (unlike a keyboard one), keeping us permission-free.
     private var clickAwayMonitor: Any?
+    private var workspaceObservers: [NSObjectProtocol] = []
+    private var terminationInFlight = false
+    private var terminationReplied = false
 
     /// "Pin" state (Keep on Screen). While pinned, click-away no longer dismisses
     /// the strip so it stays put for a longer read; Esc and the toggle hotkey still
@@ -56,6 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         wireSettings()
+        installSleepObservers()
         store.start()
         registerHotKey()
         installClickAwayMonitor()
@@ -110,8 +114,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func installSleepObservers() {
+        let center = NSWorkspace.shared.notificationCenter
+        workspaceObservers = [
+            center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.store.transferWillSleep() }
+            },
+            center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.store.transferDidWake() }
+            }
+        ]
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard !terminationInFlight else { return .terminateLater }
+        terminationInFlight = true
+        // Schedule the deadline before draining readers; neither a slow reader nor a filesystem
+        // flush gets an unbounded wait on the main actor. Repository recovery remains atomic.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            self?.finishTermination(error: "Final transfer save exceeded two seconds; the last saved checkpoint will be recovered.")
+        }
+        store.prepareForTermination { [weak self] error in
+            Task { @MainActor in self?.finishTermination(error: error) }
+        }
+        return .terminateLater
+    }
+
+    private func finishTermination(error: String?) {
+        guard !terminationReplied else { return }
+        terminationReplied = true
+        if let error { NSLog("Transfer history quit save: %@", error) }
+        NSApp.reply(toApplicationShouldTerminate: true)
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
-        store.stop()
+        if !terminationInFlight { store.stop() }
+        let center = NSWorkspace.shared.notificationCenter
+        workspaceObservers.forEach { center.removeObserver($0) }
+        workspaceObservers.removeAll()
         hotKey.unregister()
         dismissHotKey.unregister()
         settingsHotKey.unregister()
@@ -159,6 +199,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// values keep ticking while it's open.
     private func toggleDetail(for kind: StatKind) {
         guard let stripFrame = panel.frame else { return }
+        store.dismissTransferDetails()
         detailPanel.toggle(kind: kind,
                            stripFrame: stripFrame,
                            anchorX: NSEvent.mouseLocation.x) { [store] in
@@ -210,6 +251,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // The detail and hint cards are anchored to the strip — when the
                 // strip goes (toggle, Esc, click-away), they go with it.
                 self.detailPanel.hide()
+                self.store.dismissTransferDetails()
                 self.hintPanel.hide()
             }
         }
