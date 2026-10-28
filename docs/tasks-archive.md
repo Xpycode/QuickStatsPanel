@@ -3,10 +3,18 @@
 > **Completed tasks archive.** Used for progress calculation.
 
 ## Stats
-- **Total archived:** 18
-- **Last updated:** 2026-10-20
+- **Total archived:** 20
+- **Last updated:** 2026-10-28
 
 ## Completed
+
+- [x] **Longer graphs and cumulative transfer totals** — shipped v1.2.0: retained 24-hour Network/Disk history,
+      period totals and independent cumulative resets. 8/8 tasks, 113/113 fresh Release tests;
+      remaining manual E1 checks owner-deferred to everyday use, not passed. (2026-10-28)
+- [x] **Transfer-rate continuity** — per-source baselines and measured intervals implemented; automated
+      checks and user-accepted sleep/wake/network reconnect. Conditional storage hot-plug status
+      explicitly owner-deferred. [Archived plan](sessions/IMPLEMENTATION_PLAN-transfer-history-DONE.md). (2026-10-28)
+
 
 - [x] **Preferences redesign** — native category toolbar, narrow reorderable stat list, flexible
       options editor and compact detail checkboxes; existing settings preserved. Fresh ad-hoc

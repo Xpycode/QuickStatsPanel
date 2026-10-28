@@ -1,0 +1,42 @@
+{
+  "version": "1.2.0",
+  "build": "1200",
+  "sourceCommit": "853a9d8",
+  "releaseTagCommit": "90a0380",
+  "releaseURL": "https://github.com/Xpycode/QuickStatsPanel/releases/tag/v1.2.0",
+  "websiteURL": "https://apps.lucesumbrarum.com/apps/quickstatspanel.html",
+  "tests": {
+    "passed": 113,
+    "failed": 0,
+    "configuration": "Release",
+    "effects": "hostless; disposable defaults and storage"
+  },
+  "handoff": {
+    "oldPID": 54223,
+    "oldQuitConfirmed": true,
+    "newPID": 53249,
+    "executable": "/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/04_Exports/release-1.2.0/export/QuickStatsPanel.app/Contents/MacOS/QuickStatsPanel"
+  },
+  "files": {
+    "QuickStatsPanel-1.2.0.dmg": {
+      "bytes": 2510834,
+      "sha256": "60a57fbb5732afe443fd61c2cb3308dd57ca2c2731184f283e85e9df62da1ca2"
+    },
+    "QuickStatsPanel-1.2.0.zip": {
+      "bytes": 2079324,
+      "sha256": "5a80caa2fd146583148a95f61c276336447c2f0c2c39163237046763c8347477"
+    },
+    "apps.json": {
+      "sha256": "592c86e941c41fbac3eb6345f5832d1417e35cf72aad229ac747fcf8fcd13a10"
+    },
+    "quickstatspanel.html": {
+      "sha256": "43add5cd6319af71ecfcf9406edcebb7c412433412a21dbeaf07849d83dfd728"
+    }
+  },
+  "deferredByOwner": [
+    "broader card/hidden-row/unrelated-card/Network-theme-and-edge/strip checks",
+    "conditional storage hot-plug hardware status",
+    "live error-state rendering unless naturally encountered",
+    "clean-Mac and full release-artifact interaction acceptance"
+  ]
+}

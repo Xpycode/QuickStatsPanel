@@ -133,11 +133,11 @@ No background helper, new database dependency or expanded hardware permissions a
    reset confirmation and queue-ordered boundary read. See the plan for exact contracts and limits.
 7. **Internal feasibility gate passed:** 64-bit network counters, physical per-driver identity,
    deterministic accounting and fastest-cadence budgets were validated. Full suite: 113 passed;
-   final standalone Debug build passed. External acceptance E1 remains open in the selected plan.
+   final standalone Debug build passed. E1 was closed by explicit owner-scoped deferral on 2026-10-28; remaining manual cases were not claimed as passed.
 
 ## Implementation Plan
 
-`../IMPLEMENTATION_PLAN.md` owns eight implementation tasks in three phases within one continuous
+[Archived plan](../docs/sessions/IMPLEMENTATION_PLAN-transfer-history-DONE.md) owns eight implementation tasks in three phases within one continuous
 execution run, plus separate manual acceptance E1. Task dependencies remain explicit; phases do not
 require separate user approvals. Planning does not pass the feasibility gate or authorize execution.
 The installed SDK confirms the existing `getifaddrs`/`if_data` network byte counters are UInt32;
@@ -145,7 +145,7 @@ casting to UInt64 does not widen the underlying counter. The plan first proves t
 snapshot API, then per-source accounting, retention/storage and detail-card integration.
 
 ## Related
-- Backlog: `../docs/TASKS.md` — History and transfer totals; Transfer-rate continuity.
+- Completed history and continuity: `../docs/tasks-archive.md`; remaining backlog: `../docs/TASKS.md`.
 - Existing graph decisions: `../docs/decisions.md` — D-025 and D-026.
 
 ## Execution clarification — storage scope (2026-10-20)
@@ -157,4 +157,4 @@ positively classified physical providers and exclude Virtual Interface or File/R
 Unknown classification is incomplete coverage; stacked retained physical-driver ancestors are
 rejected rather than summed twice. Boot-volume capacity remains independent. This implements
 whole-machine physical block-storage accounting; unobserved multipath/RAID behavior remains a
-real-hardware limitation, not a validated claim. Task 1.1 and all eight implementation tasks passed their required automated checks. E1 remains open.
+real-hardware limitation, not a validated claim. Task 1.1 and all eight implementation tasks passed their required automated checks. E1 closed by owner-scoped deferral for v1.2.0, 2026-10-28; unperformed hardware/manual cases remain unverified.

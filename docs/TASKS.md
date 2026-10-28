@@ -4,32 +4,18 @@
 
 ## Active plan
 
-[24-hour transfer history and totals](../IMPLEMENTATION_PLAN.md) owns task status/evidence:
-**8/8 implementation tasks complete**, external acceptance **E1 open**. Full **113-test** suite and
-final standalone Debug build passed. Next: the finite user-operated [E1 batch](sessions/2026-10-21.md#e1-acceptance)
-on the exact TransferHistoryRun08 artifact. Network gap display and Disk periods/theme/edge checks accepted;
-retention accepted 2026-10-23; independent reset/cancel/persistence batch accepted 2026-10-26.
-Sleep/wake and network reconnect accepted 2026-10-26. Next: remaining broader card checks and
-explicit conditional storage hot-plug status (the aggregate pass did not identify hardware availability).
-Remaining E1 checks open. Keep the plan and mapped Backlog entries active until
-acceptance; there is no additional implementation phase awaiting permission.
+None. Transfer history shipped as **v1.2.0 (1200)** on 2026-10-28: 8/8 implementation tasks complete;
+remaining E1 checks explicitly deferred by the owner to everyday use, not marked as tested.
+[Archived plan](sessions/IMPLEMENTATION_PLAN-transfer-history-DONE.md) ·
+[Release evidence](evidence/release-1.2.0.md). No further acceptance batch is required before ordinary use.
 
 ## Backlog
 <!-- Ideas and future work. Added by /interview, user input, or discovered during development. -->
 <!-- Priority: top = highest, bottom = lowest -->
 
 The whole stats roadmap has shipped (D-017/D-018/D-019 + D-024), and configurable tiles + activity
-graphs shipped 2026-07-27 (D-025). v1.1.0 was published 2026-10-03. Remaining work is the follow-up backlog below.
+graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-10-28. Remaining work is the follow-up backlog below.
 **This file is the backlog** — `PROJECT_STATE.md` is a digest and points here.
-
-### History and transfer totals
-- [ ] **Longer graphs and cumulative transfer totals** — user requested network download/upload
-      and disk read/write history (2026-10-03). Define retained periods, persistence across app
-      restarts, total/reset semantics and sleep/interface-change handling before implementation.
-      Existing one-minute graphs remain available in v1.1. Spec: `../specs/transfer-history.md`;
-      24-hour retention across restarts and both period/“Since reset” totals confirmed;
-      detail-card placement, period selector and gap/reset behavior confirmed. Selected plan:
-      `../IMPLEMENTATION_PLAN.md`, tasks 1.1–6.1 and E1. Implementation 8/8 validated; E1 manual acceptance open.
 
 ### Distribution
 - [ ] **Updater** — QSP has **no updater of any kind**. "Sparkle *vs* SilentUpdateKit" is a false
@@ -59,11 +45,6 @@ graphs shipped 2026-07-27 (D-025). v1.1.0 was published 2026-10-03. Remaining wo
 - [ ] **Actual memory pressure and swap** — current `MemorySampler.pressurePercent` is used RAM
       divided by total RAM and is labeled "Pressure" in the detail card. Keep utilization distinct
       from system memory-pressure state; consider swap detail (confirmed source review 2026-10-03).
-- [ ] **Transfer-rate continuity** — track per-interface baselines and elapsed time so interface
-      reconnection or delayed ticks cannot inflate rates; assess disk timing too. Relevant prerequisite
-      for cumulative transfer history (source review 2026-10-03; no runtime failure reproduced).
-      Mapped to `../IMPLEMENTATION_PLAN.md`, tasks 1.1 and 2.1 (automated checks passed);
-      real-device continuity remains part of E1. Completion evidence lives in the selected plan.
 - [ ] **Disk free-space accuracy** — `DiskSampler.swift:108` (`statfs f_bavail`) reads **600.62 GB**
       where Finder shows **617.24 GB**: a **16.62 GB** purgeable gap, twice-measured. exelban/stats
       matches Finder via `CSDiskSpaceGetRecoveryEstimate` (CoreServices, cached 30 s,
@@ -78,7 +59,7 @@ graphs shipped 2026-07-27 (D-025). v1.1.0 was published 2026-10-03. Remaining wo
       Add Restart to the strip's context menu. Relaunch the same app bundle through normal
       termination/startup so saved preferences, retained history and cumulative totals survive.
       Current menu lives in `01_Project/Sources/QuickStatsPanel/AppDelegate.swift` (`makePanelMenu`)
-      and has Quit but no Restart. Implementation has not started; separate from transfer-history E1.
+      and has Quit but no Restart. Implementation has not started; separate from the shipped transfer-history work.
 - [ ] **Vertical strip orientation** — a portrait variant (tiles stacked, anchored to a screen edge).
       Touches D-006/D-008 (thin-strip + content-driven-width assumptions), `PanelWindowController`
       sizing/anchors, and the tile layout — needs a small spec before building.
@@ -110,7 +91,7 @@ graphs shipped 2026-07-27 (D-025). v1.1.0 was published 2026-10-03. Remaining wo
 <!-- Active work. Populated by /plan or /execute. Keep focused (3-7 tasks). -->
 <!-- When done: /log moves to tasks-archive.md -->
 
-_The selected transfer-history plan is linked under Active plan; no duplicate task checkboxes here.
+_No active implementation plan; completed transfer-history evidence is linked above.
 Preferences redesign remains accepted and unreleased._
 
 ---

@@ -2,6 +2,7 @@
 
 | Date | Session | Summary |
 |------|---------|---------|
+| [2026-10-28](2026-10-28.md) | Publish 1.2.0 for everyday use | 113 Release tests, universal notarized app/DMG, GitHub and website published and downloaded bytes verified. Exact Release running. Remaining manual checks owner-deferred; plan archived. |
 | [2026-10-26](2026-10-26.md) | Reset acceptance and deferred Restart option | User passed independent Network/Disk resets, cancel and restart persistence. Right-click Restart saved for later. Sleep/wake and network reconnect subsequently passed; broader card checks and conditional storage status remain; 8/8 tasks, E1 open. |
 | [2026-10-23](2026-10-23.md) | Transfer-history retention acceptance | User passed Run08 refresh-interval/restart retention, preserved totals/start times, closed-time gap and no resumed spike. Scoped resets next; E1 remains open. Documentation only. |
 | [2026-10-21](2026-10-21.md) | Transfer history execution and E1 visual acceptance | 8/8 tasks; 113 prior tests. Run08 Network visual and Disk periods/theme/edge checks accepted. Retention next; remaining E1 open. No new commit/release. |

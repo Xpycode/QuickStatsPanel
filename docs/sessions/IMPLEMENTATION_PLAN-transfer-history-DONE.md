@@ -1,10 +1,11 @@
 # Implementation Plan — 24-hour transfer history and totals
 
-**Created:** 2026-10-20 · **State:** implementation and E1 screenshot fixes validated; awaiting external acceptance E1 (plan remains active)
-**Progress:** 8/8 implementation tasks complete; external acceptance **E1 open**.
+**Created:** 2026-10-20 · **State:** complete under owner-approved scoped deferral; v1.2.0 published 2026-10-28
+**Progress:** 8/8 implementation tasks complete; **E1 closed by explicit scoped deferral**, not an all-cases pass.
 **Execution:** one continuous run, organized into three phases; no per-phase approval stops.
 Unchecked tasks are pending unless explicitly annotated implemented-unverified or blocked.
-This file owns task status/evidence; `docs/TASKS.md` retains backlog mappings.
+This archive owns task status/evidence; current follow-ups are in [TASKS](../TASKS.md).
+Historical open-gate statements are superseded by the October 28 release disposition at the end.
 
 ## Goal and accepted scope
 
@@ -16,7 +17,7 @@ Source → action → destination → observable outcome: integer deltas from ph
 counters → summon HUD, open Network/Disk and choose a period → existing detail card and local
 history files → a fixture of 100,000,000 bytes down and 20,000,000 up produces those separate
 byte totals, the corresponding rate graph and measured coverage; reopening retains saved data.
-The complete journey and accepted requirements are in [the spec](specs/transfer-history.md).
+The complete journey and accepted requirements are in [the spec](../../specs/transfer-history.md).
 
 Sleep/app-closed/read-failure time is unobserved, never fabricated zero traffic. Reset affects only
 the chosen stat's cumulative pair, preserving both histories and the other stat's cumulative pair.
@@ -382,7 +383,7 @@ the normal tool approval path, keeping command/log/exit status and real `.xcresu
 
 ## External acceptance
 
-- [ ] **E1 — Finite acceptance of integrated fresh artifact on the user's Mac.**
+- [x] **E1 — Closed by owner-approved scoped deferral, 2026-10-28.** Remaining cases below were not all performed. Original finite acceptance scope:
   - Depends on: 6.1 and the exact fresh app artifact. Requires user-operated foreground actions
     or new explicit scope for desktop interaction. No requirement for a 24-hour real-time wait.
   - Owns: acceptance evidence in the session log. Gates live UI, real sleep/reconnect continuity,
@@ -414,7 +415,7 @@ the normal tool approval path, keeping command/log/exit status and real `.xcresu
 
 All eight implementation tasks are validated. **E1 is the only remaining gate**; it requires
 user-operated checks of the exact fresh artifact. The finite batch and launch steps are in the
-[2026-10-21 handoff](docs/sessions/2026-10-21.md#e1-acceptance).
+[2026-10-21 handoff](2026-10-21.md#e1-acceptance).
 After explicit user authorization, earlier PreferencesRedesign PID 52821 exited gracefully and
 the exact TransferHistoryRun06 artifact launched at verified PID 55982. E1 screenshots then exposed
 control contrast and excess reserved-space defects. Run07 fixes passed build/offscreen validation;
@@ -427,11 +428,11 @@ coverage and remaining E1 cases remained open at that handoff. Subsequently, the
 Mono plus another theme and screen-edge clipping/reachability. On 2026-10-23, the user reported
 “pass” for E1.2 on the same Run08 build: refresh-interval changes preserve earlier history;
 normal quit/reopen preserves history, cumulative totals and start times, with a closed-time gap
-and no resumed-rate spike. [Retention acceptance](docs/sessions/2026-10-23.md).
+and no resumed-rate spike. [Retention acceptance](2026-10-23.md).
 On 2026-10-26, the user reported **“pass”** for the requested E1.3 batch: cancel Network reset;
 confirm independent Network and Disk resets with new start times while preserving history and
 the other stat's totals; normal quit/reopen preserves both resets.
-[Reset acceptance and current handoff](docs/sessions/2026-10-26.md#resume).
+[Reset acceptance and current handoff](2026-10-26.md#resume).
 The user subsequently reported **“pass”** for the Run08 sleep/wake and network reconnect batch:
 gaps/partial coverage without catch-up spikes accepted. Conditional storage hot-plug was included
 only if suitable hardware was available; the aggregate reply does not identify whether it was
@@ -443,20 +444,20 @@ Live focus/geometry, actual sleep/reconnect/hot-plug and app cross-launch behavi
 from fixtures. Unsupported hardware coverage remains explicit. Keep this plan active until E1
 passes or the user explicitly scopes a deferral; do not archive it from automated evidence alone.
 
-E1 screenshot follow-up and replacement artifact: [2026-10-21 follow-up](docs/sessions/2026-10-21.md#e1-screenshot-follow-up).
+E1 screenshot follow-up and replacement artifact: [2026-10-21 follow-up](2026-10-21.md#e1-screenshot-follow-up).
 
 ## Execution log
 
 | Phase / task IDs | Assignment or serial reason | Validation / evidence | Commits / exceptions | Next action / stop reason |
 |---|---|---|---|---|
 
-| Phase 1 / 1.1 | Fresh agent `counter_contract`; independent read-only `contract_review`; coordinator runs shared checks | **15/15 accounting + 3/3 probe tests passed**, no skips. [Feasibility evidence](docs/evidence/transfer-history-feasibility.md). Corrected unknown-provider classification and combined active payload budget. | `62605f9`; prior dirty preferences/entrypoint/docs excluded and preserved. | Gate passed; 2.1 and 2.2 assigned to independent fresh agents. |
-| Phase 1 / 2.1, 2.2 | Fresh agents `transfer_samplers` and `transfer_timeline`; independent `timeline_review` plus coordinator reader/lifecycle review; disjoint files, serialized builds | Run02 **51/51** selected tests passed; final route-snapshot identity fix **22/22** affected tests passed. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-1-sampler-and-timeline-validation). | `df247f3` | Phase 1 complete; 3.1/3.2 ready and assigned. |
-| Phase 2 / 3.2 | Fresh agent `transfer_presentation`; coordinator source review; idle peak corrected before validation | **8/8** presentation tests and standalone app compilation passed. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-2-presentation-validation). | `bd2b247` | UI presentation ready for integration; no pixel/manual acceptance claim. |
-| Phase 2 / 3.1 | Fresh agent `transfer_persistence`; independent `repository_review` with five isolated repros | **17/17** official tests passed; crash/fallback/version/watermark/full-sync fixes verified. Peak disk **35,737,600 B**, incremental history memory **53,690,368 B**. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-2-repository-validation). | `f4ef0a3` | Phase 2 complete; task 4.1 ready. |
-| Phase 3 / 4.1 | Fresh agent `transfer_lifecycle` owns controller/tests; coordinator owns StatsStore/AppDelegate; independent `lifecycle_review` | **66/66** selected lifecycle/dependency tests passed; standalone B passed. Dedicated 30-second dirty deadline and short-sleep fixture corrected. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-3-lifecycle-validation). | `e8c2f1a` | 5.1 ready and assigned. AppDelegate two-second deadline source-reviewed; actual NSApplication termination untested. |
-| Phase 3 / 5.1 | Fresh agent `transfer_detail_ui`; coordinator reviewed native bindings/geometry and fixed seconds in start timestamps | **37/37** state/presentation/existing metric/history tests and standalone B passed. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-3-detail-card-validation). | `e8c2f1a` | 6.1 ready and assigned; E1 live geometry/focus/controls remain open. |
-| Phase 3 / 6.1 | Fresh agent `transfer_integration` owns journey tests; coordinator owns performance fix/final validation; independent `final_visibility_review` | **113/113** full tests passed, no hardware skips; final standalone B and whitespace check passed. [Final evidence](docs/evidence/transfer-history-feasibility.md#final-integration-validation--2026-10-21). | Final source checkpoint mapping in [session](docs/sessions/2026-10-21.md) | All implementation tasks complete; **E1 open**. User-authorized graceful quit of PID 52821 and exact fresh-artifact launch verified at PID 55982. |
+| Phase 1 / 1.1 | Fresh agent `counter_contract`; independent read-only `contract_review`; coordinator runs shared checks | **15/15 accounting + 3/3 probe tests passed**, no skips. [Feasibility evidence](../evidence/transfer-history-feasibility.md). Corrected unknown-provider classification and combined active payload budget. | `62605f9`; prior dirty preferences/entrypoint/docs excluded and preserved. | Gate passed; 2.1 and 2.2 assigned to independent fresh agents. |
+| Phase 1 / 2.1, 2.2 | Fresh agents `transfer_samplers` and `transfer_timeline`; independent `timeline_review` plus coordinator reader/lifecycle review; disjoint files, serialized builds | Run02 **51/51** selected tests passed; final route-snapshot identity fix **22/22** affected tests passed. [Evidence](../evidence/transfer-history-feasibility.md#phase-1-sampler-and-timeline-validation). | `df247f3` | Phase 1 complete; 3.1/3.2 ready and assigned. |
+| Phase 2 / 3.2 | Fresh agent `transfer_presentation`; coordinator source review; idle peak corrected before validation | **8/8** presentation tests and standalone app compilation passed. [Evidence](../evidence/transfer-history-feasibility.md#phase-2-presentation-validation). | `bd2b247` | UI presentation ready for integration; no pixel/manual acceptance claim. |
+| Phase 2 / 3.1 | Fresh agent `transfer_persistence`; independent `repository_review` with five isolated repros | **17/17** official tests passed; crash/fallback/version/watermark/full-sync fixes verified. Peak disk **35,737,600 B**, incremental history memory **53,690,368 B**. [Evidence](../evidence/transfer-history-feasibility.md#phase-2-repository-validation). | `f4ef0a3` | Phase 2 complete; task 4.1 ready. |
+| Phase 3 / 4.1 | Fresh agent `transfer_lifecycle` owns controller/tests; coordinator owns StatsStore/AppDelegate; independent `lifecycle_review` | **66/66** selected lifecycle/dependency tests passed; standalone B passed. Dedicated 30-second dirty deadline and short-sleep fixture corrected. [Evidence](../evidence/transfer-history-feasibility.md#phase-3-lifecycle-validation). | `e8c2f1a` | 5.1 ready and assigned. AppDelegate two-second deadline source-reviewed; actual NSApplication termination untested. |
+| Phase 3 / 5.1 | Fresh agent `transfer_detail_ui`; coordinator reviewed native bindings/geometry and fixed seconds in start timestamps | **37/37** state/presentation/existing metric/history tests and standalone B passed. [Evidence](../evidence/transfer-history-feasibility.md#phase-3-detail-card-validation). | `e8c2f1a` | 6.1 ready and assigned; E1 live geometry/focus/controls remain open. |
+| Phase 3 / 6.1 | Fresh agent `transfer_integration` owns journey tests; coordinator owns performance fix/final validation; independent `final_visibility_review` | **113/113** full tests passed, no hardware skips; final standalone B and whitespace check passed. [Final evidence](../evidence/transfer-history-feasibility.md#final-integration-validation--2026-10-21). | Final source checkpoint mapping in [session](2026-10-21.md) | All implementation tasks complete; **E1 open**. User-authorized graceful quit of PID 52821 and exact fresh-artifact launch verified at PID 55982. |
 
 Keep this plan active until required implementation and acceptance are complete. Archive with its
 evidence and update incoming links only after acceptance or explicit scoped deferral.
@@ -469,3 +470,14 @@ conditional storage hot-plug status are **deferred by user**, not passed. Live e
 remains unexercised unless naturally encountered. Prior accepted Run08 checks remain valid.
 E1 is dispositioned by this explicit scope change; publication still requires fresh Release build,
 signature/notarization and distribution verification. No additional feature work is in scope.
+
+## Publication complete — 2026-10-28
+
+v1.2.0 (1200) published to GitHub and the website. 113/113 fresh Release hostless tests; universal
+Developer ID archive/export; app/DMG notarization, stapling and Gatekeeper; mounted-DMG executable
+identity; GitHub DMG/ZIP and website download checksum checks all passed. Release source checkpoint
+853a9d8; tag 90a0380 differs only in documentation. Exact fresh app launched at verified PID 53249
+after graceful Run08 quit. Remaining manual checks are owner-deferred, not passed. Earlier open-gate
+statements below/above are historical progress evidence, superseded by this disposition.
+
+[Release evidence](../evidence/release-1.2.0.md). No implementation wave remains.

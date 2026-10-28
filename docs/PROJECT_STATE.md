@@ -10,21 +10,21 @@
 - **Started:** 2026-06-04 · **Target:** macOS 15+ · **License:** PolyForm Noncommercial 1.0.0 (public repo)
 
 ## Now
-- **Funnel:** build · **Phase:** Awaiting manual acceptance <!-- Phase changed: 2026-10-21 -->
-- **Focus:** Remaining Run08 broader card acceptance and storage hardware status; sleep/wake and network reconnect accepted.
-- **Blockers:** broader card checks and conditional storage hardware status unreported.
-- **Execution:** [Selected plan](../IMPLEMENTATION_PLAN.md), **8/8** implementation tasks complete;
-  **E1 open**, awaiting user-operated artifact checks. Keep the plan active until acceptance.
-- **Current handoff:** [Acceptance progress and next-session Resume](sessions/2026-10-26.md#resume).
-- **Validation:** **113/113 prior hostless tests**; Run08 standalone Debug/signature + six offscreen graph renders passed; prior Run07 appearance/confirmation checks passed.
-- **Last updated:** 2026-10-26
+- **Funnel:** maintain · **Phase:** Published / everyday use <!-- Phase changed: 2026-10-28 -->
+- **Focus:** Use v1.2.0 normally; investigate concrete feedback when it appears. Restart remains deferred.
+- **Blockers:** none for the approved release scope; remaining manual checks explicitly owner-deferred.
+- **Execution:** No active plan; [transfer-history plan archived](sessions/IMPLEMENTATION_PLAN-transfer-history-DONE.md), 8/8 tasks complete, E1 closed by scoped deferral.
+- **Current handoff:** [Published release and everyday-use pickup](sessions/2026-10-28.md#resume).
+- **Validation:** 113/113 fresh Release hostless tests; universal signed/notarized app and DMG; mounted package and live download identity verified.
+- **Next:** Everyday use; capture reproducible issues without restarting the deferred acceptance checklist.
+- **Last updated:** 2026-10-28
 
 ## Recent
+- **2026-10-28** — v1.2.0 published to GitHub and website; exact fresh Release running; remaining manual checks deferred by owner.
 - **2026-10-26** — Resets/persistence plus sleep/wake and network reconnect accepted; broader card checks remain.
 - **2026-10-23** — Run08 refresh-interval/restart retention accepted; scoped resets next; E1 open.
 - **2026-10-21** — Run08 Network visual and Disk periods/theme/edge checks accepted; remaining E1 open.
 - **2026-10-20** — Physical 64-bit accounting, retained queries and bounded checkpoint recovery validated.
-- **2026-10-20** — Preferences category toolbar and compact editors accepted locally.
 
 ## What we're building
 Press a global hotkey → a **thin** wide strip appears near the cursor showing live stats as compact
@@ -36,9 +36,9 @@ heavy macOS "Tahoe" rounding).
 Fans, Power, Temperatures, plus per-stat history graphs (2026-07-27).
 
 ## Progress
-**Features** ✅ roadmap; 🔶 transfer history awaiting E1 · **UI** 🔶 new card controls awaiting E1 ·
+**Features** ✅ roadmap + retained transfers shipped · **UI** ✅ approved release scope; remaining manual checks deferred ·
 **Testing** ✅ 113 hostless tests + bounded hardware probes · **Docs** ✅ ·
-**Distribution** ✅ v1.1.0 notarized + released; GitHub and website downloads verified
+**Distribution** ✅ v1.2.0 notarized + released; GitHub and website downloads verified
 
 ## Detail (read only if needed)
 - **Decisions:** `decisions.md` — D-001…D-032, full rationale for every locked choice. Load-bearing:
