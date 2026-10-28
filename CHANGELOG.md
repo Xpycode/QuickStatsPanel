@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-10-28
+
+- Network and Disk history for 1 minute, 1 hour, and 24 hours, retained across app restarts.
+- Selected-period transfer totals and independently resettable cumulative Network/Disk totals.
+- Explicit missing-time and partial-source indicators, saved-state feedback, and bounded checkpoint recovery.
+- Native category toolbar and compact per-stat editors in Settings.
+
 - Temperature headline choices: thermal status, CPU/GPU temperature, or status plus CPU/GPU; Celsius/Fahrenheit across temperature readouts.
 - Disk headline choices for capacity or live read/write activity.
 - Selectable detail rows across every stat, including available fan and temperature sensor rows.

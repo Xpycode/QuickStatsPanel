@@ -164,7 +164,7 @@ struct StatDetailView: View {
             .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
 
         return VStack(alignment: .leading, spacing: 4) {
-            TransferPeriodControl(statName: name, selection: Binding(
+            TransferPeriodControl(statName: name, background: theme.colors.background, selection: Binding(
                 get: { store.transferDetailStates[stat]?.period ?? .minute },
                 set: { store.selectTransferPeriod($0, for: stat) }))
                 .frame(height: 24)
@@ -182,7 +182,7 @@ struct StatDetailView: View {
                 }
             }
             .frame(width: Self.transferWidth, height: 120)
-            .help("Rates use measured activity. ╱ marks unobserved time; the top-edge marker identifies partial-source coverage.")
+            .help("Rates use measured activity. Dashed sections mark unobserved time, including sleep or time with the app closed; solid sections show measured time. The top-edge marker identifies partial-source coverage.")
 
             Text("Selected period · \(state.period.title)")
                 .font(theme.fonts.detailTitle)
@@ -198,25 +198,24 @@ struct StatDetailView: View {
                 Spacer(minLength: 0)
                 TransferHistoryButton(title: "Reset…", accessibilityLabel: "Reset \(name) cumulative totals",
                     help: "Ask to reset only \(name) cumulative totals. History is kept.",
+                    background: theme.colors.background,
                     isEnabled: presentation != nil && !state.isResetPending && !state.isConfirmingReset) {
                     store.requestTransferReset(for: stat)
                 }
                 .frame(width: 62, height: 22)
             }
             .frame(height: 22)
-            transferTotals(presentation?.cumulativeTotals, stat: stat, section: "Since reset", theme: theme)
-            transferTextSlot(presentation?.resetStartedText ?? "Loading start time…", lines: 2, height: 32, theme: theme)
-
-            transferTextSlot(selected?.coverageText ?? "Loading measured coverage…", lines: 3, height: 46,
-                help: "\(selected?.coverageText ?? "Coverage is loading.") Partial time includes only readable sources. Missing time is unobserved. Totals include measured activity only. \(selected?.boundaryEstimateHelp ?? "")",
-                theme: theme)
-            transferTextSlot(state.isResetPending ? "Reset pending · waiting for durable save…" :
-                (presentation?.saveText ?? "Loading saved history…"), lines: 2, height: 32, theme: theme)
-            transferTextSlot(warning, lines: 2, height: 32, theme: theme)
-
-            Group {
+            VStack(alignment: .leading, spacing: 4) {
+                transferTotals(presentation?.cumulativeTotals, stat: stat, section: "Since reset", theme: theme)
+                transferTextSlot(presentation?.resetStartedText ?? "Loading start time…", lines: 2, height: 32, theme: theme)
+            }
+            .opacity(state.isConfirmingReset ? 0 : 1)
+            .accessibilityHidden(state.isConfirmingReset)
+            .overlay(alignment: .topLeading) {
+                // Confirmation temporarily uses the cumulative section's existing
+                // space. Period changes and reset actions never grow the card.
                 if state.isConfirmingReset {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 4) {
                             Text(state.confirmationTitle)
                                 .font(theme.fonts.detailTitle)
@@ -224,10 +223,14 @@ struct StatDetailView: View {
                                 .minimumScaleFactor(0.85)
                             Spacer(minLength: 0)
                             TransferHistoryButton(title: "Reset", accessibilityLabel: "Confirm reset \(name) totals",
-                                help: state.confirmationHelp) { store.confirmTransferReset(for: stat) }
+                                help: state.confirmationHelp, background: theme.colors.background) {
+                                    store.confirmTransferReset(for: stat)
+                                }
                                 .frame(width: 48, height: 22)
                             TransferHistoryButton(title: "Cancel", accessibilityLabel: "Cancel reset \(name) totals",
-                                help: "Keep cumulative totals and history.") { store.cancelTransferReset(for: stat) }
+                                help: "Keep cumulative totals and history.", background: theme.colors.background) {
+                                    store.cancelTransferReset(for: stat)
+                                }
                                 .frame(width: 50, height: 22)
                         }
                         Text(state.confirmationHelp)
@@ -235,11 +238,16 @@ struct StatDetailView: View {
                             .lineLimit(2)
                     }
                     .foregroundStyle(theme.colors.primaryText)
-                } else {
-                    Color.clear.accessibilityHidden(true)
                 }
             }
-            .frame(height: 54, alignment: .topLeading)
+
+            transferTextSlot(selected?.coverageText ?? "Loading measured coverage…", lines: 3, height: 46,
+                help: "\(selected?.coverageText ?? "Coverage is loading.") Partial time includes only readable sources. Missing time is unobserved. Totals include measured activity only. \(selected?.boundaryEstimateHelp ?? "")",
+                theme: theme)
+            transferTextSlot(state.isResetPending ? "Reset pending · waiting for durable save…" :
+                (presentation?.saveText ?? "Loading saved history…"), lines: 2, height: 32, theme: theme)
+            // Retain a compact two-line warning slot so errors never clip later rows.
+            transferTextSlot(warning, lines: 2, height: 32, theme: theme)
         }
         .frame(width: Self.transferWidth)
         .accessibilityElement(children: .contain)
@@ -285,6 +293,7 @@ struct StatDetailView: View {
             .font(theme.fonts.detailValue)
             .foregroundStyle(theme.colors.secondaryText)
             .lineLimit(lines)
+            .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .frame(height: height, alignment: .topLeading)
             .help(help ?? text)

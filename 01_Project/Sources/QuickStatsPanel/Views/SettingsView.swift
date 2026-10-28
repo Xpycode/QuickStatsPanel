@@ -2,47 +2,28 @@ import SwiftUI
 import AppKit
 import ServiceManagement
 
-/// The real settings surface, shown in the self-managed Settings window (opened
-/// from the panel's gear). A sidebar (`NavigationSplitView`) splits the old single
-/// scrolling form into focused panes — Stats / Appearance / Panel / Hotkeys /
-/// About — matching the sibling HUD app's house style.
-///
-/// Every pane edits `AppSettings.shared` directly; persistence and side-effects
-/// (hotkey re-register, sampler restart, live theme rebuild) happen in the model's
-/// `didSet` hooks, so the views stay declarative.
+/// Shared navigation between the native toolbar and SwiftUI pane content.
+@Observable
+final class SettingsNavigation {
+    var pane: SettingsPane = .stats
+    var stat: StatKind? = .cpu
+}
+
+/// Settings continue to edit AppSettings directly; only navigation and layout
+/// live here. The window controller owns the native category toolbar.
 struct SettingsView: View {
     let store: StatsStore
-
-    // Single-select `List` wants an optional binding (macOS); default to the first
-    // pane and coalesce nil → .stats in `detail` so a pane is always shown.
-    @State private var selection: SettingsPane? = .stats
+    let navigation: SettingsNavigation
 
     var body: some View {
-        NavigationSplitView {
-            // `id: \.self` makes each row's selection tag the *element* (SettingsPane),
-            // matching the `SettingsPane?` binding — without it, List tags rows with the
-            // Identifiable id (String) and selection never updates. Sidebar-toggle is
-            // removed so the nav can't be collapsed away inside a small settings window.
-            List(SettingsPane.allCases, id: \.self, selection: $selection) { pane in
-                Label(pane.title, systemImage: pane.systemImage)
-            }
-            .navigationSplitViewColumnWidth(180)
-            .toolbar(removing: .sidebarToggle)
-        } detail: {
-            // NavigationSplitView fills its container, so the detail carries the size
-            // floor (the window controller sets the default + min window size to match).
-            // Floor raised for the Stats pane's list + options split (D-025):
-            // at the old 380 the two columns squeezed the pickers into ellipses.
-            detail
-                .frame(minWidth: 480, minHeight: 420)
-        }
-        .navigationSplitViewStyle(.balanced)
+        detail
+            .frame(minWidth: 660, minHeight: 420)
     }
 
     @ViewBuilder
     private var detail: some View {
-        switch selection ?? .stats {
-        case .stats:      StatsSettingsPane(store: store)
+        switch navigation.pane {
+        case .stats:      StatsSettingsPane(store: store, navigation: navigation)
         case .appearance: AppearanceSettingsPane()
         case .panel:      PanelSettingsPane()
         case .hotkeys:    HotkeySettingsPane()
@@ -51,8 +32,8 @@ struct SettingsView: View {
     }
 }
 
-/// Which Settings pane the sidebar shows. Declaration order = sidebar order.
-private enum SettingsPane: String, CaseIterable, Identifiable {
+/// Declaration order matches the native settings toolbar.
+enum SettingsPane: String, CaseIterable, Identifiable {
     case stats, appearance, panel, hotkeys, about
     var id: String { rawValue }
 
@@ -83,10 +64,7 @@ private struct StatsSettingsPane: View {
     let store: StatsStore
     @Bindable private var settings = AppSettings.shared
 
-    /// Which stat the options pane is editing. Optional because a `List`
-    /// selection binding on macOS is optional; the pane shows a placeholder
-    /// rather than defaulting, so nothing is ever edited by accident.
-    @State private var selected: StatKind?
+    @Bindable var navigation: SettingsNavigation
 
     var body: some View {
         // The list keeps its own scroll container (see the D-020 note about a bare
@@ -98,13 +76,14 @@ private struct StatsSettingsPane: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 statList
+                    .frame(width: 190)
                 Divider()
                 optionsPane
-                    .frame(width: 260)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
             Divider()
-            Text("Drag to reorder · toggle to show or hide · select a stat to configure it")
+            Text("Drag to reorder · select a stat to configure")
                 .font(.caption).foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16).padding(.vertical, 10)
@@ -118,7 +97,7 @@ private struct StatsSettingsPane: View {
         // `id: \.self` so each row's selection tag is the StatKind itself and not
         // its String id — the same trap the sidebar hit in D-020, where tagging by
         // Identifiable id meant the selection binding never updated.
-        List(selection: $selected) {
+        List(selection: $navigation.stat) {
             ForEach(settings.statOrder, id: \.self) { kind in
                 // Checkbox and label are SEPARATE views: when the Toggle owned
                 // the whole row (label included), every point in the row was an
@@ -129,8 +108,9 @@ private struct StatsSettingsPane: View {
                 // the checkbox itself toggles. (Trade-off: clicking the row text
                 // no longer flips the toggle — it drags instead.)
                 HStack(spacing: 8) {
-                    Toggle("", isOn: enabledBinding(kind))
-                        .labelsHidden()
+                    MetricOptionCheckbox(title: "", isOn: enabledBinding(kind))
+                        .frame(width: 18, height: 22)
+                        .accessibilityLabel("Show \(kind.displayName)")
                     Label(kind.displayName, systemImage: kind.settingsSymbol)
                     Spacer(minLength: 0)
                 }
@@ -146,113 +126,126 @@ private struct StatsSettingsPane: View {
     /// products model this rather than one flat combined enum.
     @ViewBuilder
     private var optionsPane: some View {
-        if let kind = selected {
-            Form {
-                Section(kind.displayName) {
-                    if kind == .power {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Panel value")
-                            MetricOptionPopup(items: PowerDisplayMode.allCases,
-                                              titleForItem: { $0.displayName },
-                                              selection: $settings.powerDisplayMode)
-                                .frame(height: 24)
-                        }
-                        Text("System is whole-machine power. Chip total adds CPU, GPU, Neural Engine and DRAM. Charger input can also supply battery charging. Unavailable readings appear as —.")
-                            .font(.caption).foregroundStyle(.secondary)
-                        Text("Power color reflects chip activity relative to its peak since sampling started.")
-                            .font(.caption).foregroundStyle(.secondary)
-                    } else if kind == .temps {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Panel value")
-                            MetricOptionPopup(items: TemperatureDisplayMode.allCases,
-                                              titleForItem: { $0.displayName },
-                                              selection: $settings.temperatureDisplayMode)
-                                .frame(height: 24)
-                        }
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Temperature unit")
-                            MetricOptionPopup(items: TemperatureUnit.allCases,
-                                              titleForItem: { $0.displayName },
-                                              selection: $settings.temperatureUnit,
-                                              accessibilityLabel: "Temperature unit")
-                                .frame(height: 24)
-                        }
-                        Text("The unit applies to all temperature readings, including CPU, GPU and Battery detail cards. Unavailable sensor readings appear as —.")
-                            .font(.caption).foregroundStyle(.secondary)
-                        Text("Temperature color reflects macOS thermal status, regardless of the panel value.")
-                            .font(.caption).foregroundStyle(.secondary)
-                    } else if kind == .disk {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Panel value")
-                            MetricOptionPopup(items: DiskDisplayMode.allCases,
-                                              titleForItem: { $0.displayName },
-                                              selection: $settings.diskDisplayMode)
-                                .frame(height: 24)
-                        }
-                        Text("Activity shows live read/write speeds. The graph always shows activity; disk color reflects used capacity.")
-                            .font(.caption).foregroundStyle(.secondary)
-                    } else if kind == .loadAverage {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Panel value")
-                            MetricOptionPopup(items: LoadDisplayMode.allCases,
-                                              titleForItem: { $0.displayName },
-                                              selection: $settings.loadDisplayMode)
-                                .frame(height: 24)
-                        }
-                        Text("Load is runnable work averaged over 1, 5 or 15 minutes, not CPU usage %. Comparing load with the core count gives a rough guide to CPU demand.")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-
-                    if let pair = valuePair(for: kind) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Value")
-                            MetricOptionPopup(items: TileValueMode.allCases,
-                                              titleForItem: { $0.displayName(pair: pair) },
-                                              selection: valueModeBinding(kind),
-                                              accessibilityLabel: "Value")
-                                .frame(height: 24)
-                        }
-                    }
-
-                    if kind.supportsGraph {
-                        Picker("Strip", selection: styleBinding(kind)) {
-                            ForEach(TileStyle.allCases) { style in
-                                Text(style.displayName).tag(style)
+        if let kind = navigation.stat {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text(kind.displayName).font(.title2.weight(.semibold))
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Strip").font(.headline)
+                        stripOptions(for: kind)
+                        if kind.supportsGraph {
+                            optionRow("Display") {
+                                MetricOptionPopup(items: TileStyle.allCases,
+                                                  titleForItem: { $0.displayName },
+                                                  selection: styleBinding(kind),
+                                                  accessibilityLabel: "Strip display")
                             }
-                        }
-                        Text("The detail card always shows the graph.")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-
-                    if kind.valuePair == nil && !kind.supportsGraph && store.detailRowOptions(for: kind).isEmpty {
-                        Text("This stat has a single value and no history to plot.")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-
-                if !store.detailRowOptions(for: kind).isEmpty {
-                    Section("Detail card") {
-                        Text("Choose the rows shown when this stat’s detail card opens. Unavailable hardware readings stay hidden.")
-                            .font(.caption).foregroundStyle(.secondary)
-                        ForEach(store.detailRowOptions(for: kind), id: \.self) { label in
-                            MetricOptionCheckbox(title: label,
-                                                 isOn: detailRowBinding(kind, label))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .frame(height: 22)
+                            helpText("The detail card always shows the graph.")
                         }
                     }
+
+                    let rows = store.detailRowOptions(for: kind)
+                    if !rows.isEmpty {
+                        Divider()
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Detail card rows").font(.headline)
+                            // Short fixed labels fit in two columns. Hardware names
+                            // can be long, so fan/sensor rows use the full width.
+                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .leading),
+                                                     count: kind == .temps || kind == .fan ? 1 : 2),
+                                      alignment: .leading, spacing: 6) {
+                                ForEach(rows, id: \.self) { label in
+                                    MetricOptionCheckbox(title: label,
+                                                         isOn: detailRowBinding(kind, label))
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .frame(height: 24)
+                                }
+                            }
+                            helpText("Unavailable hardware readings stay hidden.")
+                        }
+                    }
                 }
+                .padding(24)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .formStyle(.grouped)
+            .id(kind) // Start each newly selected stat at the top of its options.
         } else {
-            VStack {
-                Spacer()
-                Text("Select a stat")
-                    .font(.callout).foregroundStyle(.secondary)
-                Spacer()
-            }
-            .frame(maxWidth: .infinity)
+            Text("Select a stat")
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+
+    @ViewBuilder
+    private func stripOptions(for kind: StatKind) -> some View {
+        switch kind {
+        case .power:
+            optionRow("Panel value") {
+                MetricOptionPopup(items: PowerDisplayMode.allCases,
+                                  titleForItem: { $0.displayName },
+                                  selection: $settings.powerDisplayMode)
+            }
+            helpText("System is whole-machine power. Chip total adds CPU, GPU, Neural Engine and DRAM. Charger input can also supply battery charging. Unavailable readings appear as —.")
+            helpText("Power color reflects chip activity relative to its peak since sampling started.")
+        case .temps:
+            optionRow("Panel value") {
+                MetricOptionPopup(items: TemperatureDisplayMode.allCases,
+                                  titleForItem: { $0.displayName },
+                                  selection: $settings.temperatureDisplayMode)
+            }
+            optionRow("Unit") {
+                MetricOptionPopup(items: TemperatureUnit.allCases,
+                                  titleForItem: { $0.displayName },
+                                  selection: $settings.temperatureUnit,
+                                  accessibilityLabel: "Temperature unit")
+            }
+            helpText("The unit applies to all temperature readings, including CPU, GPU and Battery detail cards. Unavailable sensor readings appear as —.")
+            helpText("Temperature color reflects macOS thermal status, regardless of the panel value.")
+        case .disk:
+            optionRow("Panel value") {
+                MetricOptionPopup(items: DiskDisplayMode.allCases,
+                                  titleForItem: { $0.displayName },
+                                  selection: $settings.diskDisplayMode)
+            }
+            helpText("Activity shows live read/write speeds. The graph always shows activity; disk color reflects used capacity.")
+        case .loadAverage:
+            optionRow("Panel value") {
+                MetricOptionPopup(items: LoadDisplayMode.allCases,
+                                  titleForItem: { $0.displayName },
+                                  selection: $settings.loadDisplayMode)
+            }
+            helpText("Load is runnable work averaged over 1, 5 or 15 minutes, not CPU usage %. Comparing load with the core count gives a rough guide to CPU demand.")
+        default:
+            EmptyView()
+        }
+
+        if let pair = valuePair(for: kind) {
+            optionRow("Value") {
+                MetricOptionPopup(items: TileValueMode.allCases,
+                                  titleForItem: { $0.displayName(pair: pair) },
+                                  selection: valueModeBinding(kind),
+                                  accessibilityLabel: "Value")
+            }
+        }
+        if kind.valuePair == nil && !kind.supportsGraph
+            && kind != .power && kind != .temps && kind != .loadAverage {
+            helpText("This stat has a single strip value.")
+        }
+    }
+
+    private func optionRow<Control: View>(_ title: String,
+                                          @ViewBuilder control: () -> Control) -> some View {
+        HStack(spacing: 12) {
+            Text(title).frame(width: 90, alignment: .leading)
+            control().frame(maxWidth: .infinity).frame(height: 24)
+        }
+    }
+
+    private func helpText(_ text: String) -> some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func valuePair(for kind: StatKind) -> (first: String, second: String)? {

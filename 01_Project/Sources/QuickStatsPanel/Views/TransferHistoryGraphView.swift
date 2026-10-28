@@ -29,18 +29,29 @@ struct TransferHistoryGraphView: View {
     }
 
     private func draw(in context: inout GraphicsContext, size: CGSize, theme: Theme) {
+        var missingRuns: [CGRect] = []
         if data.slots.isEmpty {
-            missing(in: &context, rect: CGRect(origin: .zero, size: size), fraction: 1, theme: theme)
+            missingRuns.append(CGRect(origin: .zero, size: size))
         }
         for slot in data.slots {
             let x = CGFloat(slot.startFraction) * size.width
             let width = CGFloat(max(0, slot.endFraction - slot.startFraction)) * size.width
             guard width > 0 else { continue }
             let rect = CGRect(x: x, y: 0, width: width, height: size.height)
-            if slot.missingFraction > 0 || slot.accountingUnavailable {
-                missing(in: &context, rect: rect,
-                        fraction: slot.accountingUnavailable ? 1 : slot.missingFraction, theme: theme)
+            if slot.missingFraction >= 1 || slot.accountingUnavailable {
+                // Join adjacent empty slots so a long sleep gets one quiet label,
+                // rather than a separate mark or label for every graph bucket.
+                if let previous = missingRuns.last, abs(previous.maxX - rect.minX) < 0.01 {
+                    missingRuns[missingRuns.count - 1] = previous.union(rect)
+                } else {
+                    missingRuns.append(rect)
+                }
+                continue
             }
+            // A mixed bucket cannot reveal the exact position of its missing
+            // fraction. Mark the whole bucket without inventing sub-bucket timing.
+            baseline(in: &context, from: rect.minX, to: rect.maxX, y: rect.midY,
+                     unobserved: slot.missingFraction > 0, theme: theme)
             if !slot.accountingUnavailable {
                 bar(in: &context, rect: rect, rate: slot.firstRate, peak: data.firstPeak,
                     upward: true, color: theme.colors.graphPrimary)
@@ -57,23 +68,37 @@ struct TransferHistoryGraphView: View {
                 context.stroke(marker, with: .color(theme.colors.primaryText), lineWidth: 2)
             }
         }
-        var baseline = Path()
-        baseline.move(to: CGPoint(x: 0, y: size.height / 2))
-        baseline.addLine(to: CGPoint(x: size.width, y: size.height / 2))
-        context.stroke(baseline, with: .color(theme.colors.divider), style: StrokeStyle(lineWidth: 1, dash: [1, 2]))
+        for rect in missingRuns {
+            missing(in: &context, rect: rect, theme: theme)
+        }
     }
 
-    private func missing(in context: inout GraphicsContext, rect: CGRect, fraction: Double, theme: Theme) {
-        var clipped = context
-        clipped.clip(to: Path(rect))
-        clipped.fill(Path(rect), with: .color(theme.colors.secondaryText.opacity(0.04 + 0.08 * fraction)))
-        var hatch = Path()
-        // Anchor the pattern to the plot, so neighboring missing slots share one stable hatch.
-        for x in stride(from: -height, through: width + height, by: 5) {
-            hatch.move(to: CGPoint(x: x, y: height))
-            hatch.addLine(to: CGPoint(x: x + height, y: 0))
+    private func missing(in context: inout GraphicsContext, rect: CGRect, theme: Theme) {
+        let label = context.resolve(Text("No data")
+            .font(.system(size: 9, weight: .medium))
+            .foregroundStyle(theme.colors.secondaryText))
+        let labelSize = label.measure(in: rect.size)
+        if rect.width >= max(48, labelSize.width + 16) {
+            let halfGap = labelSize.width / 2 + 4
+            baseline(in: &context, from: rect.minX, to: rect.midX - halfGap,
+                     y: rect.midY, unobserved: true, theme: theme)
+            context.draw(label, at: CGPoint(x: rect.midX, y: rect.midY))
+            baseline(in: &context, from: rect.midX + halfGap, to: rect.maxX,
+                     y: rect.midY, unobserved: true, theme: theme)
+        } else {
+            baseline(in: &context, from: rect.minX, to: rect.maxX,
+                     y: rect.midY, unobserved: true, theme: theme)
         }
-        clipped.stroke(hatch, with: .color(theme.colors.secondaryText.opacity(0.15 + 0.2 * fraction)), lineWidth: 0.6)
+    }
+
+    private func baseline(in context: inout GraphicsContext, from start: CGFloat, to end: CGFloat,
+                          y: CGFloat, unobserved: Bool, theme: Theme) {
+        guard end > start else { return }
+        var line = Path()
+        line.move(to: CGPoint(x: start, y: y))
+        line.addLine(to: CGPoint(x: end, y: y))
+        context.stroke(line, with: .color(unobserved ? theme.colors.secondaryText.opacity(0.65) : theme.colors.divider),
+                       style: StrokeStyle(lineWidth: 0.7, dash: unobserved ? [2, 3] : []))
     }
 
     private func bar(in context: inout GraphicsContext, rect: CGRect, rate: Double,
@@ -89,7 +114,7 @@ struct TransferHistoryGraphView: View {
 }
 
 /// Direction text and positional markers carry identity without depending on graph hues.
-/// Pattern/edge examples explain the coverage marks independently from the byte totals.
+/// Line/edge examples explain the coverage marks independently from the byte totals.
 struct TransferHistoryGraphLegend: View {
     let data: TransferHistoryGraph
 
@@ -104,7 +129,18 @@ struct TransferHistoryGraphLegend: View {
                       color: theme.colors.graphSecondary, theme: theme)
             }
             HStack(spacing: 10) {
-                Text("╱ Missing")
+                HStack(spacing: 4) {
+                    Canvas { context, size in
+                        var line = Path()
+                        line.move(to: CGPoint(x: 0, y: size.height / 2))
+                        line.addLine(to: CGPoint(x: size.width, y: size.height / 2))
+                        context.stroke(line, with: .color(theme.colors.secondaryText),
+                                       style: StrokeStyle(lineWidth: 0.7, dash: [2, 3]))
+                    }
+                    .frame(width: 12, height: 2)
+                    .accessibilityHidden(true)
+                    Text("No data")
+                }
                 Text("━ Partial sources")
             }
             .font(theme.fonts.detailTitle)

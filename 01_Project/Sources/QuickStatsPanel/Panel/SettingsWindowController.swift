@@ -11,22 +11,25 @@ import SwiftUI
 /// build it once, then `activate` + `makeKeyAndOrderFront`. Becoming **key** is
 /// also what lets the in-panel hotkey recorder capture keystrokes.
 @MainActor
-final class SettingsWindowController {
+final class SettingsWindowController: NSObject, NSToolbarDelegate {
 
     private var window: NSWindow?
+    private let navigation = SettingsNavigation()
 
     func show(store: StatsStore) {
         if window == nil {
-            let hosting = NSHostingController(rootView: SettingsView(store: store))
+            let hosting = NSHostingController(rootView: SettingsView(store: store, navigation: navigation))
             let window = NSWindow(contentViewController: hosting)
-            window.title = "QuickStatsPanel Settings"
-            // Resizable: the sidebar `NavigationSplitView` fills its window rather than
-            // hugging content, so we give it an explicit default + min size (180pt
-            // sidebar + 480pt detail floor) instead of letting it collapse.
-            // Widened from 600×460 for D-025: the Stats pane now splits into a stat
-            // list plus a per-stat options pane, which the old floor couldn't fit.
+            window.title = "QuickStatsPanel — \(navigation.pane.title)"
             window.styleMask = [.titled, .closable, .resizable]
-            window.setContentSize(NSSize(width: 720, height: 480))
+            let toolbar = NSToolbar(identifier: "QuickStatsPanel.Settings")
+            toolbar.delegate = self
+            toolbar.allowsUserCustomization = false
+            toolbar.displayMode = .iconAndLabel
+            toolbar.selectedItemIdentifier = NSToolbarItem.Identifier(navigation.pane.rawValue)
+            window.toolbar = toolbar
+            window.toolbarStyle = .preference
+            window.setContentSize(NSSize(width: 760, height: 520))
             window.contentMinSize = NSSize(width: 660, height: 440)
             window.isReleasedWhenClosed = false   // reuse across opens
             window.center()
@@ -36,5 +39,35 @@ final class SettingsWindowController {
         // key. ignoringOtherApps so it reliably beats whatever was focused.
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+    }
+
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        SettingsPane.allCases.map { NSToolbarItem.Identifier($0.rawValue) }
+    }
+
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        toolbarDefaultItemIdentifiers(toolbar)
+    }
+
+    func toolbarSelectableItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        toolbarDefaultItemIdentifiers(toolbar)
+    }
+
+    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier,
+                 willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        guard let pane = SettingsPane(rawValue: identifier.rawValue) else { return nil }
+        let item = NSToolbarItem(itemIdentifier: identifier)
+        item.label = pane.title
+        item.paletteLabel = pane.title
+        item.image = NSImage(systemSymbolName: pane.systemImage, accessibilityDescription: pane.title)
+        item.target = self
+        item.action = #selector(selectPane(_:))
+        return item
+    }
+
+    @objc private func selectPane(_ sender: NSToolbarItem) {
+        guard let pane = SettingsPane(rawValue: sender.itemIdentifier.rawValue) else { return }
+        navigation.pane = pane
+        window?.title = "QuickStatsPanel — \(pane.title)"
     }
 }

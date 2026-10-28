@@ -16,7 +16,7 @@
 ---
 
 QuickStatsPanel is a hotkey-summoned HUD for live Mac stats. No Dock icon, no
-menu-bar item, no dashboard window cluttering your day — press **⌃⌥⌘Q** and a
+menu-bar item, no dashboard window cluttering your day — press **Control-Option-Command-Q** and a
 thin strip appears near your cursor with everything at a glance. Press it
 again (or Esc, or click anywhere else) and it's gone.
 
@@ -87,16 +87,23 @@ simply don't appear. Every stat can be toggled and reordered in Settings.
 
 ## Install
 
-1. Download `QuickStatsPanel-1.1.0.dmg`.
+1. Download `QuickStatsPanel-1.2.0.dmg`.
 2. Open it and drag **QuickStatsPanel** to **Applications**.
-3. Launch it, then press **⌃⌥⌘Q** whenever you want your stats.
+3. Launch it, then press **Control-Option-Command-Q** whenever you want your stats.
 
 The app is code-signed and notarized by Apple — no Gatekeeper hoops.
 
 **Requirements:** macOS 15 (Sequoia) or later. The Power and Temperature
 tiles need Apple silicon; on other Macs they step aside gracefully.
 
-## What's new in 1.1
+## What's new in 1.2
+
+- Retained Network and Disk history: 1 minute, 1 hour, and 24 hours.
+- Period byte totals and independent “Since reset” totals, preserved across restarts.
+- Clear missing-time/partial-source indicators and save status.
+- Native Settings category toolbar and compact per-stat editors.
+
+### Previously in 1.1
 
 - Configure each tile's headline value and choose text, text + graph, or graph-only presentation.
 - Mirrored one-minute activity graphs for CPU, GPU, memory, network, and disk.
@@ -112,10 +119,10 @@ See [CHANGELOG.md](CHANGELOG.md) for the complete release history.
 
 | Action | Shortcut |
 |--------|----------|
-| Summon / dismiss the strip | **⌃⌥⌘Q** *(rebindable)* |
+| Summon / dismiss the strip | **Control-Option-Command-Q** *(rebindable)* |
 | Dismiss | **Esc** or click anywhere outside |
-| Keep on screen (pin) | **⌃⌥⌘P** *(rebindable)* |
-| Settings | **⌘,** or the gear in the strip |
+| Keep on screen (pin) | **Control-Option-Command-P** *(rebindable)* |
+| Settings | **Command-Comma** or the gear in the strip |
 | Move the strip | drag its background *(fixed anchors remember the spot)* |
 | More options | right-click the strip |
 
