@@ -1,6 +1,6 @@
 # Implementation Plan — 24-hour transfer history and totals
 
-**Created:** 2026-10-20 · **State:** implementation validated; awaiting external acceptance E1 (plan remains active)
+**Created:** 2026-10-20 · **State:** implementation and E1 screenshot fixes validated; awaiting external acceptance E1 (plan remains active)
 **Progress:** 8/8 implementation tasks complete; external acceptance **E1 open**.
 **Execution:** one continuous run, organized into three phases; no per-phase approval stops.
 Unchecked tasks are pending unless explicitly annotated implemented-unverified or blocked.
@@ -107,7 +107,9 @@ These are concrete implementation choices for this plan, subject to the bounded 
 - Reduce query intervals to at most 120 time-aligned display slots. Integrate overlapping bytes
   before deriving slot rates; changing plot resolution must not change query totals. Distinguish
   observed idle from missing time and mark partial-source intervals without claiming full coverage.
-  Missing portions get a muted patterned background; partial portions get a separate marker.
+  Unobserved portions use a quiet dashed baseline; wide contiguous gaps show “No data”
+  (user-accepted E1 refinement, 2026-10-21). Measured idle time uses a solid baseline; partial
+  portions retain a separate top-edge marker. No sleep-specific cause is inferred from coverage.
   Coverage text reports fully measured duration and identifies partial-source data; never sums
   per-source durations into a value greater than the selected period.
 - Same-boot wall-clock changes do not move records on the elapsed-time axis, alter byte totals,
@@ -413,11 +415,35 @@ the normal tool approval path, keeping command/log/exit status and real `.xcresu
 All eight implementation tasks are validated. **E1 is the only remaining gate**; it requires
 user-operated checks of the exact fresh artifact. The finite batch and launch steps are in the
 [2026-10-21 handoff](docs/sessions/2026-10-21.md#e1-acceptance).
-Read-only preflight found the earlier PreferencesRedesign instance (PID 52821); fresh launch was
-deferred and the existing app was not controlled. There is no half-done source edit or failed check.
+After explicit user authorization, earlier PreferencesRedesign PID 52821 exited gracefully and
+the exact TransferHistoryRun06 artifact launched at verified PID 55982. E1 screenshots then exposed
+control contrast and excess reserved-space defects. Run07 fixes passed build/offscreen validation;
+User then authorized quit/launch: Run06 PID 55982 exited gracefully; exact Run07 launched at
+verified PID 73343. Subsequent user-directed gap-display refinement built/rendered successfully;
+under the same quit/open authorization, Run07 exited gracefully and exact Run08 launched at PID
+77708. User accepted the Run08 Network gap display (“well done” with screenshot). Broader E1.1
+coverage and remaining E1 cases remained open at that handoff. Subsequently, the user reported
+“pass” for the Run08 Disk card batch: all three periods, readable read/write legends/totals/timestamps,
+Mono plus another theme and screen-edge clipping/reachability. On 2026-10-23, the user reported
+“pass” for E1.2 on the same Run08 build: refresh-interval changes preserve earlier history;
+normal quit/reopen preserves history, cumulative totals and start times, with a closed-time gap
+and no resumed-rate spike. [Retention acceptance](docs/sessions/2026-10-23.md).
+On 2026-10-26, the user reported **“pass”** for the requested E1.3 batch: cancel Network reset;
+confirm independent Network and Disk resets with new start times while preserving history and
+the other stat's totals; normal quit/reopen preserves both resets.
+[Reset acceptance and current handoff](docs/sessions/2026-10-26.md#resume).
+The user subsequently reported **“pass”** for the Run08 sleep/wake and network reconnect batch:
+gaps/partial coverage without catch-up spikes accepted. Conditional storage hot-plug was included
+only if suitable hardware was available; the aggregate reply does not identify whether it was
+performed or unavailable, so that hardware status remains unresolved. Broader card checks also
+remain open; E1 is not complete. The requested right-click Restart option is a separate deferred
+backlog item, not a new task or gate in this plan.
+There is no half-done source edit or failed check.
 Live focus/geometry, actual sleep/reconnect/hot-plug and app cross-launch behavior are not inferred
 from fixtures. Unsupported hardware coverage remains explicit. Keep this plan active until E1
 passes or the user explicitly scopes a deferral; do not archive it from automated evidence alone.
+
+E1 screenshot follow-up and replacement artifact: [2026-10-21 follow-up](docs/sessions/2026-10-21.md#e1-screenshot-follow-up).
 
 ## Execution log
 
@@ -430,7 +456,16 @@ passes or the user explicitly scopes a deferral; do not archive it from automate
 | Phase 2 / 3.1 | Fresh agent `transfer_persistence`; independent `repository_review` with five isolated repros | **17/17** official tests passed; crash/fallback/version/watermark/full-sync fixes verified. Peak disk **35,737,600 B**, incremental history memory **53,690,368 B**. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-2-repository-validation). | `f4ef0a3` | Phase 2 complete; task 4.1 ready. |
 | Phase 3 / 4.1 | Fresh agent `transfer_lifecycle` owns controller/tests; coordinator owns StatsStore/AppDelegate; independent `lifecycle_review` | **66/66** selected lifecycle/dependency tests passed; standalone B passed. Dedicated 30-second dirty deadline and short-sleep fixture corrected. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-3-lifecycle-validation). | `e8c2f1a` | 5.1 ready and assigned. AppDelegate two-second deadline source-reviewed; actual NSApplication termination untested. |
 | Phase 3 / 5.1 | Fresh agent `transfer_detail_ui`; coordinator reviewed native bindings/geometry and fixed seconds in start timestamps | **37/37** state/presentation/existing metric/history tests and standalone B passed. [Evidence](docs/evidence/transfer-history-feasibility.md#phase-3-detail-card-validation). | `e8c2f1a` | 6.1 ready and assigned; E1 live geometry/focus/controls remain open. |
-| Phase 3 / 6.1 | Fresh agent `transfer_integration` owns journey tests; coordinator owns performance fix/final validation; independent `final_visibility_review` | **113/113** full tests passed, no hardware skips; final standalone B and whitespace check passed. [Final evidence](docs/evidence/transfer-history-feasibility.md#final-integration-validation--2026-10-21). | Final source checkpoint mapping in [session](docs/sessions/2026-10-21.md) | All implementation tasks complete; **E1 open**. Launch deferred: existing PreferencesRedesign instance PID 52821 left untouched. |
+| Phase 3 / 6.1 | Fresh agent `transfer_integration` owns journey tests; coordinator owns performance fix/final validation; independent `final_visibility_review` | **113/113** full tests passed, no hardware skips; final standalone B and whitespace check passed. [Final evidence](docs/evidence/transfer-history-feasibility.md#final-integration-validation--2026-10-21). | Final source checkpoint mapping in [session](docs/sessions/2026-10-21.md) | All implementation tasks complete; **E1 open**. User-authorized graceful quit of PID 52821 and exact fresh-artifact launch verified at PID 55982. |
 
 Keep this plan active until required implementation and acceptance are complete. Archive with its
 evidence and update incoming links only after acceptance or explicit scoped deferral.
+
+## Release disposition — 2026-10-28
+
+User explicitly requested publishing the current implementation and observing remaining issues
+during ordinary use, instead of further manual testing. Remaining broader card checks and
+conditional storage hot-plug status are **deferred by user**, not passed. Live error-state rendering
+remains unexercised unless naturally encountered. Prior accepted Run08 checks remain valid.
+E1 is dispositioned by this explicit scope change; publication still requires fresh Release build,
+signature/notarization and distribution verification. No additional feature work is in scope.

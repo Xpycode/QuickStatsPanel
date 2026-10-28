@@ -62,6 +62,9 @@ detail cards while keeping the HUD strip compact.
   counters are excluded consistently with the current physical-link policy.
 - Given sleep or an interval without observations, when history is rendered, then missing
   coverage is distinguishable from observed zero activity. No invented samples fill the gap.
+  User-accepted visual treatment (2026-10-21): quiet dashed baseline for unobserved time, with
+  “No data” centered in wide contiguous gaps; measured idle time has a solid baseline. Do not
+  infer a sleep-specific cause from retained aggregate coverage.
 - Given a period longer than available coverage, when totals are shown, then the UI identifies
   the partial coverage instead of implying a complete 24-hour measurement.
 - Given a system-clock change, when elapsed rates are computed, then monotonic timing avoids

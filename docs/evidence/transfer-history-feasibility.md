@@ -275,9 +275,36 @@ Folder: `/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build
 App: `QuickStatsPanel.app`; bundle `com.sim.QuickStatsPanel`, version 1.1.0/build 1100, LSUIElement true.
 Executable SHA-256: `0271bcd38e82224d65e557c1d8b481937ac7b99592eb83a78209913e45b0a6e5`.
 
-Launch **deferred**, not attempted: read-only executable-path preflight found PID **52821** at
-`/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/PreferencesRedesign/Build/Products/Debug/QuickStatsPanel.app/Contents/MacOS/QuickStatsPanel`.
-The selector was verified against a positive fake artifact and negative shell path. Existing app
-was not quit/relaunched; no windows, input, clipboard, preferences or live history were changed.
-User quits the current app and opens the exact final artifact above for E1. No new temporary
+Initial handoff deferred launch while older PreferencesRedesign PID **52821** was running.
+User subsequently explicitly requested “quit and launch please”. Verified the old executable path,
+requested graceful termination through NSRunningApplication, and confirmed PID 52821 exited.
+`open -n` of the exact final artifact returned exit 0; NSRunningApplication then reported exactly
+one matching bundle process, PID **55982**, with executable:
+`/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/TransferHistoryRun06/Build/Products/Debug/QuickStatsPanel.app/Contents/MacOS/QuickStatsPanel`.
+Executable SHA-256 was rechecked before launch and matches above. No clicks, keystrokes, window
+manipulation, clipboard changes or profile/history replacement occurred. Normal startup may
+collect/persist live samples. Launch succeeded; E1 manual acceptance remains open. No new temporary
 profile/restoration obligation was introduced. This is unreleased; no push/publication occurred.
+
+## E1 screenshot correction — 2026-10-21
+
+Run06 user screenshots exposed native-control contrast on Neon/light appearance and excessive
+reserved confirmation space. View-only fixes are validated by the final Run07 standalone Debug
+build (`/tmp/qsp-transfer-run07-build-final3.log`), successful strict ad-hoc signature verification,
+whitespace check and actual-object offscreen renders across Neon/light, Default/light/dark and
+Mono/light, including stable 284×561-point reset confirmation geometry. Warning text wraps within
+its retained slot. No accounting/storage/model changes or new full-suite run; 113/113 remains
+prior model evidence. Live E1 recheck remains open. Exact artifact/hash, probe effects/isolation,
+retained screenshot/render evidence and launch deferral are recorded in the
+[session follow-up](../sessions/2026-10-21.md#e1-screenshot-follow-up).
+
+## Run08 gap display — 2026-10-21
+
+User-directed replacement of diagonal gap hatching with quiet dashed baseline runs and “No data”
+labels; measured idle baselines are solid, partial-source markers unchanged. Standalone ad-hoc
+Debug build passed (`/tmp/qsp-transfer-run08-build.log`), as did signature verification and
+whitespace check. Six actual-object offscreen graph fixtures inspected across Default light/dark,
+Neon and Mono, including completely missing and measured-zero history. No model/storage changes
+or new model-suite run. Exact Run08 launch verified at PID 77708; user accepted the live Network
+gap display with screenshot and “well done”. Remaining E1 is still open. Full artifact/hash,
+probe isolation and retained evidence: [current session handoff](../sessions/2026-10-21.md#run08-gap-display-and-visual-acceptance).

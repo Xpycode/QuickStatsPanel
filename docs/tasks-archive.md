@@ -3,10 +3,14 @@
 > **Completed tasks archive.** Used for progress calculation.
 
 ## Stats
-- **Total archived:** 17
-- **Last updated:** 2026-10-03
+- **Total archived:** 18
+- **Last updated:** 2026-10-20
 
 ## Completed
+
+- [x] **Preferences redesign** — native category toolbar, narrow reorderable stat list, flexible
+      options editor and compact detail checkboxes; existing settings preserved. Fresh ad-hoc
+      Debug build, 17/17 hostless tests and user acceptance (“pass”). (2026-10-20)
 
 - [x] **v1.1.0 release** — universal 1100 build, 5/5 tests, clean/upgrade preference checks,
       user-approved installed artifact, app/DMG notarized and stapled; GitHub release and website

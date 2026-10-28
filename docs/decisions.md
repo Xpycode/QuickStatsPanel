@@ -345,3 +345,67 @@ v1.0→v1.1 upgrade preserved preferences; user verified graphs, detail cards, d
 **Rationale:** Reuse sampled data, avoiding additional I/O or permissions. Thermal status and physical temperature remain distinct: Apple's thermalState values describe system conditions, so selecting a numeric sensor does not change the thermal-status color meaning. Disk color continues to describe capacity; its activity graph continues to show throughput.
 **Source:** https://developer.apple.com/documentation/foundation/processinfo/thermalstate-swift.enum
 **Consequences:** Preferences are presentation-only. Detail row filtering is shared by the panel and isolated tests; dynamic sensor/fan row exclusions survive missing hardware readings. Settings receives the existing live StatsStore to list actual hardware rows. Graphs and top-process sections retain their existing behavior.
+
+### 2026-10-20 - D-030: Toolbar settings navigation and compact stat editor
+**Context:** The accepted display settings were cumbersome: two navigation columns left a fixed
+260pt options area, and grouped-form spacing pushed simple checkbox groups below the fold.
+Two research agents inspected the source and native layout references. The user selected the
+recommended toolbar layout after a text explanation (inline previews were unavailable on their device).
+**Decision:** Use a native, noncustomizable, selectable category toolbar for Stats, Appearance,
+Panel, Hotkeys and About. Stats retains a 190pt reorderable list beside a flexible editor.
+Use aligned native popup rows and compact detail checkboxes in two columns, with full-width
+fan/sensor names. Keep scrolling for long hardware lists. Default window content is 760×520;
+minimum remains 660×440. Category and stat selection survive closing/reopening within the process.
+**Sources:** Apple macOS settings guidance supports toolbar pane navigation:
+https://developer.apple.com/design/human-interface-guidelines/settings . iStat Menus separates
+global and per-module configuration: https://bjango.com/help/istatmenus7/welcome/ .
+**Consequences:** Supersedes the category-sidebar layout, retaining D-025's separation between
+draggable rows and editor controls. No preference keys, row identities or metric behavior change.
+Fresh ad-hoc Debug build and 17 hostless tests pass. User reported “pass” for the prescribed visual/binding/reordering/persistence acceptance batch.
+
+
+### 2026-10-20 - D-031: Transfer-history scope and cumulative-total semantics
+**Context:** One-minute volatile rate graphs do not answer how much network/disk data moved over
+longer periods. The next feature needs explicit retention, coverage, reset and presentation semantics
+before storage and sampler changes can be planned. User confirmed each choice during discovery.
+**Decision:** Retain 24 hours locally across restarts; offer 1 min / 1 hour / 24 hours in the existing
+Network/Disk detail cards above the graph. Below, show selected-period paired byte totals and a
+separate persistent “Since reset” pair with its start timestamp. Reset is per stat and preserves
+history. Sleep and app-closed time are gaps; totals represent observed activity only.
+**Alternatives:** Session-only or seven-day retention; period totals alone; a separate history window;
+clearing history along with cumulative totals. These were not selected for the initial scope.
+**Rationale:** A day provides useful recent context while keeping retained storage bounded; separate
+cumulative totals support longer tracking without requiring indefinite graph storage. Explicit gaps
+avoid implying complete accounting while the app is stopped. Independent reset preserves recent context.
+**Consequences:** Per-source counter baselines and actual elapsed timing are prerequisites. Storage
+format, resolution, cadence and clock policy remain planning decisions. No background helper or
+expanded permissions are approved. Full requirements: `../specs/transfer-history.md`. User requested
+implementation planning next session; no history implementation has begun.
+
+**Planning follow-up (2026-10-20):** `../IMPLEMENTATION_PLAN.md` now defines accounting, boundary,
+clock, persistence and scoped-reset implementation policies. These are planned choices subject to
+task 1.1's bounded feasibility proof, not completed validation or new user-facing scope. Eight
+implementation tasks; E1 remains separate. Execution has not been requested. Following the user's
+objection to six waves, the schedule is presented as three phases in one continuous run; task IDs,
+dependencies, ownership and checks are preserved. No renewed permission is needed per phase.
+
+
+### 2026-10-21 - D-032: Observed physical transfer accounting with bounded local history
+**Context:** Retained Network/Disk totals need exact paired byte deltas and honest gaps; aggregate
+counter differences can inflate results on source changes. Runtime IOKit inspection also found
+virtual disk-image drivers alongside their physical backing devices.
+**Options Considered:**
+1. Retain rounded rates/aggregate counters — simple, but cannot conserve bytes or distinguish source resets.
+2. Count every distinct block-driver ID — still counts virtual image and backing I/O twice.
+3. Account per physical source, retaining compact aggregate intervals and independent cumulative epochs.
+**Decision:** Use 64-bit snapshot-consistent physical network identities and positively classified
+physical block providers; exclude virtual/File/RAM layers, mark unknown sources incomplete, and
+reseed across failures, sleep and sampler runs. Keep source identities transient. Persist 24-hour
+aggregate intervals in immutable segments with atomic current/prior checkpoints and macOS full-sync
+ordering. “Since reset” epochs survive retention; scoped reset has an ordered boundary read and
+acknowledges save only after durable commit. Defer hidden-card queries while collection continues.
+**Rationale:** This preserves integer totals without inventing activity across unobserved time.
+Runtime/fixture proof precedes persistence and UI, and measured disk/memory stay below 64 MiB.
+**Consequences:** Period edges disclose sampling estimates and coverage; unsupported/corrupt storage
+is visible. Collection remains local and permission-free. Real UI/device acceptance is E1; no
+physical power-loss, unobserved RAID/multipath or background-while-closed claim is made.
