@@ -243,6 +243,10 @@ extension StatsStore {
                 kind: .cpu, symbol: "cpu",
                 value: "\(Int(cpu.totalUsagePercent.rounded()))%",
                 widestValue: "100%",
+                secondaryValue: settings.cpuDisplayMode == .usageAndTemperature
+                    ? settings.temperatureUnit.formatted(celsius: temps.sensors.first { $0.label == "CPU" }?.celsius) : nil,
+                widestSecondaryValue: settings.cpuDisplayMode == .usageAndTemperature
+                    ? "888°\(settings.temperatureUnit.symbol)" : nil,
                 loadPercent: cpu.totalUsagePercent,
                 detail: cpuDetail,
                 processSection: section("Top by CPU",
@@ -386,6 +390,8 @@ extension StatsStore {
                 kind: .battery, symbol: battery.symbolName,  // level/charging-aware glyph
                 value: battery.percentFormatted,             // headline: charge %
                 widestValue: "100%",
+                secondaryValue: settings.batteryDisplayMode == .chargeAndTime ? battery.panelTimeFormatted : nil,
+                widestSecondaryValue: settings.batteryDisplayMode == .chargeAndTime ? "888:88 to full" : nil,
                 loadPercent: battery.loadPercent,             // inverted: low charge = hot
                 detail: batteryDetail)
 

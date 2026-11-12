@@ -66,6 +66,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         installEscToDismiss()
         installPanelInteractions()
         installMainMenu()
+        UpdaterController.shared.beforeCheck = { [weak self] in self?.panel.hide() }
+        UpdaterController.shared.start()
 
         // First-run discoverability: an agent app with no Dock/menu-bar presence
         // is invisible until summoned, so show the panel once on launch.
@@ -369,6 +371,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                   action: #selector(openSettingsFromMenu), keyEquivalent: ",")
         settings.target = self
         menu.addItem(settings)
+
+        let updates = NSMenuItem(title: "Check for Updates…",
+                                 action: #selector(UpdaterController.checkForUpdates(_:)), keyEquivalent: "")
+        updates.target = UpdaterController.shared
+        menu.addItem(updates)
 
         menu.addItem(.separator())
 

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- Sparkle update checks from the strip context menu and Settings → About; optional automatic checks, off by default, with installation confirmation.
+- Dedicated Ed25519 signatures for update archives and the update feed; system profiling disabled.
+- Paired Power charger-input/system consumption, CPU usage/temperature, and Battery charge/time display options.
+- Release packaging validates nested Sparkle signatures and fails on rejected Gatekeeper assessments.
+
 ## [1.2.0] — 2026-10-28
 
 - Network and Disk history for 1 minute, 1 hour, and 24 hours, retained across app restarts.

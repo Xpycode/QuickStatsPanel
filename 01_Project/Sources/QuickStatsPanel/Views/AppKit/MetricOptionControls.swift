@@ -51,6 +51,7 @@ struct MetricOptionPopup<Item: Hashable>: NSViewRepresentable {
 
 /// Native checkbox for showing or hiding a row in a metric detail card.
 struct MetricOptionCheckbox: NSViewRepresentable {
+    @Environment(\.isEnabled) private var isEnabled
     let title: String
     @Binding var isOn: Bool
 
@@ -67,6 +68,7 @@ struct MetricOptionCheckbox: NSViewRepresentable {
     func updateNSView(_ checkbox: NSButton, context: Context) {
         context.coordinator.isOn = $isOn
         checkbox.title = title
+        checkbox.isEnabled = isEnabled
         checkbox.state = isOn ? .on : .off
     }
 

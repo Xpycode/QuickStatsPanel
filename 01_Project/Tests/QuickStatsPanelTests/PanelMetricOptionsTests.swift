@@ -62,13 +62,37 @@ final class PanelMetricOptionsTests: XCTestCase {
             store.power = powerFixture()
             let expected: [(PowerDisplayMode, String)] = [
                 (.system, "30.6 W"), (.chipTotal, "6.0 W"), (.cpu, "0.0 W"),
-                (.gpu, "4.4 W"), (.cpuAndGPU, "CPU 0.0 W · GPU 4.4 W"), (.dcIn, "85.1 W")
+                (.gpu, "4.4 W"), (.cpuAndGPU, "CPU 0.0 W · GPU 4.4 W"), (.dcIn, "85.1 W"),
+                (.dcInAndSystem, "In 85.1 W · System 30.6 W")
             ]
             for (mode, value) in expected {
                 settings.powerDisplayMode = mode
                 let descriptor = try XCTUnwrap(store.descriptor(for: .power, settings: settings))
                 XCTAssertEqual(descriptor.value, value, mode.rawValue)
                 XCTAssertEqual(descriptor.widestValue, mode.widestValue)
+            }
+        }
+    }
+
+    @MainActor
+    func testPairedPowerPersistsAndKeepsEachMissingReadingDistinct() throws {
+        try withSettings { settings, defaults in
+            settings.powerDisplayMode = .dcInAndSystem
+            let restored = AppSettings(defaults: defaults)
+            XCTAssertEqual(restored.powerDisplayMode, .dcInAndSystem)
+            let store = StatsStore()
+            store.power = powerFixture()
+            for (input, system, expected) in [
+                (nil, 30.6, "In — W · System 30.6 W"),
+                (85.1, nil, "In 85.1 W · System — W"),
+                (nil, nil, "In — W · System — W"),
+                (0.0, 30.6, "In 0.0 W · System 30.6 W")
+            ] as [(Double?, Double?, String)] {
+                store.power.dcInWatts = input
+                store.power.systemWatts = system
+                let descriptor = try XCTUnwrap(store.descriptor(for: .power, settings: restored))
+                XCTAssertEqual(descriptor.value, expected)
+                XCTAssertEqual(descriptor.widestValue, "In 888.8 W · System 888.8 W")
             }
         }
     }

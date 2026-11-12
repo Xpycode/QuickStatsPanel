@@ -55,6 +55,14 @@ final class AppSettings {
         didSet { persistTileStyles(); onStatsChanged?() }
     }
 
+    var cpuDisplayMode: CPUDisplayMode {
+        didSet { defaults.set(cpuDisplayMode.rawValue, forKey: Keys.cpuDisplayMode); onStatsChanged?() }
+    }
+
+    var batteryDisplayMode: BatteryDisplayMode {
+        didSet { defaults.set(batteryDisplayMode.rawValue, forKey: Keys.batteryDisplayMode); onStatsChanged?() }
+    }
+
     var powerDisplayMode: PowerDisplayMode {
         didSet { defaults.set(powerDisplayMode.rawValue, forKey: Keys.powerDisplayMode); onStatsChanged?() }
     }
@@ -267,6 +275,10 @@ final class AppSettings {
                                              TileValueMode.init(rawValue:))
         self.tileStyles = Self.decodeMap(defaults.dictionary(forKey: Keys.tileStyles),
                                          TileStyle.init(rawValue:))
+        self.cpuDisplayMode = defaults.string(forKey: Keys.cpuDisplayMode)
+            .flatMap(CPUDisplayMode.init(rawValue:)) ?? .usage
+        self.batteryDisplayMode = defaults.string(forKey: Keys.batteryDisplayMode)
+            .flatMap(BatteryDisplayMode.init(rawValue:)) ?? .charge
         self.powerDisplayMode = defaults.string(forKey: Keys.powerDisplayMode)
             .flatMap(PowerDisplayMode.init(rawValue:)) ?? .system
         self.loadDisplayMode = defaults.string(forKey: Keys.loadDisplayMode)
@@ -441,6 +453,8 @@ final class AppSettings {
         static let knownStats     = "knownStats"
         static let tileValueModes = "tileValueModes"
         static let tileStyles     = "tileStyles"
+        static let cpuDisplayMode = "cpuDisplayMode"
+        static let batteryDisplayMode = "batteryDisplayMode"
         static let powerDisplayMode = "powerDisplayMode"
         static let loadDisplayMode = "loadDisplayMode"
         static let temperatureDisplayMode = "temperatureDisplayMode"

@@ -82,8 +82,10 @@ simply don't appear. Every stat can be toggled and reordered in Settings.
   exists only in the moment you summon it.
 - **Zero jitter.** Tiles reserve their worst-case width, so the strip never
   wobbles as numbers tick.
-- **Private by design.** No network calls, no analytics, no accounts, no data
-  collection of any kind. Your stats never leave the machine.
+- **Private by design.** Your system statistics stay on your Mac. No analytics
+  or accounts. Starting with 1.2.1, optional Sparkle update checks contact
+  apps.lucesumbrarum.com; automatic checks are off by default, system profiling
+  is disabled, and installation requires confirmation.
 
 ## Install
 

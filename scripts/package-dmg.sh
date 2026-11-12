@@ -3,7 +3,8 @@
 # Release (developer-id-exported) QuickStatsPanel.app.
 #
 # Adapted from ClipSmart's scripts/package-dmg.sh (see docs 61), simplified:
-#   • No Sparkle → no inside-out nested re-signing, no appcast step.
+#   • Sparkle nested signatures are verified after archive/export; never repaired here.
+#     Generate the signed feed separately with make-appcast.sh after this succeeds.
 #   • The app is expected to come from `xcodebuild -exportArchive` using the
 #     tracked `scripts/exportOptions.plist`. Its `stripSwiftSymbols=false`
 #     avoids an Xcode 17 export bug that can mutate the executable after signing.
@@ -23,7 +24,7 @@
 #   APP_PATH  the developer-id-exported QuickStatsPanel.app
 # Env overrides: SIGN_ID (cert SHA-1), NOTARY_PROFILE, OUT_DIR.
 #
-# Output: 04_Exports/QuickStatsPanel-<VERSION>.dmg
+# Output: 04_Exports/QuickStatsPanel-<VERSION>-<BUILD>.dmg (never overwritten).
 
 set -euo pipefail
 
@@ -33,7 +34,18 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Sign by the cert's SHA-1 hash to avoid Unicode matching on "MÜLLER".
 SIGN_ID="${SIGN_ID:-D3002F5085B4512CAE0CC1A6DF30FAF717D83B62}"
 OUT_DIR="${OUT_DIR:-$REPO/04_Exports}"
-DMG="$OUT_DIR/QuickStatsPanel-$VERSION.dmg"
+source "$REPO/scripts/release-validation.sh"
+[[ -d "$APP" ]] || { release_die "App not found: $APP"; exit 1; }
+PLIST="$APP/Contents/Info.plist"
+BUILT_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")
+BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")
+BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PLIST")
+[[ "$BUILT_VERSION" == "$VERSION" && "$BUNDLE_ID" == com.sim.QuickStatsPanel ]]   || { release_die "App identity/version does not match QuickStatsPanel $VERSION"; exit 1; }
+[[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ && "$BUILD" =~ ^[0-9]+$ ]]   || { release_die "Expected numeric release version/build"; exit 1; }
+DMG="$OUT_DIR/QuickStatsPanel-$VERSION-$BUILD.dmg"
+APPZIP="$OUT_DIR/QuickStatsPanel-$VERSION-$BUILD-app.zip"
+[[ ! -e "$DMG" && ! -L "$DMG" && ! -e "$APPZIP" && ! -L "$APPZIP" ]]   || { release_die "Output already exists; choose a new OUT_DIR"; exit 1; }
+verify_release_app "$APP"
 VOLNAME="QuickStatsPanel $VERSION"
 
 AUTH_DIR="$HOME/ProgrammingProjects/99-AUTH"
@@ -62,55 +74,51 @@ mkdir -p "$OUT_DIR"
 # notarize <artifact> — submit, wait, and FAIL loudly (with the log) if not Accepted.
 notarize() {
   local artifact="$1" out status subid
-  out="$(xcrun notarytool submit "$artifact" "${NOTARY_ARGS[@]}" --wait 2>&1)"
+  if out="$(xcrun notarytool submit "$artifact" "${NOTARY_ARGS[@]}" --wait 2>&1)"; then
+    :
+  else
+    status=$?
+    printf '%s\n' "$out" >&2
+    return "$status"
+  fi
   echo "$out"
-  status="$(printf '%s\n' "$out" | grep -Eo 'status: [A-Za-z]+' | tail -1 | awk '{print $2}')"
+  status="$(printf '%s\n' "$out" | grep -Eo 'status: [A-Za-z]+' | tail -1 | awk '{print $2}' || true)"
   if [ "$status" != "Accepted" ]; then
     echo "✗ Notarization result: ${status:-unknown} — fetching log…"
-    subid="$(printf '%s\n' "$out" | grep -Eo '  id: [0-9a-f-]+' | head -1 | awk '{print $2}')"
+    subid="$(printf '%s\n' "$out" | grep -Eo '  id: [0-9a-f-]+' | head -1 | awk '{print $2}' || true)"
     [ -n "${subid:-}" ] && xcrun notarytool log "$subid" "${NOTARY_ARGS[@]}" || true
     return 1
   fi
 }
 
-echo "▸ [1/6] Verifying the app signature is notarization-clean…"
-codesign --verify --strict --verbose=2 "$APP"
-info="$(codesign -dvvv "$APP" 2>&1)"
-printf '%s' "$info" | grep -q "Authority=Developer ID Application" \
-  || { echo "✗ not Developer ID signed — export with method developer-id"; exit 1; }
-printf '%s' "$info" | grep -q "flags=.*runtime" \
-  || { echo "✗ hardened runtime missing"; exit 1; }
-printf '%s' "$info" | grep -q "Timestamp=" \
-  || { echo "✗ no secure timestamp"; exit 1; }
-if codesign -d --entitlements :- "$APP" 2>/dev/null | grep -q get-task-allow; then
-  echo "✗ get-task-allow present — this is a dev build, not a developer-id export"; exit 1
-fi
-echo "  ✓ Developer ID + hardened runtime + timestamp, no get-task-allow"
+echo "▸ [1/6] Exported app and all Sparkle components verified."
 
 echo "▸ [2/6] Zipping + notarizing the app…"
-APPZIP="$OUT_DIR/QuickStatsPanel-$VERSION-app.zip"
 ditto -c -k --keepParent "$APP" "$APPZIP"
 notarize "$APPZIP"
 rm -f "$APPZIP"
 
 echo "▸ [3/6] Stapling the app…"
 xcrun stapler staple "$APP"
+xcrun stapler validate "$APP"
+spctl --assess --type execute --verbose=2 "$APP"
 
 echo "▸ [4/6] Building drag-to-Applications DMG…"
 STAGING="$(mktemp -d)"
-cp -R "$APP" "$STAGING/"
+trap 'rm -rf "$STAGING"' EXIT
+ditto "$APP" "$STAGING/QuickStatsPanel.app"
 ln -s /Applications "$STAGING/Applications"
-rm -f "$DMG"
-hdiutil create -volname "$VOLNAME" -srcfolder "$STAGING" -ov -format UDZO "$DMG"
+hdiutil create -volname "$VOLNAME" -srcfolder "$STAGING" -format UDZO "$DMG"
 rm -rf "$STAGING"
 
 echo "▸ [5/6] Signing, notarizing + stapling the DMG…"
 codesign --force --timestamp --sign "$SIGN_ID" "$DMG"
 notarize "$DMG"
 xcrun stapler staple "$DMG"
+xcrun stapler validate "$DMG"
 
 echo "▸ [6/6] Verifying Gatekeeper acceptance…"
-spctl -a -vvv -t open --context context:primary-signature "$DMG" 2>&1 | head -5 || true
+spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
 
 echo "✓ Done: $DMG"
 ls -lh "$DMG"

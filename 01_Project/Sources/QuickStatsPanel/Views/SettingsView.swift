@@ -179,6 +179,20 @@ private struct StatsSettingsPane: View {
     @ViewBuilder
     private func stripOptions(for kind: StatKind) -> some View {
         switch kind {
+        case .cpu:
+            optionRow("Panel value") {
+                MetricOptionPopup(items: CPUDisplayMode.allCases,
+                                  titleForItem: { $0.displayName },
+                                  selection: $settings.cpuDisplayMode)
+            }
+            helpText("Temperature uses the unit selected under Temperature. Unavailable readings appear as —. Graph only hides both text values.")
+        case .battery:
+            optionRow("Panel value") {
+                MetricOptionPopup(items: BatteryDisplayMode.allCases,
+                                  titleForItem: { $0.displayName },
+                                  selection: $settings.batteryDisplayMode)
+            }
+            helpText("Time estimates show time left on battery or time to full while charging. Unknown estimates appear as —; when plugged in without charging, the tile shows On AC.")
         case .power:
             optionRow("Panel value") {
                 MetricOptionPopup(items: PowerDisplayMode.allCases,
@@ -228,7 +242,7 @@ private struct StatsSettingsPane: View {
             }
         }
         if kind.valuePair == nil && !kind.supportsGraph
-            && kind != .power && kind != .temps && kind != .loadAverage {
+            && kind != .power && kind != .temps && kind != .loadAverage && kind != .battery {
             helpText("This stat has a single strip value.")
         }
     }
@@ -503,6 +517,7 @@ private struct HotkeySettingsPane: View {
 // MARK: - About (identity + global actions)
 
 private struct AboutSettingsPane: View {
+    @ObservedObject private var updater = UpdaterController.shared
     @Bindable private var settings = AppSettings.shared
     @State private var confirmingReset = false
 
@@ -511,7 +526,7 @@ private struct AboutSettingsPane: View {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
     }
 
-    /// Monotonic release identifier used by the future update feed.
+    /// Monotonic release identifier compared by Sparkle.
     private var build: String {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
     }
@@ -536,6 +551,19 @@ private struct AboutSettingsPane: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+
+            VStack(spacing: 8) {
+                CheckForUpdatesButton(updater: updater)
+                MetricOptionCheckbox(title: "Automatically check for updates",
+                                     isOn: Binding(get: { updater.automaticallyChecksForUpdates },
+                                                   set: { updater.setAutomaticallyChecksForUpdates($0) }))
+                    .disabled(!updater.isStarted)
+                    .frame(maxWidth: 260)
+                Text(updater.startupError ?? "Update checks contact apps.lucesumbrarum.com. Installation asks for confirmation.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             Divider().padding(.horizontal, 40)
 
@@ -568,10 +596,13 @@ private struct AboutSettingsPane: View {
     }
 
     private func resetToDefaults() {
+        updater.setAutomaticallyChecksForUpdates(false)
         settings.statOrder = StatKind.allCases
         settings.enabledStats = Set(StatKind.allCases)
         settings.tileValueModes = [:]
         settings.tileStyles = [:]
+        settings.cpuDisplayMode = .usage
+        settings.batteryDisplayMode = .charge
         settings.powerDisplayMode = .system
         settings.loadDisplayMode = .oneMinute
         settings.temperatureDisplayMode = .status

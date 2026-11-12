@@ -28,6 +28,22 @@
     <true/>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © 2026. All rights reserved.</string>
+    <key>SUFeedURL</key>
+    <string>https://apps.lucesumbrarum.com/quickstatspanel/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>zzrD5fCPunHZMbJiZzLSl80Amr/Wne1ybl4DHN+F1Rc=</string>
+    <key>SUEnableAutomaticChecks</key>
+    <false/>
+    <key>SUAutomaticallyUpdate</key>
+    <false/>
+    <key>SUAllowsAutomaticUpdates</key>
+    <false/>
+    <key>SUEnableSystemProfiling</key>
+    <false/>
+    <key>SUVerifyUpdateBeforeExtraction</key>
+    <true/>
+    <key>SURequireSignedFeed</key>
+    <true/>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>NSHighResolutionCapable</key>

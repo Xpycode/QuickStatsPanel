@@ -409,3 +409,8 @@ Runtime/fixture proof precedes persistence and UI, and measured disk/memory stay
 **Consequences:** Period edges disclose sampling estimates and coverage; unsupported/corrupt storage
 is visible. Collection remains local and permission-free. Real UI/device acceptance is E1; no
 physical power-loss, unobserved RAID/multipath or background-while-closed claim is made.
+
+
+### 2026-11-11 - D-033: Sparkle updates with explicit installation consent
+**Decision:** User selected Sparkle for 1.2.1 and approved Check for Updates in the strip context menu and Settings → About, plus an automatic-check checkbox in About. Pin Sparkle 2.10.0. Automatic checks default off; installation always requires confirmation and profiling remains disabled. Use portal `/quickstatspanel/appcast.xml`, signed feeds and pre-extraction signature verification, with dedicated Keychain account `quickstatspanel`. This supersedes the optional SilentUpdateKit backlog recommendation.
+**Consequences:** Update checks introduce disclosed network access; system stats remain local. The initial empty signed feed publishes no unfinished release. 1.2.0's first upgrade is manual. Archive/export must sign all nested helpers; packaging verifies rather than silently repairing them. Protected private-key backup and registry entry were explicitly approved; Strongbox custody remains pending.

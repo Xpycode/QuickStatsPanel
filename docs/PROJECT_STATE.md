@@ -11,20 +11,20 @@
 
 ## Now
 - **Funnel:** maintain · **Phase:** Published / everyday use <!-- Phase changed: 2026-10-28 -->
-- **Focus:** Use v1.2.0 normally; investigate concrete feedback when it appears. Restart remains deferred.
-- **Blockers:** none for the approved release scope; remaining manual checks explicitly owner-deferred.
+- **Focus:** v1.2.1 paired displays user-accepted; Sparkle 2.10.0 integrated and fresh Debug build running. Published version remains v1.2.0.
+- **Blockers:** Strongbox backup, remaining updater controls and real upgrade acceptance remain open; live manual update check passed.
 - **Execution:** No active plan; [transfer-history plan archived](sessions/IMPLEMENTATION_PLAN-transfer-history-DONE.md), 8/8 tasks complete, E1 closed by scoped deferral.
-- **Current handoff:** [Published release and everyday-use pickup](sessions/2026-10-28.md#resume).
-- **Validation:** 113/113 fresh Release hostless tests; universal signed/notarized app and DMG; mounted package and live download identity verified.
-- **Next:** Everyday use; capture reproducible issues without restarting the deferred acceptance checklist.
-- **Last updated:** 2026-10-28
+- **Current handoff:** [Exit handoff](sessions/2026-11-12.md#resume).
+- **Validation:** 1.2.1: 19 focused hostless tests, Debug build/deep signature, signed-feed/tamper and release-tool fixture checks passed. Paired displays and live manual no-update check accepted; other updater controls and real upgrade untested.
+- **Next:** Strongbox key backup, remaining updater controls, then release packaging and actual update/relaunch test; Restart deferred.
+- **Last updated:** 2026-11-12
 
 ## Recent
+- **2026-11-12** — User confirmed the live update check; exit handoff prepared with release/backup gates retained.
+- **2026-11-11** — Paired displays accepted; Sparkle integrated with signed feed and release tooling. Fresh Debug running; signed empty feed published and HTTPS/signature verified.
 - **2026-10-28** — v1.2.0 published to GitHub and website; exact fresh Release running; remaining manual checks deferred by owner.
 - **2026-10-26** — Resets/persistence plus sleep/wake and network reconnect accepted; broader card checks remain.
 - **2026-10-23** — Run08 refresh-interval/restart retention accepted; scoped resets next; E1 open.
-- **2026-10-21** — Run08 Network visual and Disk periods/theme/edge checks accepted; remaining E1 open.
-- **2026-10-20** — Physical 64-bit accounting, retained queries and bounded checkpoint recovery validated.
 
 ## What we're building
 Press a global hotkey → a **thin** wide strip appears near the cursor showing live stats as compact

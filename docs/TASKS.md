@@ -9,6 +9,11 @@ remaining E1 checks explicitly deferred by the owner to everyday use, not marked
 [Archived plan](sessions/IMPLEMENTATION_PLAN-transfer-history-DONE.md) ·
 [Release evidence](evidence/release-1.2.0.md). No further acceptance batch is required before ordinary use.
 
+## Current standalone work
+
+- Power input/system, CPU usage/temperature and Battery charge/time pairs implemented for 1.2.1 (1201); 19 focused tests and Debug build passed. User accepted the latest paired-display build (“works. pass.”); no claim of exhaustive live hardware-state testing. See [handoff](sessions/2026-11-11.md#resume).
+- Sparkle 2.10.0 integrated; initial signed empty feed published and verified. Live manual no-update check passed by user screenshot on 2026-11-12; remaining updater controls, real upgrade, Strongbox backup and release packaging remain open.
+
 ## Backlog
 <!-- Ideas and future work. Added by /interview, user input, or discovered during development. -->
 <!-- Priority: top = highest, bottom = lowest -->
@@ -18,20 +23,7 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 **This file is the backlog** — `PROJECT_STATE.md` is a digest and points here.
 
 ### Distribution
-- [ ] **Updater** — QSP has **no updater of any kind**. "Sparkle *vs* SilentUpdateKit" is a false
-      dichotomy: they're different halves. **Sparkle 2** = discovery (appcast) + install + UI, the
-      de-facto house standard (ClipSmart, Magpie, DiskVerdict, Conjoyn, TimeCodeEditor,
-      ScreenshotFromVideos, VideoContainerSwitcher). **SilentUpdateKit**
-      (`1-macOS/zPackages/Sources/SilentUpdateKit` — **not** `~/ProgrammingProjects/zPackages`,
-      which holds a different set) is explicitly *"free of any appcast/scanner concepts"*:
-      install-only — verify Sparkle-format Ed25519 sig via CryptoKit, Team-ID match, extract, quit,
-      swap bundle, old version → Trash. **No Sparkle.framework → no nested XPC re-signing**, which
-      is exactly what `scripts/package-dmg.sh` currently benefits from. **Recommendation:**
-      SilentUpdateKit + a small feed check for an `LSUIElement` HUD; the signature format stays
-      Sparkle-compatible, so graduating later needs no re-keying. ⚠️ If full Sparkle is chosen,
-      **pin a current release** — older lines carry fixed security advisories, and a portfolio-wide
-      version sweep is worth doing separately. (Specific versions/advisory IDs deliberately not
-      recorded — this repo is public.)
+- [ ] **Sparkle release acceptance** — requested 2026-11-11. Integration, dedicated signing key, signed empty feed and packaging validation implemented for 1.2.1. Initial signed empty feed published and verified; validate manual check and opt-in checkbox, back up key to Strongbox, package/notarize release, and test a real upgrade with retained preferences/history. 1.2.0 must upgrade manually. See `sparkle-updates.md`.
 
 ### D-025 tails
 - [ ] **Detail-card headline pair** (optional) — the big `61 KB/s / Upload` block from the iStat
@@ -72,9 +64,7 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
       (apps outside an `.app` bundle).
 
 ### Release tooling
-- [ ] **Fail packaging on rejected Gatekeeper assessment** — `package-dmg.sh` currently masks
-      the final `spctl` result with `|| true`. v1.1 passed independent required app/DMG checks;
-      make those checks mandatory in the script for future releases.
+- [x] **Fail packaging on rejected Gatekeeper assessment** — implemented 2026-11-11 with required app/DMG checks and nested Sparkle signature validation; fixtures passed, real release packaging pending.
 
 ### Polish / nice-to-haves (from visual verify)
 - [ ] **⏳ USER:** tune `Theme.loadColor(forPercent:)` thresholds — at-a-glance color bands.

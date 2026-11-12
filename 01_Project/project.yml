@@ -9,8 +9,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.10"
-    MARKETING_VERSION: "1.2.0"
-    CURRENT_PROJECT_VERSION: "1200"
+    MARKETING_VERSION: "1.2.1"
+    CURRENT_PROJECT_VERSION: "1201"
     GENERATE_INFOPLIST_FILE: NO
     INFOPLIST_FILE: Sources/QuickStatsPanel/Resources/Info.plist
     CODE_SIGN_ENTITLEMENTS: Sources/QuickStatsPanel/Resources/QuickStatsPanel.entitlements
@@ -22,6 +22,11 @@ settings:
     # Config/Debug.xcconfig → Debug.local.xcconfig (per-machine). Release stays on
     # Xcode's implicit automatic signing until notarization is set up. (docs/28)
 
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: "2.10.0"
+
 configs:
   Debug: debug
   Release: release
@@ -30,6 +35,8 @@ targets:
   QuickStatsPanel:
     type: application
     platform: macOS
+    dependencies:
+      - package: Sparkle
     configFiles:
       Debug: Config/Debug.xcconfig
     sources:

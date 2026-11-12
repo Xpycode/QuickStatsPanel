@@ -1,8 +1,33 @@
 import Foundation
 
+enum CPUDisplayMode: String, CaseIterable, Identifiable, Sendable {
+    case usage, usageAndTemperature
+    var id: String { rawValue }
+    var displayName: String {
+        self == .usage ? "Usage" : "Usage + temperature"
+    }
+}
+
+enum BatteryDisplayMode: String, CaseIterable, Identifiable, Sendable {
+    case charge, chargeAndTime
+    var id: String { rawValue }
+    var displayName: String {
+        self == .charge ? "Charge" : "Charge + time"
+    }
+}
+
+extension BatterySample {
+    /// AC power without charging can mean charge is paused, not necessarily full.
+    var panelTimeFormatted: String {
+        if isCharging { return "\(timeFormatted) to full" }
+        if isOnAC { return "On AC" }
+        return "\(timeFormatted) left"
+    }
+}
+
 /// Explicit headline choices keep unlike power measurements distinguishable.
 enum PowerDisplayMode: String, CaseIterable, Identifiable, Sendable {
-    case system, chipTotal, cpu, gpu, cpuAndGPU, dcIn
+    case system, chipTotal, cpu, gpu, cpuAndGPU, dcIn, dcInAndSystem
     var id: String { rawValue }
 
     var displayName: String {
@@ -13,12 +38,17 @@ enum PowerDisplayMode: String, CaseIterable, Identifiable, Sendable {
         case .gpu: return "GPU"
         case .cpuAndGPU: return "CPU + GPU"
         case .dcIn: return "Charger input"
+        case .dcInAndSystem: return "Charger input + Whole system"
         }
     }
 
     /// Reserve a stable width within each selected mode, including three-digit watts.
     var widestValue: String {
-        self == .cpuAndGPU ? "CPU 888.8 W · GPU 888.8 W" : "888.8 W"
+        switch self {
+        case .cpuAndGPU: return "CPU 888.8 W · GPU 888.8 W"
+        case .dcInAndSystem: return "In 888.8 W · System 888.8 W"
+        default: return "888.8 W"
+        }
     }
 }
 
@@ -136,6 +166,7 @@ extension PowerSample {
         case .gpu: return gpuFormatted
         case .cpuAndGPU: return "CPU \(cpuFormatted) · GPU \(gpuFormatted)"
         case .dcIn: return dcInFormatted ?? "— W"
+        case .dcInAndSystem: return "In \(dcInFormatted ?? "— W") · System \(systemFormatted ?? "— W")"
         }
     }
 }
