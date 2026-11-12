@@ -4,7 +4,9 @@
 
 ## Active plan
 
-None. Transfer history shipped as **v1.2.0 (1200)** on 2026-10-28: 8/8 implementation tasks complete;
+[Native ring prototype](../IMPLEMENTATION_PLAN.md): 0/3 tasks; first ready task **1.1** (Wave 1). Plan reviewed and amended 2026-11-12; execution not requested; E1 owner review gates broader layouts/appearance. The plan owns task status and evidence.
+
+Transfer history shipped as **v1.2.0 (1200)** on 2026-10-28: 8/8 implementation tasks complete;
 remaining E1 checks explicitly deferred by the owner to everyday use, not marked as tested.
 [Archived plan](sessions/IMPLEMENTATION_PLAN-transfer-history-DONE.md) ·
 [Release evidence](evidence/release-1.2.0.md). No further acceptance batch is required before ordinary use.
@@ -24,6 +26,12 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 
 ### Distribution
 - [ ] **Sparkle release acceptance** — requested 2026-11-11. Integration, dedicated signing key, signed empty feed and packaging validation implemented for 1.2.1. Initial signed empty feed published and verified; validate manual check and opt-in checkbox, back up key to Strongbox, package/notarize release, and test a real upgrade with retained preferences/history. 1.2.0 must upgrade manually. See `sparkle-updates.md`.
+
+### Layouts and appearance
+- **Alternate layouts and bounded appearance** — prototype work maps to
+  [active plan tasks 1.1–1.3 and E1](../IMPLEMENTATION_PLAN.md). Remaining production Ring,
+  Grid/Rail and appearance controls stay deferred until working-prototype review and follow-up
+  planning; [spec](../specs/panel-layouts-and-appearance.md). No duplicate completion status here.
 
 ### D-025 tails
 - [ ] **Detail-card headline pair** (optional) — the big `61 KB/s / Upload` block from the iStat
@@ -81,8 +89,8 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 <!-- Active work. Populated by /plan or /execute. Keep focused (3-7 tasks). -->
 <!-- When done: /log moves to tasks-archive.md -->
 
-_No active implementation plan; completed transfer-history evidence is linked above.
-Preferences redesign remains accepted and unreleased._
+_Active prototype tasks and evidence live in the plan linked above. Completed transfer-history
+evidence remains separate; preferences redesign remains accepted and unreleased._
 
 ---
 

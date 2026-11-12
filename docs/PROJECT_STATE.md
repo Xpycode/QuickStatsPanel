@@ -10,21 +10,22 @@
 - **Started:** 2026-06-04 · **Target:** macOS 15+ · **License:** PolyForm Noncommercial 1.0.0 (public repo)
 
 ## Now
-- **Funnel:** maintain · **Phase:** Published / everyday use <!-- Phase changed: 2026-10-28 -->
-- **Focus:** v1.2.1 paired displays user-accepted; Sparkle 2.10.0 integrated and fresh Debug build running. Published version remains v1.2.0.
-- **Blockers:** Strongbox backup, remaining updater controls and real upgrade acceptance remain open; live manual update check passed.
-- **Execution:** No active plan; [transfer-history plan archived](sessions/IMPLEMENTATION_PLAN-transfer-history-DONE.md), 8/8 tasks complete, E1 closed by scoped deferral.
-- **Current handoff:** [Exit handoff](sessions/2026-11-12.md#resume).
+- **Funnel:** plan · **Phase:** Native ring prototype planned; ready for build <!-- Phase changed: 2026-11-12 -->
+- **Focus:** v1.2.1 universal app/DMG notarized and local signed update feed verified. Published version remains v1.2.0; [release preparation](evidence/release-1.2.1.md).
+- **Blockers:** Strongbox backup confirmed incomplete; remaining updater controls and real upgrade acceptance open.
+- **Execution:** [Native ring prototype plan](../IMPLEMENTATION_PLAN.md), 0/3 tasks; Wave 1 / 1.1 ready. Plan reviewed against source and amended (isolation, window model, visibility parity, early hover proof); execution not yet requested. E1 owner review gates all broader layout/appearance work.
+- **Feature definition:** [Panel layouts and dynamic appearance](../specs/panel-layouts-and-appearance.md) drafted: four layouts, up to eight ring favourites plus hover details/More, bounded per-stat colouring. Wedge visual direction accepted (D-034); native prototype and settings review remain; no implementation authorized.
+- **Current handoff:** [Native ring execution pickup](sessions/2026-11-12.md#resume--native-ring-execution).
 - **Validation:** 1.2.1: 19 focused hostless tests, Debug build/deep signature, signed-feed/tamper and release-tool fixture checks passed. Paired displays and live manual no-update check accepted; other updater controls and real upgrade untested.
-- **Next:** Strongbox key backup, remaining updater controls, then release packaging and actual update/relaunch test; Restart deferred.
+- **Next:** `/execute` (owner chose Opus) for the bounded native wedge prototype, then E1 working-prototype review before planning remaining layouts/appearance. Separately: Strongbox backup, updater/upgrade acceptance and publication verification for 1.2.1; Restart deferred.
 - **Last updated:** 2026-11-12
 
 ## Recent
+- **2026-11-12** — Ring prototype plan reviewed against the code and tightened; ready to execute next session.
+- **2026-11-12** — Owner accepted the revised wedge ring direction; native interaction validation is next in planning.
+- **2026-11-12** — Layout/appearance spec drafted from owner choices; ring supports both hover details and more stats. Existing 1.2.1 release gates preserved.
 - **2026-11-12** — User confirmed the live update check; exit handoff prepared with release/backup gates retained.
 - **2026-11-11** — Paired displays accepted; Sparkle integrated with signed feed and release tooling. Fresh Debug running; signed empty feed published and HTTPS/signature verified.
-- **2026-10-28** — v1.2.0 published to GitHub and website; exact fresh Release running; remaining manual checks deferred by owner.
-- **2026-10-26** — Resets/persistence plus sleep/wake and network reconnect accepted; broader card checks remain.
-- **2026-10-23** — Run08 refresh-interval/restart retention accepted; scoped resets next; E1 open.
 
 ## What we're building
 Press a global hotkey → a **thin** wide strip appears near the cursor showing live stats as compact
@@ -41,7 +42,7 @@ Fans, Power, Temperatures, plus per-stat history graphs (2026-07-27).
 **Distribution** ✅ v1.2.0 notarized + released; GitHub and website downloads verified
 
 ## Detail (read only if needed)
-- **Decisions:** `decisions.md` — D-001…D-032, full rationale for every locked choice. Load-bearing:
+- **Decisions:** `decisions.md` — D-001…D-034, full rationale for every locked choice. Load-bearing:
   **D-001** HUD `NSPanel` · **D-002** Carbon hotkey, no permissions · **D-003** `LSUIElement` ·
   **D-006** thin strip + click-to-expand · **D-008** content-driven width and fixed-width value
   slots (jitter discipline — read this before touching tile layout) · **D-015** self-drawn card.

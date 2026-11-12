@@ -414,3 +414,18 @@ physical power-loss, unobserved RAID/multipath or background-while-closed claim 
 ### 2026-11-11 - D-033: Sparkle updates with explicit installation consent
 **Decision:** User selected Sparkle for 1.2.1 and approved Check for Updates in the strip context menu and Settings → About, plus an automatic-check checkbox in About. Pin Sparkle 2.10.0. Automatic checks default off; installation always requires confirmation and profiling remains disabled. Use portal `/quickstatspanel/appcast.xml`, signed feeds and pre-extraction signature verification, with dedicated Keychain account `quickstatspanel`. This supersedes the optional SilentUpdateKit backlog recommendation.
 **Consequences:** Update checks introduce disclosed network access; system stats remain local. The initial empty signed feed publishes no unfinished release. 1.2.0's first upgrade is manual. Archive/export must sign all nested helpers; packaging verifies rather than silently repairing them. Protected private-key backup and registry entry were explicitly approved; Strongbox custody remains pending.
+
+
+### 2026-11-12 - D-034: MousePlus-style wedges for the ring layout
+**Context:** The proposed alternate Ring layout needs up to eight favourites plus an additional
+ring. Initial refinement put rectangular stat cards around an oval; the owner rejected that
+geometry and specified wedges like MousePlus, then accepted the revised direction (“yes, better”).
+**Alternatives:** Rectangular cards distributed around a ring; circular annular wedge segments.
+**Decision:** Use annular wedges for both favourite and additional-stat rings. Each wedge is the
+stat surface and hit target, with horizontal text. Keep rich detail content in a separate card.
+**Rationale:** This matches the owner's requested radial interaction and visual structure.
+**Consequences:** Rendering and hit testing must share radial geometry; text must fit actual sector
+boundaries. A native prototype must validate travel through other wedges, dwell/click precedence
+and screen-edge fallback. Exact dimensions/timing and settings placement remain open to review.
+This accepts the visual direction only; it does not authorize implementation or change the default
+Strip/release scope. See [layout spec](../specs/panel-layouts-and-appearance.md).

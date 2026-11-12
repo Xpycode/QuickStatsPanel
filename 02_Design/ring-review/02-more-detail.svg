@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1000" viewBox="0 0 1500 1000">
+<rect x="0" y="0" width="1500" height="1000" rx="0" fill="#12171b" stroke="#12171b"/>
+<text x="34" y="42" font-family="Arial" font-size="26" fill="#e9edef">02 / More → additional stat → detail</text>
+<text x="34" y="70" font-family="Arial" font-size="14" fill="#bac4cb">One additional ring only · favourites stay fixed · this full arrangement requires a generous workspace</text>
+<circle cx="490" cy="515" r="260" fill="#1c2125" stroke="#394249"/>
+<path d="M 391.46,274.40 A 260,260 0 0 1 588.54,274.40 L 527.90,422.46 A 100,100 0 0 0 452.10,422.46 Z" fill="#24292d" stroke="#475159"/>
+<text x="490" y="314" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">CPU</text>
+<text x="490" y="337" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">24%</text>
+<text x="490" y="356" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">52°C</text>
+<path d="M 590.46,275.19 A 260,260 0 0 1 729.81,414.54 L 582.23,476.36 A 100,100 0 0 0 528.64,422.77 Z" fill="#24292d" stroke="#475159"/>
+<text x="621" y="368" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">Memory</text>
+<text x="621" y="391" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">18.4 GB</text>
+<text x="621" y="410" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">of 32 GB</text>
+<path d="M 730.60,416.46 A 260,260 0 0 1 730.60,613.54 L 582.54,552.90 A 100,100 0 0 0 582.54,477.10 Z" fill="#24292d" stroke="#475159"/>
+<text x="675" y="499" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">Network</text>
+<text x="675" y="522" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">999.9 MB/s</text>
+<text x="675" y="541" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">Up 128.4 MB/s</text>
+<path d="M 729.81,615.46 A 260,260 0 0 1 590.46,754.81 L 528.64,607.23 A 100,100 0 0 0 582.23,553.64 Z" fill="#24292d" stroke="#475159"/>
+<text x="621" y="630" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">Battery</text>
+<text x="621" y="653" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">82%</text>
+<text x="621" y="672" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">4:12 remaining</text>
+<path d="M 588.54,755.60 A 260,260 0 0 1 391.46,755.60 L 452.10,607.54 A 100,100 0 0 0 527.90,607.54 Z" fill="#24292d" stroke="#475159"/>
+<text x="490" y="684" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">Power</text>
+<text x="490" y="707" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">28 W</text>
+<text x="490" y="726" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">Input 65 W</text>
+<path d="M 389.54,754.81 A 260,260 0 0 1 250.19,615.46 L 397.77,553.64 A 100,100 0 0 0 451.36,607.23 Z" fill="#24292d" stroke="#475159"/>
+<text x="359" y="630" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">Disk</text>
+<text x="359" y="653" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">Read 148 MB/s</text>
+<text x="359" y="672" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">Write 12 MB/s</text>
+<path d="M 249.40,613.54 A 260,260 0 0 1 249.40,416.46 L 397.46,477.10 A 100,100 0 0 0 397.46,552.90 Z" fill="#24292d" stroke="#475159"/>
+<text x="305" y="499" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">GPU</text>
+<text x="305" y="522" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">12%</text>
+<text x="305" y="541" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">54°C</text>
+<path d="M 250.19,414.54 A 260,260 0 0 1 389.54,275.19 L 451.36,422.77 A 100,100 0 0 0 397.77,476.36 Z" fill="#24292d" stroke="#475159"/>
+<text x="359" y="368" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">Fans</text>
+<text x="359" y="391" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">Unavailable</text>
+<text x="359" y="410" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">No current reading</text>
+<circle cx="490" cy="515" r="92" fill="#1c2125" stroke="#475159"/>
+<text x="441" y="483" font-family="Arial" font-size="12" fill="#bac4cb">QuickStatsPanel</text>
+<text x="456" y="505" font-family="Arial" font-size="12" fill="#bac4cb">Drag centre</text>
+<polyline points="420,518 560,518" fill="none" stroke="#475159" stroke-width="1" stroke-dasharray="none"/>
+<text x="462" y="542" font-family="Arial" font-size="14" fill="#a7c9e2">More · 4</text>
+<polyline points="425,554 555,554" fill="none" stroke="#475159" stroke-width="1" stroke-dasharray="none"/>
+<text x="466" y="577" font-family="Arial" font-size="12" fill="#e9edef">Settings</text>
+<path d="M 201.25,223.93 A 410,410 0 0 1 778.75,223.93 L 682.97,320.48 A 274,274 0 0 0 297.03,320.48 Z" fill="#30473f" stroke="#a7c9e2"/>
+<text x="490" y="157" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">Load</text>
+<text x="490" y="180" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">2.41</text>
+<text x="490" y="199" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">1-minute average</text>
+<path d="M 781.07,226.25 A 410,410 0 0 1 781.07,803.75 L 684.52,707.97 A 274,274 0 0 0 684.52,322.03 Z" fill="#24292d" stroke="#475159"/>
+<text x="832" y="499" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">Uptime</text>
+<text x="832" y="522" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">3d 04h</text>
+<text x="832" y="541" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">Since startup</text>
+<path d="M 778.75,806.07 A 410,410 0 0 1 201.25,806.07 L 297.03,709.52 A 274,274 0 0 0 682.97,709.52 Z" fill="#24292d" stroke="#475159"/>
+<text x="490" y="841" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">Temperatures</text>
+<text x="490" y="864" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">Nominal</text>
+<text x="490" y="883" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">CPU 52°C</text>
+<path d="M 198.93,803.75 A 410,410 0 0 1 198.93,226.25 L 295.48,322.03 A 274,274 0 0 0 295.48,707.97 Z" fill="#24292d" stroke="#475159"/>
+<text x="148" y="499" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">Top process</text>
+<text x="148" y="522" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">WindowServer</text>
+<text x="148" y="541" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">8.2% CPU</text>
+<rect x="1120" y="230" width="300" height="295" rx="6" fill="#24292d" stroke="#475159"/>
+<text x="1136" y="256" font-family="Arial" font-size="18" fill="#e9edef">Load details</text>
+<text x="1136" y="279" font-family="Arial" font-size="12" fill="#bac4cb">Held open</text>
+<text x="1396" y="255" font-family="Arial" font-size="18" fill="#e9edef">×</text>
+<text x="1136" y="318" font-family="Arial" font-size="22" fill="#e9edef">Load · 1 minute: 2.41</text>
+<text x="1136" y="343" font-family="Arial" font-size="13" fill="#bac4cb">5 minutes: 2.12 · 15 minutes: 1.86</text>
+<polyline points="1136,430 1405,430" fill="none" stroke="#475159" stroke-width="1" stroke-dasharray="none"/>
+<polyline points="1136,411 1158,405 1180,409 1202,390 1224,397 1246,375 1268,403 1290,383 1312,392 1334,400 1356,385 1378,395 1400,390" fill="none" stroke="#8dc3b1" stroke-width="2" stroke-dasharray="none"/>
+<text x="1136" y="455" font-family="Arial" font-size="12" fill="#bac4cb">Illustrative history</text>
+<text x="1136" y="495" font-family="Arial" font-size="12" fill="#bac4cb">Existing configured rows continue here</text>
+<polyline points="550,537 590,430 600,225 560,173 1000,173 1120,255" fill="none" stroke="#84b5dc" stroke-width="2" stroke-dasharray="6 5"/>
+<text x="1045" y="610" font-family="Arial" font-size="14" fill="#bac4cb">More stays open while its</text>
+<text x="1045" y="633" font-family="Arial" font-size="14" fill="#bac4cb">detail is in use.</text>
+<text x="35" y="975" font-family="Arial" font-size="17" fill="#e9edef">Escape: close detail → close More → hide HUD. A click on More closes its entire branch.</text>
+</svg>

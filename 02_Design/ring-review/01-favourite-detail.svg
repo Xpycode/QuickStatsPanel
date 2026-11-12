@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="720" viewBox="0 0 1400 720">
+<rect x="0" y="0" width="1400" height="720" rx="0" fill="#12171b" stroke="#12171b"/>
+<text x="34" y="42" font-family="Arial" font-size="26" fill="#e9edef">01 / Favourites → detail</text>
+<text x="34" y="70" font-family="Arial" font-size="14" fill="#bac4cb">Design proposal · illustrative readings · dotted blue route is an annotation, not UI</text>
+<circle cx="350" cy="355" r="260" fill="#1c2125" stroke="#394249"/>
+<path d="M 251.46,114.40 A 260,260 0 0 1 448.54,114.40 L 387.90,262.46 A 100,100 0 0 0 312.10,262.46 Z" fill="#30473f" stroke="#a7c9e2"/>
+<text x="350" y="154" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">CPU</text>
+<text x="350" y="177" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">24%</text>
+<text x="350" y="196" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">52°C</text>
+<path d="M 450.46,115.19 A 260,260 0 0 1 589.81,254.54 L 442.23,316.36 A 100,100 0 0 0 388.64,262.77 Z" fill="#24292d" stroke="#475159"/>
+<text x="481" y="208" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">Memory</text>
+<text x="481" y="231" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">18.4 GB</text>
+<text x="481" y="250" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">of 32 GB</text>
+<path d="M 590.60,256.46 A 260,260 0 0 1 590.60,453.54 L 442.54,392.90 A 100,100 0 0 0 442.54,317.10 Z" fill="#24292d" stroke="#475159"/>
+<text x="535" y="339" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">Network</text>
+<text x="535" y="362" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">999.9 MB/s</text>
+<text x="535" y="381" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">Up 128.4 MB/s</text>
+<path d="M 589.81,455.46 A 260,260 0 0 1 450.46,594.81 L 388.64,447.23 A 100,100 0 0 0 442.23,393.64 Z" fill="#24292d" stroke="#475159"/>
+<text x="481" y="470" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">Battery</text>
+<text x="481" y="493" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">82%</text>
+<text x="481" y="512" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">4:12 remaining</text>
+<path d="M 448.54,595.60 A 260,260 0 0 1 251.46,595.60 L 312.10,447.54 A 100,100 0 0 0 387.90,447.54 Z" fill="#24292d" stroke="#475159"/>
+<text x="350" y="524" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">Power</text>
+<text x="350" y="547" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">28 W</text>
+<text x="350" y="566" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">Input 65 W</text>
+<path d="M 249.54,594.81 A 260,260 0 0 1 110.19,455.46 L 257.77,393.64 A 100,100 0 0 0 311.36,447.23 Z" fill="#24292d" stroke="#475159"/>
+<text x="219" y="470" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">Disk</text>
+<text x="219" y="493" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">Read 148 MB/s</text>
+<text x="219" y="512" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">Write 12 MB/s</text>
+<path d="M 109.40,453.54 A 260,260 0 0 1 109.40,256.46 L 257.46,317.10 A 100,100 0 0 0 257.46,392.90 Z" fill="#24292d" stroke="#475159"/>
+<text x="165" y="339" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">GPU</text>
+<text x="165" y="362" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">12%</text>
+<text x="165" y="381" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">54°C</text>
+<path d="M 110.19,254.54 A 260,260 0 0 1 249.54,115.19 L 311.36,262.77 A 100,100 0 0 0 257.77,316.36 Z" fill="#24292d" stroke="#475159"/>
+<text x="219" y="208" text-anchor="middle" font-family="Arial" font-size="13" fill="#bac4cb">Fans</text>
+<text x="219" y="231" text-anchor="middle" font-family="Arial" font-size="16" fill="#e9edef">Unavailable</text>
+<text x="219" y="250" text-anchor="middle" font-family="Arial" font-size="12" fill="#bac4cb">No current reading</text>
+<circle cx="350" cy="355" r="92" fill="#1c2125" stroke="#475159"/>
+<text x="301" y="323" font-family="Arial" font-size="12" fill="#bac4cb">QuickStatsPanel</text>
+<text x="316" y="345" font-family="Arial" font-size="12" fill="#bac4cb">Drag centre</text>
+<polyline points="280,358 420,358" fill="none" stroke="#475159" stroke-width="1" stroke-dasharray="none"/>
+<text x="322" y="382" font-family="Arial" font-size="14" fill="#a7c9e2">More · 4</text>
+<polyline points="285,394 415,394" fill="none" stroke="#475159" stroke-width="1" stroke-dasharray="none"/>
+<text x="326" y="417" font-family="Arial" font-size="12" fill="#e9edef">Settings</text>
+<rect x="730" y="217" width="300" height="295" rx="6" fill="#24292d" stroke="#475159"/>
+<text x="746" y="243" font-family="Arial" font-size="18" fill="#e9edef">CPU details</text>
+<text x="746" y="266" font-family="Arial" font-size="12" fill="#bac4cb">Preview · click stat to hold</text>
+<text x="1006" y="242" font-family="Arial" font-size="18" fill="#e9edef">×</text>
+<text x="746" y="305" font-family="Arial" font-size="22" fill="#e9edef">24% usage</text>
+<text x="746" y="330" font-family="Arial" font-size="13" fill="#bac4cb">Temperature 52°C</text>
+<polyline points="746,417 1015,417" fill="none" stroke="#475159" stroke-width="1" stroke-dasharray="none"/>
+<polyline points="746,398 768,392 790,396 812,377 834,384 856,362 878,390 900,370 922,379 944,387 966,372 988,382 1010,377" fill="none" stroke="#8dc3b1" stroke-width="2" stroke-dasharray="none"/>
+<text x="746" y="442" font-family="Arial" font-size="12" fill="#bac4cb">Illustrative history</text>
+<text x="746" y="482" font-family="Arial" font-size="12" fill="#bac4cb">Existing configured rows continue here</text>
+<polyline points="350,170 445,170 630,170 730,247" fill="none" stroke="#84b5dc" stroke-width="2" stroke-dasharray="6 5"/>
+<text x="620" y="185" font-family="Arial" font-size="13" fill="#a7c9e2">Protected travel route</text>
+<text x="50" y="650" font-family="Arial" font-size="17" fill="#e9edef">350 ms dwell previews. Click holds. Hover cannot replace a held detail.</text>
+<text x="50" y="680" font-family="Arial" font-size="15" fill="#bac4cb">The centre stays quiet; More and Settings have separate targets. No duplicate selected reading.</text>
+</svg>
