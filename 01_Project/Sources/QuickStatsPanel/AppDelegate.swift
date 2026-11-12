@@ -6,8 +6,15 @@ import AppKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
-    private let store = StatsStore()
+    private let store: StatsStore
     private let panel = PanelWindowController()
+    #if DEBUG
+    /// Ring prototype (Debug only): nil unless launched with `--ring-prototype`
+    /// (see `RingPrototypeLaunch` for the fixture arguments).
+    private let ringLaunch = RingPrototypeLaunch.current
+    private let ringPanel = RingPanelController()
+    private var ringFixtureMode: Bool { ringLaunch?.fixture != nil }
+    #endif
     /// The flat detail card shown beneath the strip when a tile is tapped. A
     /// separate borderless panel we draw ourselves, replacing the system popover
     /// so the card matches the strip's flat Theme (no arrow, small corner radius).
@@ -57,21 +64,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         set { AppSettings.shared.isPinned = newValue }
     }
 
+    override init() {
+        #if DEBUG
+        if let fixture = RingPrototypeLaunch.current?.fixture {
+            store = StatsStore.makeRingFixtureStore(unavailable: fixture.unavailableKinds)
+        } else {
+            store = StatsStore()
+        }
+        #else
+        store = StatsStore()
+        #endif
+        super.init()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         wireSettings()
         installSleepObservers()
-        store.start()
+        #if DEBUG
+        // Fixture mode keeps the disposable store inert: no samplers, no retained
+        // transfer history, no updater.
+        let startsServices = !ringFixtureMode
+        #else
+        let startsServices = true
+        #endif
+        if startsServices { store.start() }
         registerHotKey()
         installClickAwayMonitor()
         installEscToDismiss()
         installPanelInteractions()
         installMainMenu()
-        UpdaterController.shared.beforeCheck = { [weak self] in self?.panel.hide() }
-        UpdaterController.shared.start()
+        UpdaterController.shared.beforeCheck = { [weak self] in self?.hideHUD() }
+        if startsServices { UpdaterController.shared.start() }
 
         // First-run discoverability: an agent app with no Dock/menu-bar presence
         // is invisible until summoned, so show the panel once on launch.
         togglePanel()
+        #if DEBUG
+        if ringLaunch != nil { return }   // the hint card anchors to the strip
+        #endif
         showFirstRunHintIfNeeded()
     }
 
@@ -106,7 +136,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func wireSettings() {
         let settings = AppSettings.shared
         settings.onHotKeyChanged = { [weak self] in self?.registerHotKey() }
-        settings.onIntervalChanged = { [weak self] in self?.store.restart() }
+        settings.onIntervalChanged = { [weak self] in
+            #if DEBUG
+            // A fixture store must never start samplers.
+            if self?.ringFixtureMode == true { return }
+            #endif
+            self?.store.restart()
+        }
     }
 
     /// (Re)register the global hotkey from the current setting.
@@ -162,6 +198,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func togglePanel() {
+        #if DEBUG
+        if ringLaunch != nil { toggleRing(); return }
+        #endif
         // Width is content-driven (PanelWindowController measures the SwiftUI
         // content); anchor + height come from settings. A dragged custom position,
         // if any, wins over the anchor so the strip reappears where it was left.
@@ -182,6 +221,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// drag-to-reposition persistence. Set once at launch; `PanelWindowController`
     /// re-applies the menu provider to each freshly-built strip.
     private func installPanelInteractions() {
+        #if DEBUG
+        ringPanel.onActivate = { [weak self] target in self?.ringActivate(target) }
+        ringPanel.onOutsideClick = { [weak self] in
+            guard let self, !self.isPinned else { return }
+            self.hideHUD()
+        }
+        ringPanel.contextMenuProvider = { [weak self] in self?.makeRingMenu() ?? NSMenu() }
+        #endif
         panel.contextMenuProvider = { [weak self] in
             self?.makePanelMenu() ?? NSMenu()
         }
@@ -219,9 +266,90 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // worse since it no longer dismisses on click-away. Settings is its own
         // full context, so close the strip as we open it. (hide() also resets pin
         // and tears down the detail/hint cards via onVisibilityChanged.)
-        panel.hide()
+        hideHUD()
         settingsWindow.show(store: store)
     }
+
+    #if DEBUG
+    // MARK: - Ring prototype (Debug only)
+
+    private func toggleRing() {
+        if ringPanel.isVisible { ringPanel.hide(); return }
+        let fixture = ringLaunch?.fixture
+        let store = self.store
+        let reading: (StatKind) -> RingReading = { kind in
+            fixture?.reading(for: kind) ?? store.ringReading(for: kind)
+        }
+        let snapshot = RingSnapshot.make(enabledKinds: fixture?.enabledKinds ?? store.enabledStatKinds,
+                                         reading: reading)
+        let describe: (RingTarget) -> RingInputView.Description = { target in
+            switch target {
+            case .wedge(let kind):
+                let live = reading(kind)
+                let value = live.isAvailable
+                    ? [live.value, live.secondary].compactMap { $0 }.joined(separator: ", ")
+                    : "Unavailable"
+                return RingInputView.Description(name: kind.displayName, value: value, isAvailable: live.isAvailable)
+            case .more:
+                return RingInputView.Description(name: "More", value: "\(snapshot.moreKinds.count) more stats",
+                                                 isAvailable: true)
+            case .settings:
+                return RingInputView.Description(name: "Settings", value: "", isAvailable: true)
+            case .drag:
+                return RingInputView.Description(name: "Move", value: "", isAvailable: true)
+            }
+        }
+        ringPanel.show(snapshot: snapshot, anchor: AppSettings.shared.anchor, reading: reading, describe: describe)
+    }
+
+    private func ringActivate(_ target: RingTarget) {
+        switch target {
+        case .wedge(let kind): toggleRingDetail(for: kind)
+        case .settings: openSettings()
+        case .more, .drag: break   // More ring/list is the next task; drag is handled by the input view
+        }
+    }
+
+    /// Click a wedge: open its existing detail card beside the ring (never over the
+    /// wedge); click the same wedge again to close it.
+    private func toggleRingDetail(for kind: StatKind) {
+        guard let parent = ringPanel.screenFrame(of: .wedge(kind)), let footprint = ringPanel.frame else { return }
+        if detailPanel.openKind == kind {
+            closeRingDetail()
+            return
+        }
+        store.dismissTransferDetails()
+        detailPanel.showBeside(kind: kind, parentFrame: parent, footprint: footprint,
+                               content: StatDetailView(store: store, kind: kind, showsUnavailableState: true))
+        store.setTransferDetailVisible(kind)
+        ringPanel.state.selectedKind = kind
+    }
+
+    private func closeRingDetail() {
+        detailPanel.hide()
+        store.dismissTransferDetails()
+        store.setTransferDetailVisible(nil)
+        ringPanel.state.selectedKind = nil
+    }
+
+    /// Ring context menu: Keep on Screen, Settings, Quit. Deliberately without
+    /// Reset Position, which would write a persistent setting.
+    private func makeRingMenu() -> NSMenu {
+        let menu = NSMenu()
+        let pin = NSMenuItem(title: "Keep on Screen", action: #selector(togglePin), keyEquivalent: "")
+        pin.target = self
+        pin.state = isPinned ? .on : .off
+        menu.addItem(pin)
+        let settings = NSMenuItem(title: "Settings…", action: #selector(openSettingsFromMenu), keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
+        menu.addItem(.separator())
+        let quit = NSMenuItem(title: "Quit QuickStatsPanel", action: #selector(quitFromMenu), keyEquivalent: "q")
+        quit.target = self
+        menu.addItem(quit)
+        return menu
+    }
+    #endif
 
     // MARK: - Esc-to-dismiss
 
@@ -230,13 +358,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Esc itself) — registering in `togglePanel()` alone would leave Escape
     /// captured after a click-away dismissal.
     private func installEscToDismiss() {
-        panel.onVisibilityChanged = { [weak self] visible in
+        // One handler for whichever presentation is showing, so Ring and Strip drive
+        // identical visibility effects.
+        let visibilityChanged: (Bool) -> Void = { [weak self] visible in
             guard let self else { return }
             // Run the costly top-processes sampler only while the panel is shown.
             self.store.setPanelVisible(visible)
             if visible {
                 self.dismissHotKey.register(.escape) { [weak self] in
-                    self?.panel.hide()
+                    self?.handleEscape()
                 }
                 self.settingsHotKey.register(.commaSettings) { [weak self] in
                     self?.openSettings()
@@ -260,6 +390,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.hintPanel.hide()
             }
         }
+        panel.onVisibilityChanged = visibilityChanged
+        #if DEBUG
+        ringPanel.onVisibilityChanged = visibilityChanged
+        #endif
+    }
+
+    /// Hide whichever presentation is showing (hide is a no-op for the other).
+    private func hideHUD() {
+        panel.hide()
+        #if DEBUG
+        ringPanel.hide()
+        #endif
+    }
+
+    private var hudIsVisible: Bool {
+        #if DEBUG
+        if ringPanel.isVisible { return true }
+        #endif
+        return panel.isVisible
+    }
+
+    /// Strip: Escape hides the HUD. Ring (1.1): a shown detail closes first, then the
+    /// HUD; the full detail / More / HUD hierarchy belongs to a later task.
+    private func handleEscape() {
+        #if DEBUG
+        if ringPanel.isVisible, detailPanel.isVisible {
+            closeRingDetail()
+            return
+        }
+        #endif
+        hideHUD()
     }
 
     // MARK: - Click-away dismissal
@@ -272,8 +433,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // our panel — exactly the click-away case. Hide if visible.
             Task { @MainActor in
                 // A pinned strip ignores click-away — the user asked it to stay.
-                guard let self, self.panel.isVisible, !self.isPinned else { return }
-                self.panel.hide()
+                guard let self, self.hudIsVisible, !self.isPinned else { return }
+                self.hideHUD()
             }
         }
     }

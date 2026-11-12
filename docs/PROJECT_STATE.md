@@ -10,17 +10,18 @@
 - **Started:** 2026-06-04 · **Target:** macOS 15+ · **License:** PolyForm Noncommercial 1.0.0 (public repo)
 
 ## Now
-- **Funnel:** plan · **Phase:** Native ring prototype planned; ready for build <!-- Phase changed: 2026-11-12 -->
+- **Funnel:** build · **Phase:** Native ring prototype — Wave 1 built <!-- Phase changed: 2026-11-12 -->
 - **Focus:** v1.2.1 universal app/DMG notarized and local signed update feed verified. Published version remains v1.2.0; [release preparation](evidence/release-1.2.1.md).
 - **Blockers:** Strongbox backup confirmed incomplete; remaining updater controls and real upgrade acceptance open.
-- **Execution:** [Native ring prototype plan](../IMPLEMENTATION_PLAN.md), 0/3 tasks; Wave 1 / 1.1 ready. Plan reviewed against source and amended (isolation, window model, visibility parity, early hover proof); execution not yet requested. E1 owner review gates all broader layout/appearance work.
+- **Execution:** [Native ring prototype plan](../IMPLEMENTATION_PLAN.md) · Wave 1 / 1.1 **implemented, awaiting owner native check** (B/T pass, 34/34); 1.2 blocked on that check (hover-tracking stop condition). E1 gates broader layout work.
 - **Feature definition:** [Panel layouts and dynamic appearance](../specs/panel-layouts-and-appearance.md) drafted: four layouts, up to eight ring favourites plus hover details/More, bounded per-stat colouring. Wedge visual direction accepted (D-034); native prototype and settings review remain; no implementation authorized.
-- **Current handoff:** [Native ring execution pickup](sessions/2026-11-12.md#resume--native-ring-execution).
+- **Current handoff:** [Ring 1.1 native check](sessions/2026-11-12.md#resume--ring-11-native-check).
 - **Validation:** 1.2.1: 19 focused hostless tests, Debug build/deep signature, signed-feed/tamper and release-tool fixture checks passed. Paired displays and live manual no-update check accepted; other updater controls and real upgrade untested.
-- **Next:** `/execute` (owner chose Opus) for the bounded native wedge prototype, then E1 working-prototype review before planning remaining layouts/appearance. Separately: Strongbox backup, updater/upgrade acceptance and publication verification for 1.2.1; Restart deferred.
+- **Next:** owner native check of ring 1.1 (launch steps in the plan's execution log), then `/execute` Wave 2 (1.2) → 1.3 → E1 working-prototype review before planning remaining layouts/appearance. Separately: Strongbox backup, updater/upgrade acceptance and publication verification for 1.2.1; Restart deferred.
 - **Last updated:** 2026-11-12
 
 ## Recent
+- **2026-11-12** — Ring prototype 1.1 built (Debug-only `--ring-prototype`, fixtures, 16 geometry tests); native check pending.
 - **2026-11-12** — Ring prototype plan reviewed against the code and tightened; ready to execute next session.
 - **2026-11-12** — Owner accepted the revised wedge ring direction; native interaction validation is next in planning.
 - **2026-11-12** — Layout/appearance spec drafted from owner choices; ring supports both hover details and more stats. Existing 1.2.1 release gates preserved.

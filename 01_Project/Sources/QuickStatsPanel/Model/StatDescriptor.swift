@@ -141,6 +141,30 @@ extension StatsStore {
             }
     }
 
+    /// Ordered enabled stat identities, independent of whether a reading exists right
+    /// now. Ring keeps an enabled stat's slot while its data is unavailable; `visibleStats`
+    /// (availability-filtered, used by the strip) is deliberately left as it was.
+    var enabledStatKinds: [StatKind] {
+        let settings = AppSettings.shared
+        return settings.statOrder.filter(settings.isEnabled)
+    }
+
+    /// One stat's tinted descriptor by identity, or nil when it has no reading now.
+    /// Same band/tint resolution as `visibleStats`, without the enabled/availability
+    /// list filtering.
+    func resolvedDescriptor(for kind: StatKind) -> StatDescriptor? {
+        guard var descriptor = descriptor(for: kind, settings: AppSettings.shared) else { return nil }
+        let resolved = tint(for: kind, percent: descriptor.loadPercent, reversed: kind == .battery)
+        descriptor.band = resolved.band
+        descriptor.tint = resolved.color
+        return descriptor
+    }
+
+    /// Live wedge reading for `kind`; unavailable stats keep their identity.
+    func ringReading(for kind: StatKind) -> RingReading {
+        resolvedDescriptor(for: kind).map(RingReading.init(descriptor:)) ?? .unavailable(kind)
+    }
+
     /// Top-N count shown in each tile's "top processes" popover section.
     private static let topProcessRows = 10
 

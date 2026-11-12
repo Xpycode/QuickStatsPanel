@@ -47,9 +47,39 @@ final class DetailPanelController {
 
         let panel = self.panel ?? makePanel(size: size)
         panel.contentView = hosting
+        panel.acceptsMouseMovedEvents = false
 
         let origin = origin(forSize: size, stripFrame: stripFrame, anchorX: anchorX)
         panel.setFrame(NSRect(origin: origin, size: size), display: true)
+        panel.orderFrontRegardless()
+
+        self.hosting = hosting
+        self.panel = panel
+        self.openKind = kind
+    }
+
+    /// Reserved-frame positioning for presentations whose parent target must stay fixed
+    /// (Ring). Supplements `show(kind:stripFrame:anchorX:content:)`; the strip path is
+    /// untouched. `parentFrame` is the wedge's screen frame and `footprint` the
+    /// presenting panel's frame; the card is placed outside the footprint, so it can
+    /// never cover the parent target.
+    func showBeside<Content: View>(kind: StatKind, parentFrame: NSRect, footprint: NSRect, content: Content) {
+        let hosting = NSHostingView(rootView: AnyView(content))
+        let size = hosting.fittingSize
+        hosting.frame = NSRect(origin: .zero, size: size)
+
+        let panel = self.panel ?? makePanel(size: size)
+        panel.contentView = hosting
+        // The pointer route between presenting panel and card is observed by the owner;
+        // the card must report moves for the part of that route that crosses it.
+        panel.acceptsMouseMovedEvents = true
+
+        let host = NSScreen.screens.first {
+            $0.frame.contains(NSPoint(x: parentFrame.midX, y: parentFrame.midY))
+        } ?? NSScreen.main
+        let frame = Self.reservedFrame(forSize: size, parentFrame: parentFrame, footprint: footprint,
+                                       visible: host?.visibleFrame ?? footprint, gap: gap)
+        panel.setFrame(frame, display: true)
         panel.orderFrontRegardless()
 
         self.hosting = hosting
@@ -89,6 +119,49 @@ final class DetailPanelController {
             y = min(max(y, visible.minY), visible.maxY - size.height)
         }
         return NSPoint(x: x, y: y)
+    }
+
+    /// Pure placement for a card that must not cover its parent target. Tries the side
+    /// of the footprint the parent lies on, then the others (horizontal sides first),
+    /// keeping the first candidate fully inside `visible`. When none fits fully it
+    /// picks the one showing most, clamped on screen; edge fallbacks beyond that are
+    /// not modelled yet.
+    static func reservedFrame(forSize size: NSSize, parentFrame: NSRect, footprint: NSRect,
+                              visible: NSRect, gap: CGFloat) -> NSRect {
+        let rightFirst = parentFrame.midX >= footprint.midX
+        let topFirst = parentFrame.midY >= footprint.midY
+        let right = NSRect(x: footprint.maxX + gap, y: parentFrame.midY - size.height / 2,
+                           width: size.width, height: size.height)
+        let left = NSRect(x: footprint.minX - gap - size.width, y: parentFrame.midY - size.height / 2,
+                          width: size.width, height: size.height)
+        let above = NSRect(x: parentFrame.midX - size.width / 2, y: footprint.maxY + gap,
+                           width: size.width, height: size.height)
+        let below = NSRect(x: parentFrame.midX - size.width / 2, y: footprint.minY - gap - size.height,
+                           width: size.width, height: size.height)
+        let candidates = (rightFirst ? [right, left] : [left, right])
+            + (topFirst ? [above, below] : [below, above])
+
+        func clamped(_ rect: NSRect) -> NSRect {
+            var r = rect
+            if visible.width >= r.width { r.origin.x = min(max(r.minX, visible.minX), visible.maxX - r.width) }
+            else { r.origin.x = visible.minX }
+            if visible.height >= r.height { r.origin.y = min(max(r.minY, visible.minY), visible.maxY - r.height) }
+            else { r.origin.y = visible.minY }
+            return r
+        }
+
+        var best: (frame: NSRect, shown: CGFloat)?
+        for candidate in candidates {
+            let moved = clamped(candidate)
+            // A cross-axis clamp is fine; a clamp that pushes the card back into the
+            // footprint (main axis lost) fails the footprint test and rejects it.
+            let clearOfParent = !moved.intersects(parentFrame)
+            if clearOfParent, visible.contains(moved), !moved.intersects(footprint) { return moved }
+            let shown = candidate.intersection(visible)
+            let area = shown.isNull ? 0 : shown.width * shown.height
+            if clearOfParent, !moved.intersects(footprint), area > (best?.shown ?? -1) { best = (moved, area) }
+        }
+        return best?.frame ?? clamped(candidates[0])
     }
 
     // MARK: - Panel

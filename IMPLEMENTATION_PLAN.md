@@ -1,7 +1,7 @@
 # Native Ring Prototype — Implementation Plan
 
-**Created:** 2026-11-12 · **Status:** Planned; execution not requested
-**Progress:** 0/3 implementation tasks; external acceptance **E1 open**.
+**Created:** 2026-11-12 · **Status:** Executing — Wave 1 implemented, awaiting native owner check
+**Progress:** 0/3 implementation tasks complete (1.1 implemented-unverified); external acceptance **E1 open**.
 Unchecked tasks are pending unless explicitly marked implemented-unverified or blocked. This file
 owns task status and evidence; `docs/TASKS.md` links here without duplicating completion boxes.
 Execute with `/Users/sim/ProgrammingProjects/0-DIRECTIONS/__DIRECTIONS/commands/execute.md`.
@@ -110,7 +110,9 @@ Do not resolve geometry again on sample ticks. Existing detail content still rec
 
 ### Wave 1 — thin native end-to-end result
 
-- [ ] **1.1 — Summon a readable native ring and open one real detail**
+- [ ] **1.1 — Summon a readable native ring and open one real detail** — *implemented-unverified
+  (2026-11-12): B/T pass; native success criteria (first mouse, hover mechanism, detail, parity,
+  drag isolation, accessibility) await owner observation. See execution log.*
   - Depends on: none. External gates: none; execute request starts this task. Precondition
     (review): commit and push the plan, spec, `02_Design/ring-review/` and pending doc edits
     first, with the user's confirmation, so wave diffs are clean and visible to the other Mac.
@@ -267,16 +269,27 @@ hover-to-expand remains separate because this spec requires hover only in Ring.
 
 ## Operational learnings
 
-None from execution yet. Static mockups cannot establish native feel or text comfort.
+- Static mockups cannot establish native feel or text comfort.
+- 1.1: ring panel is a 520 × 520 window; whether clicks on its transparent corners/gaps pass
+  through to apps beneath (and so count as click-away) is a native question for the owner check.
+- 1.1: slot 0 is centred on twelve o'clock (one constant to flip if the owner prefers sector 0
+  starting at twelve). Ring text uses the spec's explicit 13/16/12 pt, not Theme font tokens.
 
 ## Blocked tasks
 
-No prerequisite blocks 1.1 once execution is requested, apart from its commit precondition. E1 is pending, and broader feature work
+1.2 is blocked on the 1.1 native check (hover tracking while another app is frontmost is the
+plan's stop condition). E1 is pending, and broader feature work
 is intentionally gated rather than silently authorized by this plan.
 
 ## Execution log
 
 | Wave / IDs | Assignment or serial reason | Validation / evidence | Commit / exception | Next / stop reason |
 |---|---|---|---|---|
+| Wave 1 / 1.1 | One fresh developer agent (single-task wave; serial by plan). Coordinator reviewed diff, ran `git diff --check`, verified artifact signature. Precondition met: plan/spec/review sheets already in 682dbb1 on origin. | B pass, no new warnings. T pass: 34/34 (`RingGeometryTests` 16, `PanelMetricOptionsTests` 7, `CPUBatteryPairTests` 6, `TransferDetailStateTests` 5), `01_Project/build/RingPrototypeTests-1.1-run01.xcresult`. Artifact `01_Project/build/RingPrototype/Build/Products/Debug/QuickStatsPanel.app`, 1.2.1 (1201), exec SHA-256 `cf0dc81a…a941c3`, team FDMSRXXN73, `codesign --verify --deep --strict` OK. Not launched (see next column). | Committed locally on `main` (see git log, "Ring prototype 1.1"); not pushed. | **Stop — user scope was Wave 1.** 1.1 stays unchecked until the owner's native check: launch with `--ring-prototype [--ring-fixture=none\|one\|six\|eight\|twelve\|long\|paired\|unavailable]`, observe via `log stream --predicate 'category == "RingPrototype"'` which hover mechanism (global/local/poll) fires. Then Wave 2 / 1.2. |
 
-No execution, build, app launch or product acceptance performed during planning.
+Planning performed no execution, build, app launch or product acceptance. 1.1 interfaces:
+`RingGeometry` (`target(at:)`, `outline(of:)`, `frame(of:)`, `textFits`), `RingSnapshot` (generation
+UUID, enabled kinds, ≤8 favourites, `moreKinds`), `RingPresentationState` (hover/pointer), and
+`DetailPanelController.reservedFrame(forSize:parentFrame:footprint:visible:gap:)` (pure, static).
+1.1 gaps carried to 1.2: More click is a no-op; no dwell/held state; reserved-frame fallback may
+clip when no side fits; an unavailable-at-summon stat is sized for its fallback text only.

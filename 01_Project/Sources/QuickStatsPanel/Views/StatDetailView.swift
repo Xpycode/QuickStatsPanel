@@ -14,6 +14,10 @@ import SwiftUI
 struct StatDetailView: View {
     let store: StatsStore
     let kind: StatKind
+    /// Ring resolves the stat by its enabled identity and says so when it has no
+    /// reading. The strip leaves this off and keeps its availability-filtered lookup
+    /// (a vanished stat collapses to an empty card, as before).
+    var showsUnavailableState = false
 
     /// Card graph geometry. Wide enough for roughly a minute of 2pt bars — the
     /// same buffer the 34pt strip slot shows only the tail of.
@@ -33,9 +37,15 @@ struct StatDetailView: View {
         let theme = AppSettings.shared.theme
         // Tolerate the stat vanishing while open (e.g. battery unplugged) by
         // collapsing to an empty card rather than crashing on a stale lookup.
-        let descriptor = store.visibleStats.first { $0.kind == kind }
+        let descriptor = showsUnavailableState
+            ? store.resolvedDescriptor(for: kind)
+            : store.visibleStats.first { $0.kind == kind }
         Group {
-            if let descriptor { content(descriptor, theme: theme) }
+            if let descriptor {
+                content(descriptor, theme: theme)
+            } else if showsUnavailableState {
+                unavailableContent(theme: theme)
+            }
         }
         .frame(width: transferStat == nil ? nil : Self.transferWidth, alignment: .leading)
         .padding(12)
@@ -48,6 +58,19 @@ struct StatDetailView: View {
         .onDisappear {
             if let transferStat { store.cancelTransferReset(for: transferStat) }
         }
+    }
+
+    /// Distinct from a measured zero: names the stat and says no reading exists.
+    private func unavailableContent(theme: Theme) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("\(kind.displayName) unavailable")
+                .font(theme.fonts.detailTitle)
+                .foregroundStyle(theme.colors.primaryText)
+            Text("No reading on this Mac right now.")
+                .font(theme.fonts.detailValue)
+                .foregroundStyle(theme.colors.secondaryText)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder

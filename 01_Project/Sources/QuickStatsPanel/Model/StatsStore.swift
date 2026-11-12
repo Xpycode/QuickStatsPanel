@@ -42,6 +42,10 @@ final class StatsStore {
     @ObservationIgnored private var networkGeneration: UUID?
     @ObservationIgnored private var transferSleeping = false
     @ObservationIgnored private var terminating = false
+    #if DEBUG
+    /// Ring fixture mode: re-applied on each show because hiding clears the list.
+    @ObservationIgnored var fixtureTopProcesses: TopProcessesSample?
+    #endif
 
     init(transferHistoryRoot: URL? = nil, transferClock: (any TransferClock)? = nil,
          transferHistoryAutomaticallySchedules: Bool = true,
@@ -404,9 +408,80 @@ final class StatsStore {
         panelVisible = visible
         if visible {
             topProcessSampler?.start()
+            #if DEBUG
+            if let fixtureTopProcesses { topProcesses = fixtureTopProcesses }
+            #endif
         } else {
             topProcessSampler?.stop()
             topProcesses = .empty   // don't show last session's processes next summon
         }
     }
 }
+
+#if DEBUG
+extension StatsStore {
+    /// Disposable store for ring fixture mode: its own temporary transfer-history
+    /// root, no sampler or history startup, readings seeded deterministically.
+    static func makeRingFixtureStore(unavailable: Set<StatKind>) -> StatsStore {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("QuickStatsPanel-ring-fixture-\(UUID().uuidString)", isDirectory: true)
+        let store = StatsStore(transferHistoryRoot: root, transferHistoryAutomaticallySchedules: false)
+        store.seedRingFixture(unavailable: unavailable)
+        return store
+    }
+
+    /// Fixed readings, histories and process lists for the detail cards. Kinds in
+    /// `unavailable` keep their empty sample so they resolve as unavailable.
+    func seedRingFixture(unavailable: Set<StatKind>) {
+        cpu = CPUSample(totalUsagePercent: 42, userPercent: 28, systemPercent: 14, idlePercent: 58)
+        memory = MemorySample(usedBytes: 19_400_000_000, totalBytes: 34_359_738_368, pressurePercent: 38,
+                              appBytes: 9_000_000_000, wiredBytes: 3_000_000_000, compressedBytes: 2_000_000_000)
+        disk = DiskSample(usedBytes: 640_000_000_000, freeBytes: 360_000_000_000, totalBytes: 1_000_000_000_000,
+                          readBytesPerSec: 12_000_000, writeBytesPerSec: 3_000_000)
+        network = NetworkSample(downBytesPerSec: 4_200_000, upBytesPerSec: 300_000,
+                                interfaceName: "Wi-Fi (en0)", localIP: "192.168.1.20")
+        temps = TemperatureSample(thermalState: .fair, sensors: [])
+        loadAverage = LoadSample(one: 2.1, five: 1.8, fifteen: 1.5)
+        uptime = UptimeSample(seconds: 3 * 86_400 + 4 * 3_600)
+        if !unavailable.contains(.battery) {
+            battery = BatterySample(isPresent: true, percent: 76, isCharging: false, isOnAC: false,
+                                    minutesRemaining: 312, healthPercent: 91, cycleCount: 212, temperatureC: 31)
+        }
+        if !unavailable.contains(.gpu) {
+            gpu = GPUSample(isAvailable: true, utilizationPercent: 37, deviceName: "Apple GPU")
+        }
+        if !unavailable.contains(.fan) {
+            fan = FanSample(hasFans: true, fans: [FanSample.Fan(current: 1_800, min: 1_200, max: 5_800)])
+        }
+        if !unavailable.contains(.power) {
+            power = PowerSample(isAvailable: true, cpuWatts: 4.2, gpuWatts: 1.1, aneWatts: 0, dramWatts: 0.6,
+                                loadPercent: 40, systemWatts: 12.5, dcInWatts: 0)
+        }
+
+        let capacity = Self.historyCapacity(interval: AppSettings.shared.interval)
+        cpuHistory = RingBuffer(capacity: capacity)
+        memoryHistory = RingBuffer(capacity: capacity)
+        diskHistory = RingBuffer(capacity: capacity)
+        networkHistory = RingBuffer(capacity: capacity)
+        gpuHistory = RingBuffer(capacity: capacity)
+        for step in 0..<30 {
+            let wave = Double((step * 7) % 23)
+            var c = cpu; c.totalUsagePercent = 20 + wave * 2; cpuHistory.append(c)
+            var m = memory; m.usedBytes = 18_000_000_000 + UInt64(wave) * 100_000_000; memoryHistory.append(m)
+            var d = disk; d.readBytesPerSec = 2_000_000 + wave * 600_000; d.writeBytesPerSec = 500_000 + wave * 150_000
+            diskHistory.append(d)
+            var n = network; n.downBytesPerSec = 1_000_000 + wave * 250_000; n.upBytesPerSec = 100_000 + wave * 20_000
+            networkHistory.append(n)
+            var g = gpu; g.utilizationPercent = 15 + wave * 2; gpuHistory.append(g)
+        }
+
+        let processes = TopProcessesSample(
+            byCPU: [ProcStat(name: "Xcode", value: 38), ProcStat(name: "Safari", value: 12),
+                    ProcStat(name: "WindowServer", value: 7), ProcStat(name: "Music", value: 3)],
+            byMemory: [ProcStat(name: "Xcode", value: 4_200_000_000), ProcStat(name: "Safari", value: 2_100_000_000),
+                       ProcStat(name: "Slack", value: 900_000_000), ProcStat(name: "Music", value: 400_000_000)])
+        fixtureTopProcesses = processes
+        topProcesses = processes
+    }
+}
+#endif
