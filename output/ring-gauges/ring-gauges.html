@@ -1,0 +1,377 @@
+<title>Ring Gauge Studies</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: a live ring on a "desktop" stage beside a settings column; per-stat encoding notes below. Single dark look, like the HUD itself. */
+:root {
+  color-scheme: dark;
+  --page: #15171a;
+  --panel: #1d2024;
+  --line: #2f3338;
+  --fg: #eceff2;
+  --muted: #9aa3ad;
+  --accent: #6fb3ee;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-head: "Space Grotesk", -apple-system, "Inter", system-ui, sans-serif;
+  --font-mono: "SF Mono", ui-monospace, Menlo, monospace;
+}
+body { background: var(--page); color: var(--fg); font-family: var(--font-ui); font-size: 14px; line-height: 1.5; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 28px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px; }
+header h1 { font-family: var(--font-head); font-size: 28px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 70ch; }
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+@media (max-width: 860px) { .main { grid-template-columns: minmax(0, 1fr); } }
+.stage { border-radius: 10px; border: 1px solid var(--line); overflow: hidden; background:
+  radial-gradient(120% 90% at 20% 10%, #3a4a5e 0%, transparent 60%),
+  radial-gradient(90% 80% at 85% 90%, #4d3b52 0%, transparent 55%), #23272d; display: grid; place-items: center; padding: 12px; position: relative; }
+.stage svg { width: 540px; max-width: 100%; height: auto; display: block; }
+.stage .caption { position: absolute; left: 12px; bottom: 10px; font-size: 12px; color: #c9d0d7; font-family: var(--font-mono); background: rgba(0,0,0,.35); padding: 2px 8px; border-radius: 4px; }
+.fitwarn { position: absolute; right: 12px; bottom: 10px; font-size: 12px; color: #ffd27a; background: rgba(0,0,0,.45); padding: 2px 8px; border-radius: 4px; max-width: 60%; }
+aside { display: grid; gap: 14px; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 12px; }
+.box h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0; font-weight: 600; }
+.row { display: grid; gap: 4px; }
+.row label, .row .lab { font-size: 13px; display: flex; justify-content: space-between; gap: 8px; }
+.row output { color: var(--muted); font-family: var(--font-mono); font-size: 12px; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+select { width: 100%; background: #2a2e33; color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; font: inherit; font-size: 13px; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.check input { accent-color: var(--accent); }
+select:focus-visible, input:focus-visible, .wedge:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.readout h3 { margin: 0; font-size: 16px; font-weight: 600; }
+.readout .enc { color: var(--muted); font-size: 13px; margin: 0; }
+.comp { display: grid; grid-template-columns: 12px 1fr auto; gap: 6px 8px; align-items: center; font-size: 13px; }
+.comp i { width: 12px; height: 12px; border-radius: 3px; display: block; }
+.comp span:last-child { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.wedge { cursor: pointer; outline: none; }
+section h2 { font-family: var(--font-head); font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+section > p { color: var(--muted); margin: 0 0 16px; max-width: 70ch; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.card h3 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.card h3 i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.card dl { margin: 0; display: grid; grid-template-columns: 64px 1fr; gap: 4px 10px; font-size: 13px; }
+.card dt { color: var(--muted); }
+.card dd { margin: 0; }
+code { font-family: var(--font-mono); font-size: 12px; color: #c8d3de; }
+@keyframes pulse { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+.pulse { animation: pulse 1.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .pulse { animation: none; opacity: .8; } }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&display=swap">
+
+<div class="wrap">
+  <header>
+    <h1>Ring Gauge Studies</h1>
+    <p>Each wedge becomes a radial gauge: the inner edge is 0, the outer edge is the stat's ceiling, and the fill grows outward. Values are simulated. Hover or focus a wedge to see what its fill is made of. Faint dotted rings are scale references. The dotted circle is the current prototype's 520 pt footprint, for comparison.</p>
+  </header>
+
+  <div class="main">
+    <div class="stage">
+      <svg id="ring" viewBox="0 0 540 540" role="img" aria-label="Simulated stats ring"></svg>
+      <div class="caption" id="caption"></div>
+      <div class="fitwarn" id="fitwarn" hidden></div>
+    </div>
+
+    <aside>
+      <div class="box readout" id="readout" aria-live="polite"></div>
+
+      <div class="box">
+        <h2>Size</h2>
+        <div class="row"><label for="outer">Ring diameter <output id="outerOut"></output></label><input id="outer" type="range" min="120" max="260" step="5" value="180"></div>
+        <div class="row"><label for="hole">Centre hub <output id="holeOut"></output></label><input id="hole" type="range" min="25" max="55" step="1" value="36"></div>
+        <label class="check"><input id="ghost" type="checkbox" checked> Show current prototype size</label>
+      </div>
+
+      <div class="box">
+        <h2>Overlay</h2>
+        <div class="row"><label for="overlay" class="lab">Wedge text</label>
+          <select id="overlay">
+            <option value="label">Label and value</option>
+            <option value="value">Value only</option>
+            <option value="icon">Icon and value</option>
+            <option value="iconOnly">Icon only</option>
+            <option value="none">None (pure gauge)</option>
+          </select></div>
+      </div>
+
+      <div class="box">
+        <h2>Fill</h2>
+        <div class="row"><label for="colour" class="lab">Colour</label>
+          <select id="colour">
+            <option value="segments">Components (one hue per stat)</option>
+            <option value="band">Status band (calm, busy, hot)</option>
+            <option value="heat">Heat ramp (fixed to radius)</option>
+            <option value="mono">Mono</option>
+          </select></div>
+        <div class="row"><label for="opacity">Fill strength <output id="opacityOut"></output></label><input id="opacity" type="range" min="15" max="100" step="5" value="80"></div>
+        <div class="row"><label for="track">Empty track <output id="trackOut"></output></label><input id="track" type="range" min="0" max="40" step="2" value="10"></div>
+        <div class="row"><label for="scale" class="lab">Radius scale</label>
+          <select id="scale">
+            <option value="area">Equal area (area-true)</option>
+            <option value="linear">Linear radius (bar-like)</option>
+          </select></div>
+        <label class="check"><input id="refs" type="checkbox" checked> Reference rings at 25, 50, 75 %</label>
+        <label class="check"><input id="peaks" type="checkbox" checked> 60-second peak ticks</label>
+      </div>
+
+      <div class="box">
+        <h2>Scenario</h2>
+        <div class="row"><label for="disk" class="lab">Disk shows</label>
+          <select id="disk"><option value="capacity">Capacity, with activity rim</option><option value="activity">Activity (read and write)</option></select></div>
+        <div class="row"><label for="power" class="lab">Power source</label>
+          <select id="power"><option value="charging">Charging</option><option value="hold">Plugged in, not charging</option><option value="ac">On power, full</option><option value="battery">On battery</option></select></div>
+        <label class="check"><input id="pulse" type="checkbox"> Pulse the fill edge while charging</label>
+        <label class="check"><input id="live" type="checkbox" checked> Animate values</label>
+      </div>
+    </aside>
+  </div>
+
+  <section>
+    <h2>How each wedge encodes its stat</h2>
+    <p>Fields refer to the samplers that exist today. Where today's numbers would mislead in a gauge, the note says what changes.</p>
+    <div class="cards" id="cards"></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  const C = 270, GAP = 2; // centre; half the 4 pt separator
+  const $ = id => document.getElementById(id);
+  const S = { outer: 180, hole: 36, ghost: true, overlay: 'label', colour: 'segments', opacity: .8, track: .10, scale: 'area', refs: true, pulse: false, peaks: true, disk: 'capacity', power: 'charging', live: true, focus: 'cpu' };
+
+  // Colours ---------------------------------------------------------------
+  const P = {
+    cpu: ['#3f8fe0', '#8fc2f5', '#c6d9ee'],
+    mem: ['#8f6ff0', '#bba6f7', '#6650c0', '#ddd3fb'],
+    disk: ['#35b2a2', '#a3e3d9'],
+    net: ['#4fc3d9', '#f0b24f'],
+    bat: ['#5cc26b'],
+    gpu: ['#d46fd0'],
+    pwr: ['#f0a03c', '#d46fd0', '#4fc3d9', '#9aa3ad', '#5d636b'],
+    band: { calm: '#5cc26b', busy: '#e3b23c', hot: '#ef5f4f' },
+    mono: '#e8ebef',
+    surface: '#24272b', hub: '#2c2f33', label: '#aab2bb', value: '#f3f5f7'
+  };
+  const HEAT = [[0, '#6a2c91'], [.4, '#c0397a'], [.72, '#f0743a'], [1, '#fbe27a']]; // magma-like: lightness rises with heat
+
+  // Simulation --------------------------------------------------------------
+  const sim = {
+    cpu: { user: 30, system: 12, nice: 1 },
+    mem: { total: 32, app: 10.4, wired: 3.6, compressed: 2.1, other: 1.97 },
+    disk: { used: 341.2, total: 994.7, lr: 6.3, lw: 5.8 },
+    net: { ld: 6.6, lu: 5.25 },
+    bat: { pct: 76 },
+    gpu: { util: 37 },
+    pwr: { cpu: 2.6, gpu: 1.5, ane: .05, dram: .4, rest: 1.4, ceiling: 30 },
+    tmp: { c: 58 }
+  };
+  const hist = {};
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const walk = (v, step, lo, hi, mean, pull) => clamp(v + (Math.random() - .5) * step + (mean - v) * pull, lo, hi);
+  function step() {
+    const c = sim.cpu; c.user = walk(c.user, 14, 2, 85, 30, .08); c.system = walk(c.system, 6, 1, 35, 12, .1); c.nice = walk(c.nice, 1, 0, 5, 1, .2);
+    if (c.user + c.system + c.nice > 99) c.user = 99 - c.system - c.nice;
+    const m = sim.mem; m.app = walk(m.app, .5, 6, 16, 10.4, .05); m.compressed = walk(m.compressed, .2, .5, 5, 2.1, .05);
+    const d = sim.disk; d.lr = walk(d.lr, .8, 3, 9, 6.3, .1); d.lw = walk(d.lw, .8, 3, 8.5, 5.8, .1);
+    const n = sim.net; n.ld = walk(n.ld, .7, 3, 8.6, 6.6, .1); n.lu = walk(n.lu, .7, 3, 7.5, 5.25, .1);
+    sim.gpu.util = walk(sim.gpu.util, 12, 0, 98, 37, .08);
+    const p = sim.pwr; p.cpu = walk(p.cpu, 1.2, .3, 18, 2.6, .1); p.gpu = walk(p.gpu, .8, .1, 10, 1.5, .1); p.ane = walk(p.ane, .05, 0, 1, .05, .2); p.dram = walk(p.dram, .1, .1, 1.5, .4, .1);
+    sim.tmp.c = walk(sim.tmp.c, 2.5, 38, 96, 58, .06);
+    if (S.power === 'charging') sim.bat.pct = Math.min(100, sim.bat.pct + .05);
+    if (S.power === 'battery') sim.bat.pct = Math.max(5, sim.bat.pct - .02);
+    if (S.power === 'ac') sim.bat.pct = 100;
+    if (S.power === 'hold') sim.bat.pct = 80;
+  }
+  function track(key, f) { const h = hist[key] || (hist[key] = []); h.push(f); if (h.length > 60) h.shift(); return Math.max(...h); }
+
+  // Formatting --------------------------------------------------------------
+  const dec = (v, n) => v.toFixed(n).replace('.', ',');
+  function rate(b) { if (b < 1e3) return Math.round(b) + ' B/s'; if (b < 1e6) return Math.round(b / 1e3) + ' KB/s'; if (b < 1e9) return dec(b / 1e6, 1) + ' MB/s'; return dec(b / 1e9, 2) + ' GB/s'; }
+  const logF = b => clamp((Math.log10(Math.max(b, 1)) - 3) / 6, 0, 1); // 1 KB/s .. 1 GB/s
+  function bandOf(pct, reversed) { const v = reversed ? 100 - pct : pct; return v >= 80 ? 'hot' : v >= 50 ? 'busy' : 'calm'; }
+
+  // Stat models -------------------------------------------------------------
+  const STATS = [
+    { id: 'cpu', name: 'CPU', model() { const c = sim.cpu, t = c.user + c.system + c.nice; return { value: Math.round(t) + '%', pct: t, segs: [
+      { f: c.user / 100, c: P.cpu[0], n: 'User', t: Math.round(c.user) + '%' }, { f: c.system / 100, c: P.cpu[1], n: 'System', t: Math.round(c.system) + '%' }, { f: c.nice / 100, c: P.cpu[2], n: 'Nice (derived)', t: dec(c.nice, 1) + '%' }],
+      peak: track('cpu', t / 100), scaleNote: '0 to 100 % of all cores' }; } },
+    { id: 'mem', name: 'Memory', model() { const m = sim.mem, used = m.app + m.wired + m.compressed + m.other; return { value: dec(used, 2) + ' GB', pct: used / m.total * 100, segs: [
+      { f: m.app / m.total, c: P.mem[0], n: 'App', t: dec(m.app, 1) + ' GB' }, { f: m.wired / m.total, c: P.mem[1], n: 'Wired', t: dec(m.wired, 1) + ' GB' },
+      { f: m.compressed / m.total, c: P.mem[2], n: 'Compressed', t: dec(m.compressed, 1) + ' GB' }, { f: m.other / m.total, c: P.mem[3], n: 'Other used', t: dec(m.other, 1) + ' GB' }],
+      scaleNote: '0 to ' + m.total + ' GB installed' }; } },
+    { id: 'disk', name: 'Disk', model() { const d = sim.disk, r = 10 ** d.lr, w = 10 ** d.lw;
+      if (S.disk === 'activity') return { value: 'R ' + rate(r), secondary: 'W ' + rate(w), pct: 0, split: true,
+        L: [{ f: logF(r), c: P.disk[0], n: 'Read', t: rate(r) }], R: [{ f: logF(w), c: P.disk[1], n: 'Write', t: rate(w) }], peakL: track('dr', logF(r)), peakR: track('dw', logF(w)), log: true, scaleNote: 'Log: 1 KB/s to 1 GB/s, read left, write right' };
+      return { value: dec(d.used, 1) + ' GB', pct: d.used / d.total * 100, segs: [{ f: d.used / d.total, c: P.disk[0], n: 'Used', t: dec(d.used, 1) + ' GB' }],
+        rim: logF(r + w), rimText: rate(r + w), scaleNote: '0 to ' + Math.round(d.total) + ' GB; outer rim brightens with I/O' }; } },
+    { id: 'net', name: 'Network', model() { const n = sim.net, dn = 10 ** n.ld, up = 10 ** n.lu; return { value: '↓ ' + rate(dn), secondary: '↑ ' + rate(up), pct: 0, split: true,
+      L: [{ f: logF(dn), c: P.net[0], n: 'Download', t: rate(dn) }], R: [{ f: logF(up), c: P.net[1], n: 'Upload', t: rate(up) }],
+      peakL: track('nd', logF(dn)), peakR: track('nu', logF(up)), log: true, scaleNote: 'Log: 1 KB/s to 1 GB/s, download left, upload right' }; } },
+    { id: 'bat', name: 'Battery', model() { const b = sim.bat.pct; const sec = S.power === 'charging' ? '0:48 to full' : S.power === 'ac' ? 'On power' : S.power === 'hold' ? 'Not charging' : '3:12 left';
+      return { value: Math.round(b) + '%', secondary: sec, pct: b, reversed: true, segs: [{ f: b / 100, c: P.bat[0], n: 'Charge', t: Math.round(b) + '%' }], source: S.power, scaleNote: 'Charge 0 to 100 %, colour reversed (low reads hot)' }; } },
+    { id: 'gpu', name: 'GPU', model() { const g = sim.gpu.util; return { value: Math.round(g) + '%', pct: g, segs: [{ f: g / 100, c: P.gpu[0], n: 'Utilisation', t: Math.round(g) + '%' }], peak: track('gpu', g / 100), scaleNote: '0 to 100 % utilisation' }; } },
+    { id: 'pwr', name: 'Power', model() { const p = sim.pwr, tot = p.cpu + p.gpu + p.ane + p.dram + p.rest, k = 1 / p.ceiling; return { value: dec(tot, 1) + ' W', pct: tot * k * 100, segs: [
+      { f: p.cpu * k, c: P.pwr[0], n: 'CPU', t: dec(p.cpu, 1) + ' W' }, { f: p.gpu * k, c: P.pwr[1], n: 'GPU', t: dec(p.gpu, 1) + ' W' }, { f: p.ane * k, c: P.pwr[2], n: 'Neural Engine', t: dec(p.ane, 2) + ' W' },
+      { f: p.dram * k, c: P.pwr[3], n: 'DRAM', t: dec(p.dram, 1) + ' W' }, { f: p.rest * k, c: P.pwr[4], n: 'Rest of system', t: dec(p.rest, 1) + ' W' }],
+      peak: track('pwr', tot * k), scaleNote: '0 to ' + p.ceiling + ' W ceiling (a setting)' }; } },
+    { id: 'tmp', name: 'Temperature', model() { const t = sim.tmp.c, state = t < 72 ? 'Nominal' : t < 86 ? 'Fair' : t < 94 ? 'Serious' : 'Critical'; const f = clamp((t - 30) / 70, 0, 1);
+      return { value: Math.round(t) + ' °C', secondary: state, state, pct: f * 100, heatOnly: true, segs: [{ f, c: null, n: 'Hottest sensor', t: dec(t, 1) + ' °C' }], scaleNote: '30 to 100 °C, colour fixed to radius' }; } }
+  ];
+
+  // Icons (16x16, stroked) ---------------------------------------------------
+  const ICON = {
+    cpu: 'M4 4h8v8H4z M6 1v3 M10 1v3 M6 12v3 M10 12v3 M1 6h3 M1 10h3 M12 6h3 M12 10h3',
+    mem: 'M1 5h14v6H1z M4 11v2 M7 11v2 M10 11v2 M13 11v2 M4 7h2v2H4z M10 7h2v2h-2z',
+    disk: 'M2 4h12v8H2z M2 9h12 M11 10.5h1',
+    net: 'M5 2v11 M2 10l3 3 3-3 M11 14V3 M8 6l3-3 3 3',
+    bat: 'M1 5h12v6H1z M14 7v2 M3 7h6v2H3z',
+    gpu: 'M1 4h14v8H1z M4 7h3v2H4z M9 7h3v2H9z M3 12v2 M13 12v2',
+    pwr: 'M9 1L3 9h5l-1 6 6-8H8z',
+    tmp: 'M6.5 2.5a1.5 1.5 0 0 1 3 0v7a3 3 0 1 1-3 0z M8 6v5',
+    plug: 'M5.5 1v4 M10.5 1v4 M3 5h10v3a5 5 0 0 1-10 0z M8 13v3',
+    gear: 'M8 5.5a2.5 2.5 0 1 0 0 5a2.5 2.5 0 1 0 0-5z M8 1v2 M8 13v2 M1 8h2 M13 8h2 M3 3l1.5 1.5 M11.5 11.5L13 13 M3 13l1.5-1.5 M11.5 4.5L13 3'
+  };
+  const icon = (k, x, y, s, col, w) => `<path d="${ICON[k]}" transform="translate(${x - s / 2} ${y - s / 2}) scale(${s / 16})" fill="none" stroke="${col}" stroke-width="${(w || 1.4) * 16 / s}" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+  // Geometry ------------------------------------------------------------------
+  const pol = (r, a) => [+(C + r * Math.sin(a)).toFixed(2), +(C - r * Math.cos(a)).toFixed(2)];
+  function sector(r0, r1, a0, a1, d) {
+    if (r1 - r0 < .3) return '';
+    const e0 = r => a0 + Math.asin(Math.min(1, d / r)), e1 = r => a1 - Math.asin(Math.min(1, d / r));
+    if (e1(r0) <= e0(r0)) return '';
+    const p1 = pol(r0, e0(r0)), p2 = pol(r1, e0(r1)), p3 = pol(r1, e1(r1)), p4 = pol(r0, e1(r0));
+    const L1 = e1(r1) - e0(r1) > Math.PI ? 1 : 0, L0 = e1(r0) - e0(r0) > Math.PI ? 1 : 0;
+    return `M${p1}L${p2}A${r1} ${r1} 0 ${L1} 1 ${p3}L${p4}A${r0} ${r0} 0 ${L0} 0 ${p1}Z`;
+  }
+  function arc(r, a0, a1, d) { const e0 = a0 + Math.asin(Math.min(1, d / r)), e1 = a1 - Math.asin(Math.min(1, d / r)); return `M${pol(r, e0)}A${r} ${r} 0 0 1 ${pol(r, e1)}`; }
+  const radii = () => { const r1 = S.outer, r0 = Math.round(r1 * S.hole / 100); return { r0, r1 }; };
+  function rad(f, r0, r1) { f = clamp(f, 0, 1); return S.scale === 'area' ? Math.sqrt(r0 * r0 + f * (r1 * r1 - r0 * r0)) : r0 + f * (r1 - r0); }
+
+  // Rendering -------------------------------------------------------------------
+  const ctx = document.createElement('canvas').getContext('2d');
+  const tw = (s, px, wt) => { ctx.font = `${wt} ${px}px ${getComputedStyle(document.body).fontFamily}`; return ctx.measureText(s).width; };
+
+  function fillColour(stat, seg, m) {
+    if (S.colour === 'heat' || m.heatOnly) return m.reversed ? 'url(#heatRev)' : 'url(#heat)';
+    if (S.colour === 'band') return P.band[bandOf(m.pct, m.reversed)];
+    if (S.colour === 'mono') return P.mono;
+    return seg.c;
+  }
+
+  function stack(stat, m, segs, r0, r1, a0, a1, d) {
+    let out = '', cum = 0;
+    const segsOn = S.colour === 'segments' && !m.heatOnly;
+    segs.forEach((s, i) => {
+      const ra = rad(cum, r0, r1); cum += s.f; const rb = rad(cum, r0, r1);
+      out += `<path d="${sector(ra, rb, a0, a1, d)}" fill="${fillColour(stat, s, m)}" fill-opacity="${S.opacity}"/>`;
+      if (!segsOn && i > 0 && segs.length > 1) out += `<path d="${arc(ra, a0, a1, d)}" stroke="#000" stroke-opacity=".35" fill="none"/>`;
+    });
+    return { out, top: rad(cum, r0, r1) };
+  }
+
+  function updateDefs(r0, r1) {
+    ['heat', 'heatRev'].forEach(id => {
+      const g = $(id), rev = id === 'heatRev'; g.setAttribute('r', r1);
+      const stops = HEAT.map(([t, c]) => [rad(rev ? 1 - t : t, r0, r1) / r1, c]).sort((a, b) => a[0] - b[0]);
+      [...g.children].forEach((st, i) => { st.setAttribute('offset', stops[i][0].toFixed(4)); st.setAttribute('stop-color', stops[i][1]); });
+    });
+  }
+
+  let models = {};
+  function render() {
+    const { r0, r1 } = radii(), n = STATS.length, span = Math.PI * 2 / n, rt = (r0 + r1) / 2;
+    updateDefs(r0, r1); $('ghostRing').style.display = S.ghost ? '' : 'none';
+    let misfits = 0;
+    STATS.forEach((stat, i) => {
+      const m = models[stat.id] = stat.model();
+      const a0 = i * span - span / 2, a1 = a0 + span, am = i * span;
+      let g = `<path d="${sector(r0, r1, a0, a1, GAP)}" fill="${P.surface}" fill-opacity=".92"/>`;
+      g += `<path d="${sector(r0, r1, a0, a1, GAP)}" fill="#fff" fill-opacity="${S.track}"/>`;
+      const STATE_TINT = { Fair: P.band.busy, Serious: '#f0743a', Critical: P.band.hot };
+      if (STATE_TINT[m.state]) g += `<path d="${sector(r0, r1, a0, a1, GAP)}" fill="${STATE_TINT[m.state]}" fill-opacity=".16"/>`;
+      if (m.split) {
+        const L = stack(stat, m, m.L, r0, r1, a0, am, GAP), R = stack(stat, m, m.R, r0, r1, am, a1, GAP);
+        g += L.out + R.out;
+        g += `<path d="M${pol(r0 + 2, am)}L${pol(r1 - 2, am)}" stroke="${P.surface}" stroke-width="1.5"/>`;
+        [1 / 3, 2 / 3].forEach(t => { const r = rad(t, r0, r1); g += `<path d="${arc(r, a0, a1, GAP)}" stroke="#fff" stroke-opacity=".18" stroke-dasharray="1 3" fill="none"/>`; });
+        if (S.peaks) { g += `<path d="${arc(rad(m.peakL, r0, r1), a0, am, GAP + 1)}" stroke="#fff" stroke-width="2" fill="none" opacity=".85"/>`;
+                       g += `<path d="${arc(rad(m.peakR, r0, r1), am, a1, GAP + 1)}" stroke="#fff" stroke-width="2" fill="none" opacity=".85"/>`; }
+      } else {
+        const st = stack(stat, m, m.segs, r0, r1, a0, a1, GAP);
+        g += st.out;
+        if (S.refs) [.25, .5, .75].forEach(t => { g += `<path d="${arc(rad(t, r0, r1), a0, a1, GAP)}" stroke="#fff" stroke-opacity=".2" stroke-dasharray="1 3" fill="none"/>`; });
+        if (m.rim !== undefined) g += `<path d="${arc(r1 - 3, a0, a1, GAP + 1)}" stroke="${P.disk[1]}" stroke-width="4" fill="none" opacity="${(.1 + .9 * m.rim).toFixed(2)}"/>`;
+        if (S.peaks && m.peak !== undefined) g += `<path d="${arc(rad(m.peak, r0, r1), a0, a1, GAP + 1)}" stroke="#fff" stroke-width="2" fill="none" opacity=".85"/>`;
+        if (m.source === 'charging' && S.pulse) g += `<path class="pulse" d="${arc(st.top, a0, a1, GAP + 1)}" stroke="#d9ffe0" stroke-width="3" fill="none"/>`;
+        if (m.source && m.source !== 'battery') { const [x, y] = pol(r1 - 13, am); g += icon(m.source === 'charging' ? 'pwr' : 'plug', x, y, 13, m.source === 'hold' ? P.band.busy : '#f3f5f7', 1.3); }
+      }
+      // Overlay text
+      const [cx, cy] = pol(rt, am), halo = 'paint-order="stroke" stroke="#16181b" stroke-opacity=".55" stroke-width="3" stroke-linejoin="round"';
+      const lines = [];
+      if (S.overlay === 'label') { lines.push([stat.name, 13, 500, P.label]); lines.push([m.value, 16, 600, P.value]); if (m.secondary) lines.push([m.secondary, 12, 400, P.label]); }
+      if (S.overlay === 'value' || S.overlay === 'icon') lines.push([m.value, 16, 600, P.value]);
+      const iconSize = S.overlay === 'iconOnly' ? 20 : 16, hasIcon = S.overlay === 'icon' || S.overlay === 'iconOnly';
+      const lh = l => l[1] + 3, total = lines.reduce((s, l) => s + lh(l), 0) + (hasIcon ? iconSize + 4 : 0);
+      let y = cy - total / 2;
+      if (hasIcon) { g += icon(stat.id, cx, y + iconSize / 2, iconSize, P.value, 1.5); y += iconSize + 4; }
+      const avail = 2 * rt * Math.sin(span / 2) - 2 * GAP - 8;
+      let widest = 0;
+      lines.forEach(l => { widest = Math.max(widest, tw(l[0], l[1], l[2])); g += `<text x="${cx}" y="${y + l[1] * .8}" text-anchor="middle" font-size="${l[1]}" font-weight="${l[2]}" fill="${l[3]}" ${halo} style="font-variant-numeric:tabular-nums">${l[0]}</text>`; y += lh(l); });
+      if (widest > avail || total > (r1 - r0) - 8) misfits++;
+      const el = document.getElementById('w-' + stat.id);
+      el.innerHTML = g;
+    });
+    // hub
+    const hr = r0 - 6;
+    let hub = `<circle cx="${C}" cy="${C}" r="${hr}" fill="${P.hub}" stroke="#fff" stroke-opacity=".14"/>`;
+    hub += hr >= 58 ? icon('gear', C - 34, C, 14, P.value, 1.3) + `<text x="${C - 22}" y="${C + 5}" font-size="13" font-weight="600" fill="${P.value}">Settings</text>` : icon('gear', C, C, 16, P.value, 1.3);
+    $('hub').innerHTML = hub;
+    $('caption').textContent = `${r1 * 2} × ${r1 * 2} pt · hub ${r0 * 2} pt · wedge depth ${r1 - r0} pt`;
+    const fw = $('fitwarn'); fw.hidden = misfits === 0; fw.textContent = misfits ? `Text overflows ${misfits} of 8 wedges at this size. Try Value only or an icon mode.` : '';
+    readout();
+  }
+
+  function readout() {
+    const stat = STATS.find(s => s.id === S.focus), m = models[S.focus]; if (!m) return;
+    const segs = m.split ? [...m.L, ...m.R] : m.segs;
+    const sw = s => (S.colour === 'segments' && !m.heatOnly) ? s.c : S.colour === 'mono' && !m.heatOnly ? P.mono : S.colour === 'band' && !m.heatOnly ? P.band[bandOf(m.pct, m.reversed)] : 'linear-gradient(90deg,#6a2c91,#c0397a,#f0743a,#fbe27a)';
+    $('readout').innerHTML = `<h2>Focused wedge</h2><h3>${stat.name} · ${m.value}</h3><p class="enc">${m.scaleNote}</p>
+      <div class="comp">${segs.map(s => `<i style="background:${sw(s)}"></i><span>${s.n}</span><span>${s.t}</span>`).join('')}
+      ${m.rimText ? `<i style="background:${P.disk[1]};opacity:.7"></i><span>I/O rim</span><span>${m.rimText}</span>` : ''}</div>`;
+  }
+
+  function build() {
+    const svg = $('ring');
+    const grad = id => `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${C}" cy="${C}" r="200">${HEAT.map(() => '<stop offset="0" stop-color="#000"/>').join('')}</radialGradient>`;
+    svg.innerHTML = `<defs>${grad('heat')}${grad('heatRev')}</defs><circle id="ghostRing" cx="${C}" cy="${C}" r="260" fill="none" stroke="#fff" stroke-opacity=".35" stroke-dasharray="2 5"/>` + STATS.map(s => `<g class="wedge" id="w-${s.id}" tabindex="0" role="button" aria-label="${s.name}"></g>`).join('') + `<g id="hub"></g>`;
+    STATS.forEach(s => { const el = $('w-' + s.id); const f = () => { S.focus = s.id; readout(); }; el.addEventListener('mouseenter', f); el.addEventListener('focus', f); el.addEventListener('click', f); });
+  }
+
+  // Controls -------------------------------------------------------------------
+  function sync() {
+    S.outer = +$('outer').value / 1; S.hole = +$('hole').value; S.ghost = $('ghost').checked; S.overlay = $('overlay').value; S.colour = $('colour').value;
+    S.opacity = +$('opacity').value / 100; S.track = +$('track').value / 100; S.scale = $('scale').value; S.peaks = $('peaks').checked; S.refs = $('refs').checked; S.pulse = $('pulse').checked; S.disk = $('disk').value; S.live = $('live').checked;
+    const prev = S.power; S.power = $('power').value; if (prev !== S.power && S.power !== 'ac' && sim.bat.pct > 99) sim.bat.pct = 76;
+    $('outerOut').textContent = S.outer * 2 + ' pt'; $('holeOut').textContent = S.hole + ' %'; $('opacityOut').textContent = Math.round(S.opacity * 100) + ' %'; $('trackOut').textContent = Math.round(S.track * 100) + ' %';
+    render();
+  }
+  ['outer', 'hole', 'opacity', 'track'].forEach(id => $(id).addEventListener('input', sync));
+  ['ghost', 'overlay', 'colour', 'scale', 'peaks', 'refs', 'pulse', 'disk', 'power', 'live'].forEach(id => $(id).addEventListener('change', sync));
+
+  // Cards ------------------------------------------------------------------------
+  const CARDS = [
+    ['CPU', P.cpu[0], 'User, system and nice stacked outward. Total reach = total load.', '0–100 %, all cores.', 'One hue; system and nice are lighter steps of it.', '60-second peak tick. <code>CPUSample</code> has user and system; nice = total − user − system.'],
+    ['Memory', P.mem[0], 'App, wired, compressed, other-used stacked. Empty = free.', '0 to installed RAM.', 'Violet steps per component.', 'Today’s “pressure” is used ÷ total. Real kernel memory pressure would be the better band driver.'],
+    ['Disk', P.disk[0], 'Choice: capacity (slow) or activity (read | write halves).', 'Capacity: 0 to volume size. Activity: log, 1 KB/s–1 GB/s.', 'Teal. In capacity mode a thin outer rim brightens with I/O.', 'Capacity barely moves, so the rim keeps the wedge alive.'],
+    ['Network', P.net[0], 'Split wedge: download left half, upload right half.', 'Log, 1 KB/s to 1 GB/s. Faint arcs mark 100 KB/s and 10 MB/s.', 'Cyan down, amber up (the existing graph pair).', 'Today’s 12.5 MB/s cap pins any real download at 100 %.'],
+    ['Battery', P.bat[0], 'Fill = charge.', '0–100 %.', 'Band is reversed: low charge reads hot.', 'Charging: bolt at the rim (pulse optional). Plugged in but not charging: amber plug, a real macOS state. Full on power: plug. On battery: no mark; time left as text.'],
+    ['GPU', P.gpu[0], 'Single fill.', '0–100 % utilisation.', 'Magenta; the same hue marks GPU inside the Power wedge.', 'No breakdown in <code>GPUSample</code>. Peak tick.'],
+    ['Power', P.pwr[0], 'CPU, GPU, Neural Engine, DRAM, then rest of system (system watts minus components).', 'Fixed ceiling per Mac, as a setting.', 'Each component borrows its own stat’s hue.', 'Today’s scale divides by a session peak that only rises; one spike shrinks every later reading.'],
+    ['Temperature', HEAT[2][1], 'Fill = hottest sensor.', '30–100 °C.', 'Heat ramp fixed to radius; lightness rises with heat, so it survives colour blindness.', 'macOS thermal state (Nominal…Critical) as text, and it tints the wedge from Fair upward. °C limits differ by chip.']
+  ];
+  $('cards').innerHTML = CARDS.map(([n, c, fill, scale, col, extra]) => `<div class="card"><h3><i style="background:${c}"></i>${n}</h3><dl><dt>Fill</dt><dd>${fill}</dd><dt>Scale</dt><dd>${scale}</dd><dt>Colour</dt><dd>${col}</dd><dt>Extra</dt><dd>${extra}</dd></dl></div>`).join('');
+
+  build(); sync();
+  setInterval(() => { if (S.live && !document.hidden) { step(); render(); } }, 1000);
+})();
+</script>

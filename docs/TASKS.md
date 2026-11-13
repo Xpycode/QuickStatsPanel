@@ -4,7 +4,7 @@
 
 ## Active plan
 
-[Native ring prototype](../IMPLEMENTATION_PLAN.md): 0/3 tasks; first ready task **1.1** (Wave 1). Plan reviewed and amended 2026-11-12; execution not requested; E1 owner review gates broader layouts/appearance. The plan owns task status and evidence.
+[Native ring prototype](../IMPLEMENTATION_PLAN.md): 0/3 tasks ticked; **1.1 implemented, concept look accepted**, four native owner checks outstanding; 1.2 blocked on them. E1 owner review gates broader layouts/appearance. The plan owns task status and evidence.
 
 Transfer history shipped as **v1.2.0 (1200)** on 2026-10-28: 8/8 implementation tasks complete;
 remaining E1 checks explicitly deferred by the owner to everyday use, not marked as tested.
@@ -23,6 +23,15 @@ remaining E1 checks explicitly deferred by the owner to everyday use, not marked
 The whole stats roadmap has shipped (D-017/D-018/D-019 + D-024), and configurable tiles + activity
 graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-10-28. Remaining work is the follow-up backlog below.
 **This file is the backlog** — `PROJECT_STATE.md` is a digest and points here.
+
+### Ring
+- [ ] **Ring wedge radial gauges** — owner idea, 2026-11-13. Each wedge fills from inner edge (0) to
+      outer edge (ceiling), stacked components, toggleable text/icon overlay, colour mode, fill
+      strength and size presets. Explored in [mockup](https://claude.ai/artifact/WNNwTzTsSQDTR63E8YUj9g)
+      (`output/ring-gauges/`); proposals and open questions in `sessions/2026-11-13.md`. Needs
+      `RingReading` fraction/segment fields and a sub-radius wedge path. Fix gauge-misleading scales
+      first: `PowerSample.loadPercent` (session peak only rises), `NetworkSample.activityPercent`
+      (12.5 MB/s cap). Not authorized for implementation; spec + D-035 next.
 
 ### Distribution
 - [ ] **Sparkle release acceptance** — requested 2026-11-11. Integration, dedicated signing key, signed empty feed and packaging validation implemented for 1.2.1. Initial signed empty feed published and verified; validate manual check and opt-in checkbox, back up key to Strongbox, package/notarize release, and test a real upgrade with retained preferences/history. 1.2.0 must upgrade manually. See `sparkle-updates.md`.
@@ -84,6 +93,9 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 - [ ] **Power sampler stop/restart race — awaiting reproduction (2026-10-03).** Review found
       timer cancellation followed by main-thread reader/SMC teardown while a queued tick may still
       run. No crash reproduced. Validate queue-confined teardown before changing sampler lifecycle.
+- [ ] **Ring prototype wedge inner-shape artifact — awaiting reproduction (2026-11-12).** Owner
+      screenshot of 1.1 (`eight` fixture) shows a faint darker inner quadrilateral inside the amber
+      Temperature/Memory wedges. Confirm natively; if real, a bounded prototype correction in 1.2.
 
 ## Current Sprint
 <!-- Active work. Populated by /plan or /execute. Keep focused (3-7 tasks). -->
