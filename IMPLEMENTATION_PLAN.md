@@ -1,7 +1,7 @@
 # Native Ring Prototype — Implementation Plan
 
-**Created:** 2026-11-12 · **Status:** Executing — Wave 1 verified 2026-11-13; Wave 2 ready
-**Progress:** 0/3 implementation tasks complete (1.1 implemented-unverified); external acceptance **E1 open**.
+**Created:** 2026-11-12 · **Status:** Executing — Waves 1–2 complete 2026-11-13; Wave 3 (1.3) ready
+**Progress:** 2/3 implementation tasks complete (1.1 owner-verified, 1.2 B/T + independent review); external acceptance **E1 open**.
 Unchecked tasks are pending unless explicitly marked implemented-unverified or blocked. This file
 owns task status and evidence; `docs/TASKS.md` links here without duplicating completion boxes.
 Execute with `/Users/sim/ProgrammingProjects/0-DIRECTIONS/__DIRECTIONS/commands/execute.md`.
@@ -146,7 +146,9 @@ Do not resolve geometry again on sample ticks. Existing detail content still rec
 
 ### Wave 2 — complete the bounded interaction and edge experiment
 
-- [ ] **1.2 — Make hover, held branches and edge travel predictable**
+- [x] **1.2 — Make hover, held branches and edge travel predictable** — *complete 2026-11-13:
+  B pass, T 110/110, independent review fixed; native feel/size/scroll observations go to 1.3/E1.
+  See execution log.*
   - Depends on: 1.1 geometry/snapshot and reserved detail-frame interface. External gates: none.
   - Owns: the same ring files exclusively after 1.1, new `Model/RingInteractionState.swift`,
     `RingInteractionTests.swift`, `RingPlacementTests.swift`; coordinator serializes changes to
@@ -273,13 +275,21 @@ hover-to-expand remains separate because this spec requires hover only in Ring.
 - Static mockups cannot establish native feel or text comfort.
 - 1.1: ring panel is a 520 × 520 window; whether clicks on its transparent corners/gaps pass
   through to apps beneath (and so count as click-away) is a native question for the owner check.
+- 1.2: hit resolution lives in pure `Model/RingHitResolver.swift`; clicks inside the ring's outer
+  radius that hit no target are inert (gaps, hub band, inactive annulus), only beyond it is outside.
+- 1.2: every Ring detail card is wrapped in a vertical `ScrollView` at its summon-reserved frame,
+  because sizes are measured before transfer history/process rows populate. Native look is 1.3/E1.
+- 1.2: transit grace delays a stopped-on-sibling dwell until grace end (≤ 700 ms) rather than 350 ms
+  after stopping — deliberate provisional choice, commented in `RingInteractionState.evaluate`.
+- 1.2: the first T run's result bundle (run01, 7 test-authoring failures) was deleted by the agent
+  before rerun, contrary to the keep-every-bundle rule; run02/run03/run04 retained.
 - 1.1: slot 0 is centred on twelve o'clock (one constant to flip if the owner prefers sector 0
   starting at twelve). Ring text uses the spec's explicit 13/16/12 pt, not Theme font tokens.
 
 ## Blocked tasks
 
-None — 1.1 native check passed 2026-11-13 (hover stop condition cleared). E1 is pending, and broader feature work
-is intentionally gated rather than silently authorized by this plan.
+None. 1.3 is ready (depends on 1.1 and 1.2, both complete). E1 is pending, and broader feature
+work is intentionally gated rather than silently authorized by this plan.
 
 ## Execution log
 
@@ -288,6 +298,7 @@ is intentionally gated rather than silently authorized by this plan.
 | Wave 1 / 1.1 | One fresh developer agent (single-task wave; serial by plan). Coordinator reviewed diff, ran `git diff --check`, verified artifact signature. Precondition met: plan/spec/review sheets already in 682dbb1 on origin. | B pass, no new warnings. T pass: 34/34 (`RingGeometryTests` 16, `PanelMetricOptionsTests` 7, `CPUBatteryPairTests` 6, `TransferDetailStateTests` 5), `01_Project/build/RingPrototypeTests-1.1-run01.xcresult`. Artifact `01_Project/build/RingPrototype/Build/Products/Debug/QuickStatsPanel.app`, 1.2.1 (1201), exec SHA-256 `cf0dc81a…a941c3`, team FDMSRXXN73, `codesign --verify --deep --strict` OK. Not launched (see next column). | Committed locally on `main` (see git log, "Ring prototype 1.1"); not pushed. | **Stop — user scope was Wave 1.** 1.1 stays unchecked until the owner's native check: launch with `--ring-prototype [--ring-fixture=none\|one\|six\|eight\|twelve\|long\|paired\|unavailable]`, observe via `log stream --predicate 'category == "RingPrototype"'` which hover mechanism (global/local/poll) fires. Then Wave 2 / 1.2. |
 | Wave 1 / 1.1 owner look | Owner-operated launch (`--ring-fixture=eight`); screenshot reviewed by coordinator. No agent launch/control. | Owner: concept looks okay; size/visual refinement deferred to E1. Unreported: hover with another app frontmost (+ mechanism), wedge → detail/process lists, Escape/click-away incl. corners, hub drag vs `customPosition`. Possible inner-quadrilateral shading in amber wedges (TASKS Inbox). | Documentation only. | 1.1 stays unchecked; 1.2 blocked until those checks are reported. Slot-0 orientation still open. |
 | Wave 1 / 1.1 owner checks (2026-11-13) | Owner-operated (`--ring-fixture=eight`, one instance); six screenshots reviewed by coordinator. No agent launch/control. | Owner: (1) hover with another app frontmost **pass** (Network wedge highlight shown); (2) wedge → detail **pass**: CPU/Memory cards show fixture data and process lists; (3) Escape/click-away **pass**; (4) hub drag **pass**. Findings: **Disk/Network transfer sections stay "Loading…"** — fixture store builds `TransferHistoryController` with `automaticallySchedules: false` and never starts it (`AppDelegate` skips `store.start()` in fixture mode), so the first load never runs; fixture-only, real-data path unaffected but unverified in Ring. CPU/Memory cards' empty lower area is the 10 reserved process rows (4 fixture rows) and the half-filled graph is 30 fixture samples vs. capacity — both identical to Strip, not Ring defects. Inner-quadrilateral shading visible natively in amber wedges (Temperature, Memory). Slot 0 (CPU) at twelve o'clock, no objection raised. Hover mechanism not captured (no persisted `RingPrototype` log). | Documentation only. | **1.1 ticked.** Carry to 1.2: start fixture transfer history on its temp root (or render an explicit empty state) so Disk/Network cards resolve; optionally confirm real-data Disk/Network cards with `--ring-prototype` alone. Wave 2 ready. |
+| Wave 2 / 1.2 | One fresh developer agent (single-task wave; serial by plan), then the same agent for review fixes. Independent quality-reviewer agent (read-only) reviewed the diff: PASS_WITH_CONCERNS, no critical; findings 1–4 fixed (inert ring clicks dismissed HUD; drag replanned against summon display; whole-list replan shifted away from real panel; detail clipping → scroll on overflow), 5 commented, 6–7 accepted as low. Coordinator reran T and B, reviewed resolver/scroll fixes, `git diff --check` clean. | T (coordinator rerun before fixes) `build/RingPrototypeTests-1.2-run03.xcresult` 104/104; T after fixes `build/RingPrototypeTests-1.2-run04.xcresult` **110/110, 0 skipped** (RingGeometry 16, RingInteraction 48, RingPlacement 23, RingHitResolver 4, RingFixtureTransferHistory 1, PanelMetricOptions 7, CPUBatteryPair 6, TransferDetailState 5). B exit 0, no new warnings (`01_Project/build/RingPrototype-1.2-B.log`). Artifact `01_Project/build/RingPrototype/Build/Products/Debug/QuickStatsPanel.app`, 1.2.1 (1201), exec SHA-256 `21f04750…c7a828`, team FDMSRXXN73, `codesign --verify --deep --strict` OK. Handoff (standing Oct 27 authorization): old instance PID 36801 quit gracefully (Apple Event, exited ~2 s); fresh artifact launched with `--ring-prototype --ring-fixture=eight`, PID 19436 started 02:24:23 after the 02:23:08 build, executable path verified, sole instance. | `cf6da8f` "Ring prototype 1.2…" (local). | **1.2 ticked; selected scope (Wave 2) complete.** Next: `/execute` Wave 3 (1.3: R Release-exclusion check, T-all vs 113 baseline, evidence doc, review checklist). Native observations (hover/dwell feel, More ring/list, scroll, drag-to-other-display, accessibility) belong to 1.3/E1. |
 
 Planning performed no execution, build, app launch or product acceptance. 1.1 interfaces:
 `RingGeometry` (`target(at:)`, `outline(of:)`, `frame(of:)`, `textFits`), `RingSnapshot` (generation

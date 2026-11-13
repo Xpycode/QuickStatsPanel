@@ -4,7 +4,7 @@
 
 ## Active plan
 
-[Native ring prototype](../IMPLEMENTATION_PLAN.md): 1/3 tasks; **1.1 owner-verified 2026-11-13**; Wave 2 (1.2) ready. E1 owner review gates broader layouts/appearance. The plan owns task status and evidence.
+[Native ring prototype](../IMPLEMENTATION_PLAN.md): 2/3 tasks; 1.1 owner-verified and 1.2 complete 2026-11-13; Wave 3 (1.3) ready. E1 owner review gates broader layouts/appearance. The plan owns task status and evidence.
 
 Transfer history shipped as **v1.2.0 (1200)** on 2026-10-28: 8/8 implementation tasks complete;
 remaining E1 checks explicitly deferred by the owner to everyday use, not marked as tested.
@@ -25,6 +25,10 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 **This file is the backlog** — `PROJECT_STATE.md` is a digest and points here.
 
 ### Ring
+- [ ] **Wedge inner-shape artifact — confirmed 2026-11-13.** Owner's native screenshot (`eight`
+      fixture) shows a darker inner quadrilateral inside the amber Temperature/Memory wedges
+      (fainter in others). Not fixed in 1.2 (out of its scope); bounded prototype correction
+      candidate for 1.3/E1.
 - [ ] **Ring wedge radial gauges** — owner idea, 2026-11-13. Each wedge fills from inner edge (0) to
       outer edge (ceiling), stacked components, toggleable text/icon overlay, colour mode, fill
       strength and size presets. Explored in [mockup](https://claude.ai/artifact/WNNwTzTsSQDTR63E8YUj9g)
@@ -93,9 +97,6 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 - [ ] **Power sampler stop/restart race — awaiting reproduction (2026-10-03).** Review found
       timer cancellation followed by main-thread reader/SMC teardown while a queued tick may still
       run. No crash reproduced. Validate queue-confined teardown before changing sampler lifecycle.
-- [ ] **Ring prototype wedge inner-shape artifact — awaiting reproduction (2026-11-12).** Owner
-      screenshot of 1.1 (`eight` fixture) shows a faint darker inner quadrilateral inside the amber
-      Temperature/Memory wedges. Confirm natively; if real, a bounded prototype correction in 1.2.
 
 ## Current Sprint
 <!-- Active work. Populated by /plan or /execute. Keep focused (3-7 tasks). -->
