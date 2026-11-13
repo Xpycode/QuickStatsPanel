@@ -4,7 +4,7 @@
 
 ## Active plan
 
-[Native ring prototype](../IMPLEMENTATION_PLAN.md): 3/3 tasks complete 2026-11-13 (1.3: R/T-all/B evidence and E1 checklist in [ring-prototype evidence](evidence/ring-prototype.md)). E1 owner review is next and gates broader layouts/appearance. The plan owns task status and evidence.
+No active plan. [Native ring prototype](sessions/IMPLEMENTATION_PLAN-ring-prototype-DONE.md) complete 2026-11-13; E1 closed with interaction accepted and look redirected (D-035). Next plan: gauge ring prototype step (D-035, open questions answered).
 
 Transfer history shipped as **v1.2.0 (1200)** on 2026-10-28: 8/8 implementation tasks complete;
 remaining E1 checks explicitly deferred by the owner to everyday use, not marked as tested.
@@ -25,7 +25,7 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 **This file is the backlog** — `PROJECT_STATE.md` is a digest and points here.
 
 ### Ring
-- [ ] **Wedge inner-shape artifact — confirmed 2026-11-13.** Owner's native screenshot (`eight`
+- [ ] **Wedge inner-shape artifact — superseded by D-035 gauge drawing; verify gone in gauge step.** Owner's native screenshot (`eight`
       fixture) shows a darker inner quadrilateral inside the amber Temperature/Memory wedges
       (fainter in others). Not fixed in 1.2 (out of its scope); bounded prototype correction
       candidate for 1.3/E1. E1 checklist case C3 re-checks it.

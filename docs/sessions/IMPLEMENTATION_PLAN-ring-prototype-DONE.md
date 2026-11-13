@@ -1,7 +1,7 @@
 # Native Ring Prototype — Implementation Plan
 
-**Created:** 2026-11-12 · **Status:** Implementation complete 2026-11-13 (Waves 1–3); awaiting E1 owner review
-**Progress:** 3/3 implementation tasks complete (1.1 owner-verified, 1.2 B/T + independent review, 1.3 R/T-all/B + inspection); external acceptance **E1 open** — checklist in [ring-prototype evidence](docs/evidence/ring-prototype.md#e1-owner-review-checklist).
+**Created:** 2026-11-12 · **Status:** Complete 2026-11-13 — E1 closed by owner: interaction accepted, visual structure redirected (D-035)
+**Progress:** 3/3 implementation tasks complete (1.1 owner-verified, 1.2 B/T + independent review, 1.3 R/T-all/B + inspection); **E1 closed** (interaction accepted, redirect to gauge design) — results in [ring-prototype evidence](../evidence/ring-prototype.md#e1-owner-review-checklist).
 Unchecked tasks are pending unless explicitly marked implemented-unverified or blocked. This file
 owns task status and evidence; `docs/TASKS.md` links here without duplicating completion boxes.
 Execute with `/Users/sim/ProgrammingProjects/0-DIRECTIONS/__DIRECTIONS/commands/execute.md`.
@@ -33,9 +33,9 @@ silently proceed to the broader feature. This plan ends at E1; later work needs 
 
 ## Requirements and evidence consulted
 
-- [Layout/appearance spec](specs/panel-layouts-and-appearance.md), especially ring AC-04/05/06,
+- [Layout/appearance spec](../../specs/panel-layouts-and-appearance.md), especially ring AC-04/05/06,
   AC-08–13 and AC-20–23; the complete feature's other criteria remain deferred.
-- [D-034](docs/decisions.md): wedge direction accepted; exact geometry/timing still provisional.
+- [D-034](../decisions.md): wedge direction accepted; exact geometry/timing still provisional.
 - [Review sheets](02_Design/ring-review/): visual references, not native acceptance evidence.
 - Existing `StatsStripView` consumes availability-filtered `visibleStats`; Ring needs ordered
   enabled identities independently of transient readings. Preserve Strip's existing projection.
@@ -179,7 +179,7 @@ Do not resolve geometry again on sample ticks. Existing detail content still rec
 
 - [x] **1.3 — Validate integration and prepare the native review** — *complete 2026-11-13: R 0
   occurrences, T-all 212/212, B no-op rebuild of the running artifact, inspection no defects;
-  [evidence + E1 checklist](docs/evidence/ring-prototype.md). See execution log.*
+  [evidence + E1 checklist](../evidence/ring-prototype.md). See execution log.*
   - Depends on: 1.1, 1.2. External gates: none for build/headless evidence; native claims await E1.
   - Owns: `docs/evidence/ring-prototype.md`, prototype fixture definitions and targeted test fixes;
     coordinator owns any integration fixes, project/build resources and task-state updates.
@@ -240,7 +240,7 @@ counts, not just exit status. Expected runnable artifact:
 
 ## External review gate
 
-- [ ] **E1 — Owner reviews the working native prototype**
+- [x] **E1 — Owner reviews the working native prototype** — closed 2026-11-13: H1–H6, M1, E1a, D2, P1, R4 pass; C1 card Close clipped (carried); others not run or superseded by D-035. See [owner results](../evidence/ring-prototype.md#owner-results).
   - Depends on: 1.3 fresh artifact and retained validation evidence.
   - Requires: owner hands-on review; available displays for native scale/edge cases. Missing
     hardware remains explicitly untested. Simulated frames do not prove mixed-display input.
@@ -295,8 +295,7 @@ hover-to-expand remains separate because this spec requires hover only in Ring.
 
 ## Blocked tasks
 
-None. 1.1–1.3 complete. E1 awaits the owner's hands-on review (checklist in the evidence doc);
-broader feature work stays gated on E1 rather than silently authorized by this plan.
+None. Plan complete. Next: plan the gauge ring prototype step per D-035 (open questions listed there).
 
 ## Execution log
 

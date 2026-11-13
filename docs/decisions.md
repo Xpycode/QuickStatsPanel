@@ -429,3 +429,23 @@ boundaries. A native prototype must validate travel through other wedges, dwell/
 and screen-edge fallback. Exact dimensions/timing and settings placement remain open to review.
 This accepts the visual direction only; it does not authorize implementation or change the default
 Strip/release scope. See [layout spec](../specs/panel-layouts-and-appearance.md).
+
+### 2026-11-13 - D-035: Ring wedges become radial gauges; small hub; expansion from stat wedges
+**Context:** E1 review of the native ring prototype. The prototype predates the gauge mockup
+(`output/ring-gauges/`, [artifact](https://claude.ai/artifact/WNNwTzTsSQDTR63E8YUj9g)); the owner
+found its large hub (drag + More + Settings) and More-from-centre "not the design we follow" and
+pointed to the mockup as the target. Interaction behaviour (hover/hold/Escape/drag/pin/placement) passed.
+**Alternatives:** Linear fill; Disk as read/write activity; free size slider; gauges planned only at
+production; More and expansion from the hub (prototype); finishing the checklist first.
+**Decision:** Wedges are radial gauges (inner edge 0, outer edge ceiling) with **equal-area** fill by
+default (linear as an option). Disk shows **capacity with a thin I/O rim**. Ring size uses **presets**
+sized so text never shrinks. The hub shrinks to the mockup's size (Settings gear; drag stays on the
+hub). **Stat wedges open their own sub-rings** of a stat's parts; nothing expands from the centre.
+Gauges are the **next prototype step**, before production planning. E1 closes with the interaction
+accepted and the visual structure redirected; unrun checks are repeated on the gauge ring.
+**Rationale:** Owner choices after trying the mockup and the running prototype.
+**Consequences:** Supersedes the spec's hub More control and More-ring-from-hub; the spec needs a
+wedge-content section and a revised hub/expansion section. Owner follow-up (same day): sub-rings
+for **CPU → cores, Disk → volumes, Network → interfaces, Temperatures → sensors**; non-favourite
+stats are reached through a **More wedge** in the ring that opens an outer ring like a sub-ring. `RingReading` needs fraction/segment fields and `RingGeometry`
+a sub-radius wedge path. Detail cards must fit without clipping Close (E1 C1).

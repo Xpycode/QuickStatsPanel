@@ -10,22 +10,22 @@
 - **Started:** 2026-06-04 · **Target:** macOS 15+ · **License:** PolyForm Noncommercial 1.0.0 (public repo)
 
 ## Now
-- **Funnel:** build · **Phase:** Native ring prototype — implementation done, owner review (E1) next <!-- Phase changed: 2026-11-13 -->
+- **Funnel:** build · **Phase:** Ring gauges — prototype review closed, gauge step to plan <!-- Phase changed: 2026-11-13 -->
 - **Focus:** v1.2.1 universal app/DMG notarized and local signed update feed verified. Published version remains v1.2.0; [release preparation](evidence/release-1.2.1.md).
 - **Blockers:** Strongbox backup confirmed incomplete; remaining updater controls and real upgrade acceptance open.
-- **Execution:** [Native ring prototype plan](../IMPLEMENTATION_PLAN.md) · 3/3 tasks done — awaiting **E1** owner review ([checklist](evidence/ring-prototype.md#e1-owner-review-checklist)); E1 gates broader layout work.
-- **Feature definition:** [Panel layouts and dynamic appearance](../specs/panel-layouts-and-appearance.md) drafted: four layouts, up to eight ring favourites plus hover details/More, bounded per-stat colouring. Wedge visual direction accepted (D-034); native prototype and settings review remain; no implementation authorized.
-- **Current handoff:** [Ring E1 review](sessions/2026-11-13.md#resume--ring-e1-review).
+- **Execution:** No active plan. Ring prototype plan complete and [archived](sessions/IMPLEMENTATION_PLAN-ring-prototype-DONE.md); E1 closed — interaction accepted, look/structure redirected to the gauge mockup ([results](evidence/ring-prototype.md#owner-results)).
+- **Feature definition:** [Panel layouts and dynamic appearance](../specs/panel-layouts-and-appearance.md) + **D-035**: wedges become equal-area radial gauges, Disk capacity + I/O rim, size presets, small hub (gear + drag), sub-rings open from stat wedges (not the centre). Spec not yet updated for D-035.
+- **Current handoff:** [Gauge planning](sessions/2026-11-13.md#resume--gauge-ring-planning).
 - **Validation:** 1.2.1: 19 focused hostless tests, Debug build/deep signature, signed-feed/tamper and release-tool fixture checks passed. Paired displays and live manual no-update check accepted; other updater controls and real upgrade untested.
-- **Next:** Owner runs the E1 checklist on the running prototype → record results, bounded fixes, archive plan. Owner answers the [gauge mockup](https://claude.ai/artifact/WNNwTzTsSQDTR63E8YUj9g) questions → D-035 + spec section. Separately: Strongbox backup, updater/upgrade acceptance and publication verification for 1.2.1; Restart deferred.
+- **Next:** Update the spec for D-035 (gauges, small hub, More wedge, sub-rings: CPU cores, Disk volumes, Network interfaces, Temperature sensors) → `/make-plan` the gauge prototype step (include C1 card Close-clipping fix). Separately: Strongbox backup, updater/upgrade acceptance and publication for 1.2.1.
 - **Last updated:** 2026-11-13
 
 ## Recent
+- **2026-11-13** — Owner review closed early: hover/hold/Escape/drag/pin/placement pass; look redirected to the gauge mockup (D-035: small hub, sub-rings from wedges, equal-area gauges).
 - **2026-11-13** — Ring step 3: confirmed the prototype is left out of Release builds, all 212 tests pass, owner review checklist ready.
 - **2026-11-13** — Ring step 2 built: hover/hold timing, More branch and screen-edge placement; reviewed, 110 tests pass; fresh build running.
 - **2026-11-13** — Owner passed all four ring 1.1 native checks; fixture Disk/Network cards stuck loading (carried to 1.2).
 - **2026-11-13** — Explored wedges as radial fill gauges; interactive mockup published, owner choices pending before planning.
-- **2026-11-12** — Owner saw the ring prototype running and accepted the concept; sizing deferred to the later review, interaction checks still to report.
 
 ## What we're building
 Press a global hotkey → a **thin** wide strip appears near the cursor showing live stats as compact
@@ -42,7 +42,7 @@ Fans, Power, Temperatures, plus per-stat history graphs (2026-07-27).
 **Distribution** ✅ v1.2.0 notarized + released; GitHub and website downloads verified
 
 ## Detail (read only if needed)
-- **Decisions:** `decisions.md` — D-001…D-034, full rationale for every locked choice. Load-bearing:
+- **Decisions:** `decisions.md` — D-001…D-035, full rationale for every locked choice. Load-bearing:
   **D-001** HUD `NSPanel` · **D-002** Carbon hotkey, no permissions · **D-003** `LSUIElement` ·
   **D-006** thin strip + click-to-expand · **D-008** content-driven width and fixed-width value
   slots (jitter discipline — read this before touching tile layout) · **D-015** self-drawn card.

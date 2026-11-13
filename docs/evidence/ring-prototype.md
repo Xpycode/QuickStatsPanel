@@ -124,4 +124,41 @@ Also record any sizing or visual corrections you want (size was deferred to here
 
 ## Owner results
 
-*(pending — E1)*
+Recorded 2026-11-13, artifact exec SHA-256 `21f04750…c7a828` (unchanged 1.2/1.3 build). Fixture
+`eight` (PID 19436, running since 02:24), then `twelve` (PID 92303, coordinator quit/relaunch at the
+owner's request). Hover log captured with `/usr/bin/log stream --level info` (zsh's `log` builtin
+shadows `/usr/bin/log` in agent shells; use the full path).
+
+**Outcome: E1 closed early by the owner — interaction accepted, visual structure redirected.**
+The owner judged the prototype's look and hub structure "not the design we follow" and chose to stop
+the checklist and move to the gauge mockup design (D-035). Untested rows are re-checked on the
+gauge ring, not marked passed.
+
+| ID | Result | Notes |
+|---|---|---|
+| R1 | pass (`eight`) / superseded | `one`, `six` not run; wedge text layout is redrawn by gauges — recheck there |
+| R2 | superseded | Not run; recheck on gauge wedges |
+| R3 | not run | Recheck on gauge ring |
+| R4 | pass (`twelve`) | More listed the three non-favourites; `none` not run |
+| H1 | pass | Another app frontmost. Mechanism: first event per summon from poll, global and local within ~10 ms; steady state global ≫ local, poll only at summon start (`global=481 local=187 poll=59`; next summon `global=163 local=55 poll=0`) |
+| H2 | pass | |
+| H3 | pass | |
+| H4 | pass | |
+| H5 | pass | Same-wedge click, Close and Escape |
+| H6 | pass | |
+| M1 | pass | More + child stay open; crossed wedges not selected |
+| E1a | pass | Detail → HUD (also pinned) on `eight`; detail → More → HUD on `twelve` |
+| D1 | pass (ring part) | Strip-position-unchanged part not run |
+| D2 | pass | |
+| C1 | **fail (provisional)** | Owner screenshots: real-data cards (CPU/Memory) scroll; the Close button is cut off at the card bottom. Carry to the gauge step as a bounded card-sizing fix |
+| C2 | not run | |
+| C3 | superseded | Placeholder wedge drawing is replaced by gauges |
+| P1 | pass | Cards open right by default and left near the right edge; More stays on screen |
+| P2 | not run | |
+| P3 | not run | Outer-ring More natively untested (and More-from-hub is being redesigned, D-035) |
+| A1 | not run | |
+| S1 | not run | Settings placement reopens with the D-035 hub change |
+
+**Owner redirects (feed D-035 and the gauge plan):** the hub is much too big — shrink it to the
+mockup's (Settings gear, drag); expansion rings open **from stat wedges** (sub-rings of a stat's
+parts), not from the centre; wedges become the mockup's radial gauges.
