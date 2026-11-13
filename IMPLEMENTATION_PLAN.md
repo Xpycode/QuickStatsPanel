@@ -1,6 +1,6 @@
 # Native Ring Prototype — Implementation Plan
 
-**Created:** 2026-11-12 · **Status:** Executing — Wave 1 implemented, awaiting native owner check
+**Created:** 2026-11-12 · **Status:** Executing — Wave 1 verified 2026-11-13; Wave 2 ready
 **Progress:** 0/3 implementation tasks complete (1.1 implemented-unverified); external acceptance **E1 open**.
 Unchecked tasks are pending unless explicitly marked implemented-unverified or blocked. This file
 owns task status and evidence; `docs/TASKS.md` links here without duplicating completion boxes.
@@ -110,9 +110,10 @@ Do not resolve geometry again on sample ticks. Existing detail content still rec
 
 ### Wave 1 — thin native end-to-end result
 
-- [ ] **1.1 — Summon a readable native ring and open one real detail** — *implemented-unverified
-  (2026-11-12): B/T pass; native success criteria (first mouse, hover mechanism, detail, parity,
-  drag isolation, accessibility) await owner observation. See execution log.*
+- [x] **1.1 — Summon a readable native ring and open one real detail** — *owner-verified
+  2026-11-13: hover with another app frontmost, wedge → detail (process lists filled), Escape/
+  click-away and hub drag all pass. Fixture-mode Disk/Network cards stuck on "Loading…" carried
+  to 1.2 (see execution log). Hover mechanism not captured (log not persisted).*
   - Depends on: none. External gates: none; execute request starts this task. Precondition
     (review): commit and push the plan, spec, `02_Design/ring-review/` and pending doc edits
     first, with the user's confirmation, so wave diffs are clean and visible to the other Mac.
@@ -277,8 +278,7 @@ hover-to-expand remains separate because this spec requires hover only in Ring.
 
 ## Blocked tasks
 
-1.2 is blocked on the 1.1 native check (hover tracking while another app is frontmost is the
-plan's stop condition). E1 is pending, and broader feature work
+None — 1.1 native check passed 2026-11-13 (hover stop condition cleared). E1 is pending, and broader feature work
 is intentionally gated rather than silently authorized by this plan.
 
 ## Execution log
@@ -287,6 +287,7 @@ is intentionally gated rather than silently authorized by this plan.
 |---|---|---|---|---|
 | Wave 1 / 1.1 | One fresh developer agent (single-task wave; serial by plan). Coordinator reviewed diff, ran `git diff --check`, verified artifact signature. Precondition met: plan/spec/review sheets already in 682dbb1 on origin. | B pass, no new warnings. T pass: 34/34 (`RingGeometryTests` 16, `PanelMetricOptionsTests` 7, `CPUBatteryPairTests` 6, `TransferDetailStateTests` 5), `01_Project/build/RingPrototypeTests-1.1-run01.xcresult`. Artifact `01_Project/build/RingPrototype/Build/Products/Debug/QuickStatsPanel.app`, 1.2.1 (1201), exec SHA-256 `cf0dc81a…a941c3`, team FDMSRXXN73, `codesign --verify --deep --strict` OK. Not launched (see next column). | Committed locally on `main` (see git log, "Ring prototype 1.1"); not pushed. | **Stop — user scope was Wave 1.** 1.1 stays unchecked until the owner's native check: launch with `--ring-prototype [--ring-fixture=none\|one\|six\|eight\|twelve\|long\|paired\|unavailable]`, observe via `log stream --predicate 'category == "RingPrototype"'` which hover mechanism (global/local/poll) fires. Then Wave 2 / 1.2. |
 | Wave 1 / 1.1 owner look | Owner-operated launch (`--ring-fixture=eight`); screenshot reviewed by coordinator. No agent launch/control. | Owner: concept looks okay; size/visual refinement deferred to E1. Unreported: hover with another app frontmost (+ mechanism), wedge → detail/process lists, Escape/click-away incl. corners, hub drag vs `customPosition`. Possible inner-quadrilateral shading in amber wedges (TASKS Inbox). | Documentation only. | 1.1 stays unchecked; 1.2 blocked until those checks are reported. Slot-0 orientation still open. |
+| Wave 1 / 1.1 owner checks (2026-11-13) | Owner-operated (`--ring-fixture=eight`, one instance); six screenshots reviewed by coordinator. No agent launch/control. | Owner: (1) hover with another app frontmost **pass** (Network wedge highlight shown); (2) wedge → detail **pass**: CPU/Memory cards show fixture data and process lists; (3) Escape/click-away **pass**; (4) hub drag **pass**. Findings: **Disk/Network transfer sections stay "Loading…"** — fixture store builds `TransferHistoryController` with `automaticallySchedules: false` and never starts it (`AppDelegate` skips `store.start()` in fixture mode), so the first load never runs; fixture-only, real-data path unaffected but unverified in Ring. CPU/Memory cards' empty lower area is the 10 reserved process rows (4 fixture rows) and the half-filled graph is 30 fixture samples vs. capacity — both identical to Strip, not Ring defects. Inner-quadrilateral shading visible natively in amber wedges (Temperature, Memory). Slot 0 (CPU) at twelve o'clock, no objection raised. Hover mechanism not captured (no persisted `RingPrototype` log). | Documentation only. | **1.1 ticked.** Carry to 1.2: start fixture transfer history on its temp root (or render an explicit empty state) so Disk/Network cards resolve; optionally confirm real-data Disk/Network cards with `--ring-prototype` alone. Wave 2 ready. |
 
 Planning performed no execution, build, app launch or product acceptance. 1.1 interfaces:
 `RingGeometry` (`target(at:)`, `outline(of:)`, `frame(of:)`, `textFits`), `RingSnapshot` (generation

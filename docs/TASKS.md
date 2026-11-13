@@ -4,7 +4,7 @@
 
 ## Active plan
 
-[Native ring prototype](../IMPLEMENTATION_PLAN.md): 0/3 tasks ticked; **1.1 implemented, concept look accepted**, four native owner checks outstanding; 1.2 blocked on them. E1 owner review gates broader layouts/appearance. The plan owns task status and evidence.
+[Native ring prototype](../IMPLEMENTATION_PLAN.md): 1/3 tasks; **1.1 owner-verified 2026-11-13**; Wave 2 (1.2) ready. E1 owner review gates broader layouts/appearance. The plan owns task status and evidence.
 
 Transfer history shipped as **v1.2.0 (1200)** on 2026-10-28: 8/8 implementation tasks complete;
 remaining E1 checks explicitly deferred by the owner to everyday use, not marked as tested.

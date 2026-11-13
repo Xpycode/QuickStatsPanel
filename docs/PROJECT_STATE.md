@@ -10,22 +10,22 @@
 - **Started:** 2026-06-04 · **Target:** macOS 15+ · **License:** PolyForm Noncommercial 1.0.0 (public repo)
 
 ## Now
-- **Funnel:** build · **Phase:** Native ring prototype — Wave 1 built <!-- Phase changed: 2026-11-12 -->
+- **Funnel:** build · **Phase:** Native ring prototype — Wave 1 verified, Wave 2 next <!-- Phase changed: 2026-11-13 -->
 - **Focus:** v1.2.1 universal app/DMG notarized and local signed update feed verified. Published version remains v1.2.0; [release preparation](evidence/release-1.2.1.md).
 - **Blockers:** Strongbox backup confirmed incomplete; remaining updater controls and real upgrade acceptance open.
-- **Execution:** [Native ring prototype plan](../IMPLEMENTATION_PLAN.md) · Wave 1 / 1.1 **implemented; owner accepted the concept look**, four native interaction checks outstanding (B/T pass, 34/34); 1.2 blocked on them (hover-tracking stop condition). E1 gates broader layout work.
+- **Execution:** [Native ring prototype plan](../IMPLEMENTATION_PLAN.md) · 1/3 — 1.1 **owner-verified 2026-11-13** (hover with another app frontmost, detail, Escape/click-away, hub drag all pass). Wave 2 (1.2) ready; carries a fixture-mode fix for Disk/Network cards stuck on "Loading…". E1 gates broader layout work.
 - **Feature definition:** [Panel layouts and dynamic appearance](../specs/panel-layouts-and-appearance.md) drafted: four layouts, up to eight ring favourites plus hover details/More, bounded per-stat colouring. Wedge visual direction accepted (D-034); native prototype and settings review remain; no implementation authorized.
 - **Current handoff:** [Wedge gauge planning](sessions/2026-11-13.md#resume--wedge-gauge-planning) (ring 1.1 checks: [here](sessions/2026-11-12.md#resume--ring-11-remaining-native-checks)).
 - **Validation:** 1.2.1: 19 focused hostless tests, Debug build/deep signature, signed-feed/tamper and release-tool fixture checks passed. Paired displays and live manual no-update check accepted; other updater controls and real upgrade untested.
-- **Next:** owner answers the [gauge mockup](https://claude.ai/artifact/WNNwTzTsSQDTR63E8YUj9g) questions (fill scale, disk mode, size presets) → plan wedge gauges (D-035 + spec section). Owner reports ring 1.1 hover (another app frontmost), wedge → detail, Escape/click-away and hub-drag checks; size refinement waits for E1. Then `/execute` Wave 2 (1.2) → 1.3 → E1 working-prototype review before planning remaining layouts/appearance. Separately: Strongbox backup, updater/upgrade acceptance and publication verification for 1.2.1; Restart deferred.
+- **Next:** `/execute` Wave 2 (1.2: hover/hold timing, More branch, edge placement + fixture transfer-history fix) → 1.3 → E1 working-prototype review. In parallel the owner answers the [gauge mockup](https://claude.ai/artifact/WNNwTzTsSQDTR63E8YUj9g) questions (fill scale, disk mode, size presets) → D-035 + spec section. Separately: Strongbox backup, updater/upgrade acceptance and publication verification for 1.2.1; Restart deferred.
 - **Last updated:** 2026-11-13
 
 ## Recent
+- **2026-11-13** — Owner passed all four ring 1.1 native checks; fixture Disk/Network cards stuck loading (carried to 1.2).
 - **2026-11-13** — Explored wedges as radial fill gauges; interactive mockup published, owner choices pending before planning.
 - **2026-11-12** — Owner saw the ring prototype running and accepted the concept; sizing deferred to the later review, interaction checks still to report.
 - **2026-11-12** — Ring prototype 1.1 built (Debug-only `--ring-prototype`, fixtures, 16 geometry tests); native check pending.
 - **2026-11-12** — Ring prototype plan reviewed against the code and tightened; ready to execute next session.
-- **2026-11-12** — Owner accepted the revised wedge ring direction; native interaction validation is next in planning.
 
 ## What we're building
 Press a global hotkey → a **thin** wide strip appears near the cursor showing live stats as compact
