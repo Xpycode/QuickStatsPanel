@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 /// Wires the app together: starts sampling, registers the global hotkey, and
 /// toggles the panel. No menu bar, no Dock icon (decision D-003) — the hotkey
@@ -222,7 +223,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// re-applies the menu provider to each freshly-built strip.
     private func installPanelInteractions() {
         #if DEBUG
-        ringPanel.onActivate = { [weak self] target in self?.ringActivate(target) }
+        ringPanel.onShowDetail = { [weak self] kind, frame, scrolls in
+            self?.showRingDetail(kind, frame: frame, scrolls: scrolls)
+        }
+        ringPanel.onHideDetail = { [weak self] in self?.hideRingDetail() }
+        ringPanel.onOpenSettings = { [weak self] in self?.openSettings() }
         ringPanel.onOutsideClick = { [weak self] in
             guard let self, !self.isPinned else { return }
             self.hideHUD()
@@ -299,37 +304,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return RingInputView.Description(name: "Move", value: "", isAvailable: true)
             }
         }
-        ringPanel.show(snapshot: snapshot, anchor: AppSettings.shared.anchor, reading: reading, describe: describe)
+        // The whole branch geometry is chosen before input, so every enabled stat's card is
+        // measured once now. Real card content is measured natively, not by the hostless tests.
+        let sizes = Dictionary(uniqueKeysWithValues: snapshot.enabledKinds.map { kind in
+            (kind, NSHostingView(rootView: ringDetailCard(for: kind)).fittingSize)
+        })
+        ringPanel.show(snapshot: snapshot, anchor: AppSettings.shared.anchor, reading: reading,
+                       describe: describe, detailSizes: sizes)
     }
 
-    private func ringActivate(_ target: RingTarget) {
-        switch target {
-        case .wedge(let kind): toggleRingDetail(for: kind)
-        case .settings: openSettings()
-        case .more, .drag: break   // More ring/list is the next task; drag is handled by the input view
-        }
+    private func ringDetailCard(for kind: StatKind) -> StatDetailView {
+        StatDetailView(store: store, kind: kind, showsUnavailableState: true,
+                       onClose: { [weak self] in self?.ringPanel.closeDetail() })
     }
 
-    /// Click a wedge: open its existing detail card beside the ring (never over the
-    /// wedge); click the same wedge again to close it.
-    private func toggleRingDetail(for kind: StatKind) {
-        guard let parent = ringPanel.screenFrame(of: .wedge(kind)), let footprint = ringPanel.frame else { return }
-        if detailPanel.openKind == kind {
-            closeRingDetail()
-            return
-        }
+    /// Open a stat's existing detail card at the frame the summon reserved for it.
+    private func showRingDetail(_ kind: StatKind, frame: CGRect, scrolls _: Bool) {
         store.dismissTransferDetails()
-        detailPanel.showBeside(kind: kind, parentFrame: parent, footprint: footprint,
-                               content: StatDetailView(store: store, kind: kind, showsUnavailableState: true))
+        // Every ring card scrolls on overflow instead of clipping: its frame is frozen at summon
+        // and sizes are measured before transfer history and process rows populate, so real
+        // content may be taller. A card that fits looks identical to an unwrapped one.
+        let card = ringDetailCard(for: kind)
+        detailPanel.show(kind: kind, frame: frame,
+                         content: ScrollView(.vertical) { card }.frame(width: frame.width, height: frame.height))
         store.setTransferDetailVisible(kind)
-        ringPanel.state.selectedKind = kind
     }
 
-    private func closeRingDetail() {
+    private func hideRingDetail() {
         detailPanel.hide()
         store.dismissTransferDetails()
         store.setTransferDetailVisible(nil)
-        ringPanel.state.selectedKind = nil
     }
 
     /// Ring context menu: Keep on Screen, Settings, Quit. Deliberately without
@@ -411,12 +415,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return panel.isVisible
     }
 
-    /// Strip: Escape hides the HUD. Ring (1.1): a shown detail closes first, then the
-    /// HUD; the full detail / More / HUD hierarchy belongs to a later task.
+    /// Strip: Escape hides the HUD. Ring: detail, then More, then the HUD, also while pinned.
     private func handleEscape() {
         #if DEBUG
-        if ringPanel.isVisible, detailPanel.isVisible {
-            closeRingDetail()
+        if ringPanel.isVisible {
+            ringPanel.handleEscape()
             return
         }
         #endif

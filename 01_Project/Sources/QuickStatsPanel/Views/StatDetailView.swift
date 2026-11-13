@@ -18,6 +18,8 @@ struct StatDetailView: View {
     /// reading. The strip leaves this off and keeps its availability-filtered lookup
     /// (a vanished stat collapses to an empty card, as before).
     var showsUnavailableState = false
+    /// Ring only: shows a Close row. The strip leaves this `nil` and is unchanged.
+    var onClose: (() -> Void)?
 
     /// Card graph geometry. Wide enough for roughly a minute of 2pt bars — the
     /// same buffer the 34pt strip slot shows only the tail of.
@@ -40,11 +42,21 @@ struct StatDetailView: View {
         let descriptor = showsUnavailableState
             ? store.resolvedDescriptor(for: kind)
             : store.visibleStats.first { $0.kind == kind }
-        Group {
+        let card = Group {
             if let descriptor {
                 content(descriptor, theme: theme)
             } else if showsUnavailableState {
                 unavailableContent(theme: theme)
+            }
+        }
+        Group {
+            if let onClose {
+                VStack(alignment: .leading, spacing: 6) {
+                    card
+                    closeRow(onClose, theme: theme)
+                }
+            } else {
+                card
             }
         }
         .frame(width: transferStat == nil ? nil : Self.transferWidth, alignment: .leading)
@@ -57,6 +69,16 @@ struct StatDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: theme.metrics.cornerRadius, style: .continuous))
         .onDisappear {
             if let transferStat { store.cancelTransferReset(for: transferStat) }
+        }
+    }
+
+    private func closeRow(_ onClose: @escaping () -> Void, theme: Theme) -> some View {
+        HStack {
+            Spacer(minLength: 0)
+            TransferHistoryButton(title: "Close", accessibilityLabel: "Close \(kind.displayName) details",
+                                  help: "Close this detail card.", background: theme.colors.background,
+                                  action: onClose)
+                .frame(width: 56, height: 22)
         }
     }
 

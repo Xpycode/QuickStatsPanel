@@ -113,7 +113,11 @@ struct RingSnapshot: Sendable {
     let generation: UUID
     let enabledKinds: [StatKind]
     let favourites: [Entry]
-    let moreKinds: [StatKind]
+    /// Enabled non-favourites in order, with their summon readings.
+    let moreEntries: [Entry]
+    /// Measured worst-case text block per More entry (sizes the outer ring's sectors).
+    let moreTextSizes: [StatKind: CGSize]
+    var moreKinds: [StatKind] { moreEntries.map(\.kind) }
     let geometry: RingGeometry
     /// Explains an empty or favourite-less ring; `nil` otherwise.
     let emptyMessage: String?
@@ -130,13 +134,16 @@ struct RingSnapshot: Sendable {
         let favouriteKinds = Array(enabledKinds.prefix(RingGeometry.maxFavourites))
         let moreKinds = Array(enabledKinds.dropFirst(RingGeometry.maxFavourites))
         let entries = favouriteKinds.map { Entry(kind: $0, name: $0.displayName, initialReading: reading($0)) }
+        let moreEntries = moreKinds.map { Entry(kind: $0, name: $0.displayName, initialReading: reading($0)) }
+        let moreSizes = Dictionary(uniqueKeysWithValues: moreEntries.map { ($0.kind, measure($0.kind, $0.initialReading)) })
         let geometry = RingGeometry(
             favourites: entries.map { (kind: $0.kind, textSize: measure($0.kind, $0.initialReading)) },
             moreCount: moreKinds.count)
         let message: String? = enabledKinds.isEmpty ? "No stats enabled"
             : (entries.isEmpty ? "No favourites selected" : nil)
         return RingSnapshot(generation: UUID(), enabledKinds: enabledKinds, favourites: entries,
-                            moreKinds: moreKinds, geometry: geometry, emptyMessage: message)
+                            moreEntries: moreEntries, moreTextSizes: moreSizes, geometry: geometry,
+                            emptyMessage: message)
     }
 }
 
@@ -152,6 +159,14 @@ final class RingPresentationState {
     private(set) var pointerInRing: CGPoint?
     /// The wedge whose detail is currently shown; set by the owner of the detail panel.
     var selectedKind: StatKind?
+    /// More branch visuals, mirrored from the interaction state by the panel controller.
+    private(set) var moreExpanded = false
+    private(set) var hoveredMoreKind: StatKind?
+    private(set) var selectedMoreKind: StatKind?
+    /// Stat under the pointer in a list (favourite row or More row).
+    private(set) var hoveredNodeKind: StatKind?
+    /// Scroll offset of the side/whole list, so drawing follows the layout's model offset.
+    var listOffset: CGFloat = 0
 
     @ObservationIgnored private var summonPointer: CGPoint?
     @ObservationIgnored private var armed = false
@@ -164,6 +179,27 @@ final class RingPresentationState {
         hovered = nil
         pointerInRing = nil
         selectedKind = nil
+        syncExpansion(.collapsed, hovered: nil)
+        listOffset = 0
+    }
+
+    /// Mirrors the interaction state's open branches into the drawing state.
+    func syncExpansion(_ expansion: RingExpansion, hovered node: RingNode?) {
+        let wedge = expansion.detail.flatMap { $0.viaMore ? nil : $0.kind }
+        let more = expansion.detail.flatMap { $0.viaMore ? $0.kind : nil }
+        var hoveredMore: StatKind?
+        if case .moreItem(let kind)? = node { hoveredMore = kind }
+        if selectedKind != wedge { selectedKind = wedge }
+        if selectedMoreKind != more { selectedMoreKind = more }
+        let open = expansion.more != nil
+        if moreExpanded != open { moreExpanded = open }
+        if hoveredMoreKind != hoveredMore { hoveredMoreKind = hoveredMore }
+        var listKind: StatKind?
+        switch node {
+        case .wedge(let kind)?, .moreItem(let kind)?: listKind = kind
+        default: break
+        }
+        if hoveredNodeKind != listKind { hoveredNodeKind = listKind }
     }
 
     func updatePointer(screenPoint: CGPoint, ringFrame: CGRect, geometry: RingGeometry) {
@@ -184,6 +220,8 @@ final class RingPresentationState {
         selectedKind = nil
         summonPointer = nil
         armed = false
+        syncExpansion(.collapsed, hovered: nil)
+        listOffset = 0
     }
 }
 

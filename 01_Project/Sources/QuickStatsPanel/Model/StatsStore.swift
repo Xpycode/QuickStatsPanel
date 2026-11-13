@@ -421,12 +421,17 @@ final class StatsStore {
 #if DEBUG
 extension StatsStore {
     /// Disposable store for ring fixture mode: its own temporary transfer-history
-    /// root, no sampler or history startup, readings seeded deterministically.
+    /// root, no samplers, readings seeded deterministically.
     static func makeRingFixtureStore(unavailable: Set<StatKind>) -> StatsStore {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("QuickStatsPanel-ring-fixture-\(UUID().uuidString)", isDirectory: true)
         let store = StatsStore(transferHistoryRoot: root, transferHistoryAutomaticallySchedules: false)
         store.seedRingFixture(unavailable: unavailable)
+        // The Disk and Network cards stay on "Loading..." until the transfer-history
+        // controller has loaded once. Load the (empty) disposable root once; automatic
+        // scheduling is off and no sampler runs, so nothing is collected, saved on a
+        // timer or written outside that temporary root.
+        store.startTransferHistory()
         return store
     }
 

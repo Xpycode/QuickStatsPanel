@@ -3,13 +3,13 @@ import AppKit
 import SwiftUI
 
 /// Hosts the SwiftUI drawing without taking mouse events, so every click reaches
-/// `RingInputView` (the superview) and is resolved against the shared geometry.
+/// the input view (the superview) and is resolved against the shared geometry.
 final class PassthroughHostingView<Content: View>: NSHostingView<Content> {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
-/// One accessibility element per wedge, More and Settings.
+/// One accessibility element per wedge, More, Settings or list row.
 final class RingAccessibilityElement: NSAccessibilityElement {
     var onPress: (@MainActor @Sendable () -> Void)?
 
@@ -20,30 +20,63 @@ final class RingAccessibilityElement: NSAccessibilityElement {
     }
 }
 
-/// Content view of the ring panel: owns pointer input and accessibility, and draws
-/// nothing itself. Hit testing uses the same `RingGeometry` the drawing consumes.
+/// Mouse plumbing shared by every ring panel. Each panel forwards raw screen-space
+/// events; the controller resolves them once against the frozen plan, so a click that
+/// lands on a transparent corner of one panel but belongs to another panel's content
+/// (or to an outside click) is handled identically whichever window the system delivered
+/// it to.
 ///
-/// The panel is non-activating and never key, so `acceptsFirstMouse` is what lets the
-/// first click on a wedge act while another app is frontmost. Activation happens on
-/// mouse-up over the same target that received the mouse-down.
-final class RingInputView: NSView {
+/// The panels are non-activating and never key, so `acceptsFirstMouse` is what lets the
+/// first click act while another app is frontmost.
+class RingForwardingView: NSView {
+    /// Screen point and the originating event (the drag needs it).
+    var onMouseDown: ((NSPoint, NSEvent) -> Void)?
+    var onMouseUp: ((NSPoint) -> Void)?
+    var onScroll: ((NSPoint, CGFloat) -> Void)?
+    var contextMenuProvider: (() -> NSMenu)?
+
+    override var isFlipped: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    private func screenPoint(_ event: NSEvent) -> NSPoint {
+        window?.convertPoint(toScreen: event.locationInWindow) ?? NSEvent.mouseLocation
+    }
+
+    override func mouseDown(with event: NSEvent) { onMouseDown?(screenPoint(event), event) }
+    override func mouseUp(with event: NSEvent) { onMouseUp?(screenPoint(event)) }
+
+    override func scrollWheel(with event: NSEvent) {
+        // Wheel and trackpad deltas differ by an order of magnitude; precise ones are points.
+        let delta = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY : event.scrollingDeltaY * 8
+        onScroll?(screenPoint(event), -delta)
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        if let menu = contextMenuProvider?() {
+            NSMenu.popUpContextMenu(menu, with: event, for: self)
+        } else {
+            super.rightMouseDown(with: event)
+        }
+    }
+}
+
+/// Content view of the base ring panel. Hit testing and accessibility use the same
+/// `RingGeometry` the drawing consumes.
+final class RingInputView: RingForwardingView {
 
     struct Description {
         let name: String
         let value: String
         let isAvailable: Bool
+        /// Whether the target's branch (detail or More) is open.
+        var isExpanded = false
     }
 
     let geometry: RingGeometry
-    /// Name / value / availability for a target, read live when accessibility asks.
+    /// Name / value / availability / expanded for a target, read live when accessibility asks.
     var describe: (RingTarget) -> Description = { _ in Description(name: "", value: "", isAvailable: true) }
-    var onActivate: ((RingTarget) -> Void)?
-    /// A click beyond the outer radius that still landed in this window (its
-    /// transparent corners): treated as the outside click it looks like.
-    var onOutsideClick: (() -> Void)?
-    var contextMenuProvider: (() -> NSMenu)?
-
-    private var pressed: RingTarget?
+    /// Accessibility Press: follows the same rules as a click.
+    var onPress: ((RingTarget) -> Void)?
 
     init(geometry: RingGeometry) {
         self.geometry = geometry
@@ -54,46 +87,6 @@ final class RingInputView: NSView {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
-
-    override var isFlipped: Bool { true }
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    // MARK: Mouse
-
-    override func mouseDown(with event: NSEvent) {
-        let point = convert(event.locationInWindow, from: nil)
-        pressed = nil
-        guard let target = geometry.target(at: point) else {
-            if hypot(point.x - geometry.center.x, point.y - geometry.center.y) > RingGeometry.outerRadius {
-                onOutsideClick?()
-            }
-            return
-        }
-        if target == .drag {
-            // Native window drag. The ring panel has no move observer and nothing here
-            // writes a position, so a drag never persists anything.
-            window?.performDrag(with: event)
-            return
-        }
-        pressed = target
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        defer { pressed = nil }
-        let point = convert(event.locationInWindow, from: nil)
-        guard let pressed, geometry.target(at: point) == pressed else { return }
-        onActivate?(pressed)
-    }
-
-    override func rightMouseDown(with event: NSEvent) {
-        if let menu = contextMenuProvider?() {
-            NSMenu.popUpContextMenu(menu, with: event, for: self)
-        } else {
-            super.rightMouseDown(with: event)
-        }
-    }
-
-    // MARK: Accessibility
 
     override func isAccessibilityElement() -> Bool { false }
 
@@ -109,12 +102,36 @@ final class RingInputView: NSView {
             element.setAccessibilityLabel(info.name)
             element.setAccessibilityValue(info.value)
             element.setAccessibilityEnabled(true)
+            if target != .settings { element.setAccessibilityExpanded(info.isExpanded) }
             if !info.isAvailable { element.setAccessibilityHelp("No reading is available for this stat right now.") }
             element.setAccessibilityParent(self)
             element.setAccessibilityFrameInParentSpace(frame)
-            element.onPress = { [weak self] in self?.onActivate?(target) }
+            element.onPress = { [weak self] in self?.onPress?(target) }
             return element
         }
+    }
+}
+
+/// Content view of the More outer ring and of list panels (side More list, whole-list
+/// fallback). Draws nothing; its accessibility children come from the controller.
+final class RingSurfaceInputView: RingForwardingView {
+    var accessibilityElementsProvider: (() -> [RingAccessibilityElement])?
+
+    init(size: CGSize, label: String) {
+        super.init(frame: NSRect(origin: .zero, size: size))
+        setAccessibilityRole(.group)
+        setAccessibilityLabel(label)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override func isAccessibilityElement() -> Bool { false }
+
+    override func accessibilityChildren() -> [Any]? {
+        let elements = accessibilityElementsProvider?() ?? []
+        elements.forEach { $0.setAccessibilityParent(self) }
+        return elements
     }
 }
 #endif

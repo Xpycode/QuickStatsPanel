@@ -85,7 +85,7 @@ struct RingView: View {
             }
 
             if let more = geometry.moreFrame {
-                control(more, hovered: state.hovered == .more, theme: theme) {
+                control(more, hovered: state.hovered == .more || state.moreExpanded, theme: theme) {
                     HStack(spacing: 6) {
                         Text("More")
                         Text("\(geometry.moreCount)").foregroundStyle(theme.colors.secondaryText)
