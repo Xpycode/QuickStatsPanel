@@ -4,7 +4,7 @@
 
 ## Active plan
 
-[Native ring prototype](../IMPLEMENTATION_PLAN.md): 2/3 tasks; 1.1 owner-verified and 1.2 complete 2026-11-13; Wave 3 (1.3) ready. E1 owner review gates broader layouts/appearance. The plan owns task status and evidence.
+[Native ring prototype](../IMPLEMENTATION_PLAN.md): 3/3 tasks complete 2026-11-13 (1.3: R/T-all/B evidence and E1 checklist in [ring-prototype evidence](evidence/ring-prototype.md)). E1 owner review is next and gates broader layouts/appearance. The plan owns task status and evidence.
 
 Transfer history shipped as **v1.2.0 (1200)** on 2026-10-28: 8/8 implementation tasks complete;
 remaining E1 checks explicitly deferred by the owner to everyday use, not marked as tested.
@@ -28,7 +28,11 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 - [ ] **Wedge inner-shape artifact — confirmed 2026-11-13.** Owner's native screenshot (`eight`
       fixture) shows a darker inner quadrilateral inside the amber Temperature/Memory wedges
       (fainter in others). Not fixed in 1.2 (out of its scope); bounded prototype correction
-      candidate for 1.3/E1.
+      candidate for 1.3/E1. E1 checklist case C3 re-checks it.
+- [ ] **Fixture temp roots never removed (Debug only, minor)** — found by 1.3 inspection, 2026-11-13.
+      Each `--ring-fixture` launch leaves `QuickStatsPanel-ring-fixture-<UUID>` in the temp folder
+      (`StatsStore.makeRingFixtureStore`; nothing removes it after the termination flush). Fix: keep the
+      root URL and remove it after the flush when in fixture mode. Real root unaffected.
 - [ ] **Ring wedge radial gauges** — owner idea, 2026-11-13. Each wedge fills from inner edge (0) to
       outer edge (ceiling), stacked components, toggleable text/icon overlay, colour mode, fill
       strength and size presets. Explored in [mockup](https://claude.ai/artifact/WNNwTzTsSQDTR63E8YUj9g)

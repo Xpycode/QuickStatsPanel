@@ -1,7 +1,7 @@
 # Native Ring Prototype — Implementation Plan
 
-**Created:** 2026-11-12 · **Status:** Executing — Waves 1–2 complete 2026-11-13; Wave 3 (1.3) ready
-**Progress:** 2/3 implementation tasks complete (1.1 owner-verified, 1.2 B/T + independent review); external acceptance **E1 open**.
+**Created:** 2026-11-12 · **Status:** Implementation complete 2026-11-13 (Waves 1–3); awaiting E1 owner review
+**Progress:** 3/3 implementation tasks complete (1.1 owner-verified, 1.2 B/T + independent review, 1.3 R/T-all/B + inspection); external acceptance **E1 open** — checklist in [ring-prototype evidence](docs/evidence/ring-prototype.md#e1-owner-review-checklist).
 Unchecked tasks are pending unless explicitly marked implemented-unverified or blocked. This file
 owns task status and evidence; `docs/TASKS.md` links here without duplicating completion boxes.
 Execute with `/Users/sim/ProgrammingProjects/0-DIRECTIONS/__DIRECTIONS/commands/execute.md`.
@@ -177,7 +177,9 @@ Do not resolve geometry again on sample ticks. Existing detail content still rec
 
 ### Wave 3 — integration evidence and reviewable fresh artifact
 
-- [ ] **1.3 — Validate integration and prepare the native review**
+- [x] **1.3 — Validate integration and prepare the native review** — *complete 2026-11-13: R 0
+  occurrences, T-all 212/212, B no-op rebuild of the running artifact, inspection no defects;
+  [evidence + E1 checklist](docs/evidence/ring-prototype.md). See execution log.*
   - Depends on: 1.1, 1.2. External gates: none for build/headless evidence; native claims await E1.
   - Owns: `docs/evidence/ring-prototype.md`, prototype fixture definitions and targeted test fixes;
     coordinator owns any integration fixes, project/build resources and task-state updates.
@@ -197,7 +199,7 @@ Do not resolve geometry again on sample ticks. Existing detail content still rec
     intermediate test runners are not a fresh-app handoff. Do not automate clicks/keys without
     their own authorization. Provide full absolute paths for user-operated steps.
 
-## Validation commands (planned, not yet run)
+## Validation commands (B/T run in 1.1–1.2; R and T-all run in 1.3)
 
 Inspect target effects/setup before running. B is build-only; T uses the existing hostless bundle
 with injected disposable defaults/data and no sampler startup, updater or hotkey registration.
@@ -283,13 +285,18 @@ hover-to-expand remains separate because this spec requires hover only in Ring.
   after stopping — deliberate provisional choice, commented in `RingInteractionState.evaluate`.
 - 1.2: the first T run's result bundle (run01, 7 test-authoring failures) was deleted by the agent
   before rerun, contrary to the keep-every-bundle rule; run02/run03/run04 retained.
+- 1.3: `log stream` hides info-level messages unless given `--level info`; the 1.1 hover-mechanism
+  instruction omitted it. Corrected command is in the evidence doc.
+- 1.3: the `twelve` fixture enables all **eleven** `StatKind`s (the app has eleven); More then holds three.
+- 1.3: Release still links the pure ring Model types (unguarded so hostless tests compile them);
+  no entry point, view, controller, fixture or launch literal. Production plan decides on guarding.
 - 1.1: slot 0 is centred on twelve o'clock (one constant to flip if the owner prefers sector 0
   starting at twelve). Ring text uses the spec's explicit 13/16/12 pt, not Theme font tokens.
 
 ## Blocked tasks
 
-None. 1.3 is ready (depends on 1.1 and 1.2, both complete). E1 is pending, and broader feature
-work is intentionally gated rather than silently authorized by this plan.
+None. 1.1–1.3 complete. E1 awaits the owner's hands-on review (checklist in the evidence doc);
+broader feature work stays gated on E1 rather than silently authorized by this plan.
 
 ## Execution log
 
@@ -299,6 +306,7 @@ work is intentionally gated rather than silently authorized by this plan.
 | Wave 1 / 1.1 owner look | Owner-operated launch (`--ring-fixture=eight`); screenshot reviewed by coordinator. No agent launch/control. | Owner: concept looks okay; size/visual refinement deferred to E1. Unreported: hover with another app frontmost (+ mechanism), wedge → detail/process lists, Escape/click-away incl. corners, hub drag vs `customPosition`. Possible inner-quadrilateral shading in amber wedges (TASKS Inbox). | Documentation only. | 1.1 stays unchecked; 1.2 blocked until those checks are reported. Slot-0 orientation still open. |
 | Wave 1 / 1.1 owner checks (2026-11-13) | Owner-operated (`--ring-fixture=eight`, one instance); six screenshots reviewed by coordinator. No agent launch/control. | Owner: (1) hover with another app frontmost **pass** (Network wedge highlight shown); (2) wedge → detail **pass**: CPU/Memory cards show fixture data and process lists; (3) Escape/click-away **pass**; (4) hub drag **pass**. Findings: **Disk/Network transfer sections stay "Loading…"** — fixture store builds `TransferHistoryController` with `automaticallySchedules: false` and never starts it (`AppDelegate` skips `store.start()` in fixture mode), so the first load never runs; fixture-only, real-data path unaffected but unverified in Ring. CPU/Memory cards' empty lower area is the 10 reserved process rows (4 fixture rows) and the half-filled graph is 30 fixture samples vs. capacity — both identical to Strip, not Ring defects. Inner-quadrilateral shading visible natively in amber wedges (Temperature, Memory). Slot 0 (CPU) at twelve o'clock, no objection raised. Hover mechanism not captured (no persisted `RingPrototype` log). | Documentation only. | **1.1 ticked.** Carry to 1.2: start fixture transfer history on its temp root (or render an explicit empty state) so Disk/Network cards resolve; optionally confirm real-data Disk/Network cards with `--ring-prototype` alone. Wave 2 ready. |
 | Wave 2 / 1.2 | One fresh developer agent (single-task wave; serial by plan), then the same agent for review fixes. Independent quality-reviewer agent (read-only) reviewed the diff: PASS_WITH_CONCERNS, no critical; findings 1–4 fixed (inert ring clicks dismissed HUD; drag replanned against summon display; whole-list replan shifted away from real panel; detail clipping → scroll on overflow), 5 commented, 6–7 accepted as low. Coordinator reran T and B, reviewed resolver/scroll fixes, `git diff --check` clean. | T (coordinator rerun before fixes) `build/RingPrototypeTests-1.2-run03.xcresult` 104/104; T after fixes `build/RingPrototypeTests-1.2-run04.xcresult` **110/110, 0 skipped** (RingGeometry 16, RingInteraction 48, RingPlacement 23, RingHitResolver 4, RingFixtureTransferHistory 1, PanelMetricOptions 7, CPUBatteryPair 6, TransferDetailState 5). B exit 0, no new warnings (`01_Project/build/RingPrototype-1.2-B.log`). Artifact `01_Project/build/RingPrototype/Build/Products/Debug/QuickStatsPanel.app`, 1.2.1 (1201), exec SHA-256 `21f04750…c7a828`, team FDMSRXXN73, `codesign --verify --deep --strict` OK. Handoff (standing Oct 27 authorization): old instance PID 36801 quit gracefully (Apple Event, exited ~2 s); fresh artifact launched with `--ring-prototype --ring-fixture=eight`, PID 19436 started 02:24:23 after the 02:23:08 build, executable path verified, sole instance. | `cf6da8f` "Ring prototype 1.2…" (local). | **1.2 ticked; selected scope (Wave 2) complete.** Next: `/execute` Wave 3 (1.3: R Release-exclusion check, T-all vs 113 baseline, evidence doc, review checklist). Native observations (hover/dwell feel, More ring/list, scroll, drag-to-other-display, accessibility) belong to 1.3/E1. |
+| Wave 3 / 1.3 | Coordinator ran R, T-all and B serially (coordinator owns build/test output; one writer per derived-data dir) and wrote the evidence doc/checklist. In parallel, one fresh read-only quality-reviewer agent inspected Strip routing, Carbon hotkeys, detail resolution, sample lifetime, Release guards and stale callbacks: **no defects**, 3 minor concerns (fixture temp root not removed → TASKS Backlog; summon-time card measurement → native E1 C1; sleep flush to temp root, accepted). No source changes, so no test fixes were needed. | R: Release build exit 0 (`01_Project/build/RingPrototype-1.3-R.log`), `--ring-prototype` count **0** in the Release executable (controls: Debug dylib 1, planted line 1); no ring controller/view/fixture symbols, but pure Model types are present (noted). T-all `01_Project/build/RingPrototypeAllTests-1.3-run01.xcresult` **212 passed / 0 failed / 0 skipped** = 113 baseline + 7 (1.2.1: CPUBatteryPair 6, PanelMetricOptions +1) + 92 ring. Focused T reused from 1.2 run04 (no source change). B exit 0, no-op: exec SHA-256 `21f04750…c7a828` unchanged, `codesign --verify --deep --strict` OK, 1.2.1 (1201). `git diff --check` clean. Running PID 19436 already this exact artifact, so no quit or relaunch was needed. Hover-mechanism log read (`log show`): no entries. | Documentation/evidence commit (see git log, "Ring prototype 1.3"); not pushed. | **1.3 ticked; plan implementation complete.** Next: **E1** owner review using the checklist in `docs/evidence/ring-prototype.md` (start the log stream with `--level info` first). |
 
 Planning performed no execution, build, app launch or product acceptance. 1.1 interfaces:
 `RingGeometry` (`target(at:)`, `outline(of:)`, `frame(of:)`, `textFits`), `RingSnapshot` (generation

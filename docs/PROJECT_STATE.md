@@ -10,22 +10,22 @@
 - **Started:** 2026-06-04 · **Target:** macOS 15+ · **License:** PolyForm Noncommercial 1.0.0 (public repo)
 
 ## Now
-- **Funnel:** build · **Phase:** Native ring prototype — Waves 1–2 done, Wave 3 next <!-- Phase changed: 2026-11-13 -->
+- **Funnel:** build · **Phase:** Native ring prototype — implementation done, owner review (E1) next <!-- Phase changed: 2026-11-13 -->
 - **Focus:** v1.2.1 universal app/DMG notarized and local signed update feed verified. Published version remains v1.2.0; [release preparation](evidence/release-1.2.1.md).
 - **Blockers:** Strongbox backup confirmed incomplete; remaining updater controls and real upgrade acceptance open.
-- **Execution:** [Native ring prototype plan](../IMPLEMENTATION_PLAN.md) · 2/3 — 1.1 owner-verified, 1.2 complete (hover/hold timing, More branch, edge placement; 110/110 tests, independent review fixed). Wave 3 (1.3) ready. E1 gates broader layout work.
+- **Execution:** [Native ring prototype plan](../IMPLEMENTATION_PLAN.md) · 3/3 tasks done — awaiting **E1** owner review ([checklist](evidence/ring-prototype.md#e1-owner-review-checklist)); E1 gates broader layout work.
 - **Feature definition:** [Panel layouts and dynamic appearance](../specs/panel-layouts-and-appearance.md) drafted: four layouts, up to eight ring favourites plus hover details/More, bounded per-stat colouring. Wedge visual direction accepted (D-034); native prototype and settings review remain; no implementation authorized.
-- **Current handoff:** [Ring Wave 3](sessions/2026-11-13.md#resume--ring-wave-3-13).
+- **Current handoff:** [Ring E1 review](sessions/2026-11-13.md#resume--ring-e1-review).
 - **Validation:** 1.2.1: 19 focused hostless tests, Debug build/deep signature, signed-feed/tamper and release-tool fixture checks passed. Paired displays and live manual no-update check accepted; other updater controls and real upgrade untested.
-- **Next:** `/execute` Wave 3 (1.3: Release-exclusion check, full test suite, evidence doc, owner review checklist) → E1 working-prototype review. Owner answers the [gauge mockup](https://claude.ai/artifact/WNNwTzTsSQDTR63E8YUj9g) questions → D-035 + spec section. Separately: Strongbox backup, updater/upgrade acceptance and publication verification for 1.2.1; Restart deferred.
+- **Next:** Owner runs the E1 checklist on the running prototype → record results, bounded fixes, archive plan. Owner answers the [gauge mockup](https://claude.ai/artifact/WNNwTzTsSQDTR63E8YUj9g) questions → D-035 + spec section. Separately: Strongbox backup, updater/upgrade acceptance and publication verification for 1.2.1; Restart deferred.
 - **Last updated:** 2026-11-13
 
 ## Recent
+- **2026-11-13** — Ring step 3: confirmed the prototype is left out of Release builds, all 212 tests pass, owner review checklist ready.
 - **2026-11-13** — Ring step 2 built: hover/hold timing, More branch and screen-edge placement; reviewed, 110 tests pass; fresh build running.
 - **2026-11-13** — Owner passed all four ring 1.1 native checks; fixture Disk/Network cards stuck loading (carried to 1.2).
 - **2026-11-13** — Explored wedges as radial fill gauges; interactive mockup published, owner choices pending before planning.
 - **2026-11-12** — Owner saw the ring prototype running and accepted the concept; sizing deferred to the later review, interaction checks still to report.
-- **2026-11-12** — Ring prototype 1.1 built (Debug-only `--ring-prototype`, fixtures, 16 geometry tests); native check pending.
 
 ## What we're building
 Press a global hotkey → a **thin** wide strip appears near the cursor showing live stats as compact
@@ -38,7 +38,7 @@ Fans, Power, Temperatures, plus per-stat history graphs (2026-07-27).
 
 ## Progress
 **Features** ✅ roadmap + retained transfers shipped · **UI** ✅ approved release scope; remaining manual checks deferred ·
-**Testing** ✅ 113 hostless tests + bounded hardware probes · **Docs** ✅ ·
+**Testing** ✅ 212 hostless tests (incl. 92 ring) + bounded hardware probes · **Docs** ✅ ·
 **Distribution** ✅ v1.2.0 notarized + released; GitHub and website downloads verified
 
 ## Detail (read only if needed)
