@@ -165,9 +165,44 @@ extension StatsStore {
         return descriptor
     }
 
-    /// Live wedge reading for `kind`; unavailable stats keep their identity.
+    /// Live wedge reading for `kind`; unavailable stats keep their identity. The gauge is built
+    /// from the live samples and agrees with the reading's availability.
     func ringReading(for kind: StatKind) -> RingReading {
-        resolvedDescriptor(for: kind).map(RingReading.init(descriptor:)) ?? .unavailable(kind)
+        guard var reading = resolvedDescriptor(for: kind).map(RingReading.init(descriptor:)) else {
+            return .unavailable(kind)
+        }
+        reading.gauge = ringGauge(for: kind)
+        return reading
+    }
+
+    /// Wedge gauge for `kind` from the live samples (a presentation value; drawing it never
+    /// samples). Peak ticks come from the Debug-only peak windows.
+    func ringGauge(for kind: StatKind) -> RingGauge {
+        let ceiling = ringPowerCeiling
+        func peak(_ key: RingPeakKey) -> Double? { ringPeak(key) }
+        switch kind {
+        case .cpu: return RingGaugeMapper.cpu(cpu, peak: peak(.cpu))
+        case .memory: return RingGaugeMapper.memory(memory)
+        case .disk: return RingGaugeMapper.disk(disk)
+        case .network: return RingGaugeMapper.network(network, downPeak: peak(.networkDown), upPeak: peak(.networkUp))
+        case .battery: return RingGaugeMapper.battery(battery)
+        case .gpu: return RingGaugeMapper.gpu(gpu, peak: peak(.gpu))
+        case .fan: return RingGaugeMapper.fans(fan)
+        case .power:
+            let watts = peak(.powerWatts)
+            return RingGaugeMapper.power(power, ceilingWatts: ceiling, peak: watts.map { $0 / ceiling })
+        case .temps: return RingGaugeMapper.temperature(temps, peak: peak(.temperature))
+        case .loadAverage:
+            let window: RingGaugeMapper.LoadWindow
+            switch AppSettings.shared.loadDisplayMode {
+            case .oneMinute, .relativeToCores: window = .one
+            case .fiveMinutes: window = .five
+            case .fifteenMinutes: window = .fifteen
+            }
+            return RingGaugeMapper.load(loadAverage, window: window,
+                                        activeCores: max(1, ProcessInfo.processInfo.activeProcessorCount))
+        case .uptime: return RingGaugeMapper.uptime(uptime)
+        }
     }
 
     /// Title of the stat's top-process section, or nil for stats that have none. Disk has no

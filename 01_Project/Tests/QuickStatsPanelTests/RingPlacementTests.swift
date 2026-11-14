@@ -1,6 +1,6 @@
 import XCTest
 
-/// Hostless checks of pre-summon geometry selection: outer ring, side list, whole-list
+/// Hostless checks of pre-summon geometry selection: preset footprint, side list, whole-list
 /// fallback, edge fitting, negative display origins, pixel snapping and the scrolling
 /// list model. Detail sizes are injected because `StatDetailView` lives outside the bundle.
 final class RingPlacementTests: XCTestCase {
@@ -15,26 +15,25 @@ final class RingPlacementTests: XCTestCase {
         RingReading(value: "42%", widestValue: kind.ringFallbackWidest)
     }
 
-    private func snapshot(_ kinds: [StatKind], measure: ((StatKind, RingReading) -> CGSize)? = nil) -> RingSnapshot {
-        if let measure {
-            return RingSnapshot.make(enabledKinds: kinds, reading: reading, measure: measure)
-        }
-        return RingSnapshot.make(enabledKinds: kinds, reading: reading)
+    private func snapshot(_ kinds: [StatKind], preset: RingSizePreset = .medium) -> RingSnapshot {
+        RingSnapshot.make(enabledKinds: kinds, preset: preset, reading: reading)
     }
 
     private func details(_ kinds: [StatKind], width: CGFloat = 300, height: CGFloat = 320) -> [StatKind: CGSize] {
         Dictionary(uniqueKeysWithValues: kinds.map { ($0, CGSize(width: width, height: height)) })
     }
 
-    private func preferred(centeredAt p: CGPoint) -> CGRect {
-        CGRect(x: p.x - 260, y: p.y - 260, width: 520, height: 520)
+    /// Preferred base of the default (Medium) ring: its 360-point footprint centred on `p`.
+    private func preferred(centeredAt p: CGPoint, side: CGFloat = 360) -> CGRect {
+        CGRect(x: p.x - side / 2, y: p.y - side / 2, width: side, height: side)
     }
 
     private func plan(_ s: RingSnapshot, visible: CGRect, at p: CGPoint? = nil,
                       detail: [StatKind: CGSize]? = nil, scale: CGFloat = 1,
                       canShift: Bool = true, allowWholeList: Bool = true) -> RingPlan {
         let center = p ?? CGPoint(x: visible.midX, y: visible.midY)
-        return RingPlacement.resolve(.init(snapshot: s, visible: visible, preferredBase: preferred(centeredAt: center),
+        return RingPlacement.resolve(.init(snapshot: s, visible: visible,
+                                           preferredBase: preferred(centeredAt: center, side: s.size.width),
                                            detailSizes: detail ?? details(s.enabledKinds), scale: scale,
                                            canShift: canShift, allowWholeList: allowWholeList))
     }
@@ -52,41 +51,46 @@ final class RingPlacementTests: XCTestCase {
 
     // MARK: Mode selection
 
-    func testLargeSyntheticFrameExercisesTheOuterRingPath() throws {
+    func testBasePanelIsThePresetFootprintAndSitsOnTheFrozenLayout() throws {
+        for preset in RingSizePreset.allCases {
+            let s = snapshot(all, preset: preset)
+            let p = plan(s, visible: vLarge)
+            XCTAssertEqual(p.baseFrame.size, preset.footprintRingOnly, "\(preset): ring-only footprint, no 520-point constant")
+            XCTAssertEqual(s.layout.center, CGPoint(x: preset.outerRadius, y: preset.outerRadius))
+            for favourite in s.layout.favourites {
+                let frame = try XCTUnwrap(p.nodeFrames[.wedge(favourite.kind)])
+                XCTAssertTrue(p.baseFrame.insetBy(dx: -0.001, dy: -0.001).contains(frame), "\(preset) \(favourite.kind)")
+            }
+            let more = try XCTUnwrap(p.nodeFrames[.more], "\(preset): the More wedge is a node")
+            XCTAssertEqual(more.midX, p.baseFrame.midX, accuracy: 1, "\(preset): centred on six o'clock")
+            XCTAssertLessThan(more.midY, p.baseFrame.midY, "\(preset): below the centre (screen y grows upward)")
+        }
+    }
+
+    func testLargeFrameKeepsTheSideColumnAndNeverTheRemovedOuterRing() throws {
         let s = snapshot(all)
         XCTAssertGreaterThan(s.moreKinds.count, 0)
         let p = plan(s, visible: vLarge)
-        XCTAssertEqual(p.mode, .outerRing)
-        let surface = try XCTUnwrap(p.moreSurface)
-        XCTAssertEqual(surface.size, CGSize(width: 820, height: 820))
-        XCTAssertEqual(surface.midX, p.baseFrame.midX, accuracy: 0.001, "outer ring is concentric with the base")
-        XCTAssertEqual(surface.midY, p.baseFrame.midY, accuracy: 0.001)
+        XCTAssertEqual(p.mode, .sideList)
+        let list = try XCTUnwrap(p.moreSurface)
+        XCTAssertEqual(list.width, RingPlacement.sideAreaWidth)
+        XCTAssertFalse(list.intersects(p.baseFrame))
         for kind in s.moreKinds {
             let detail = try XCTUnwrap(p.detailFrames[kind])
-            XCTAssertFalse(detail.intersects(surface), "\(kind) detail sits beside the outer ring")
+            XCTAssertFalse(detail.intersects(list), "\(kind) detail sits below the list")
             XCTAssertNotNil(p.nodeFrames[.moreItem(kind)])
         }
         assertInside(p, vLarge)
     }
 
-    func testOuterRingNeedsAboutEightHundredTwentyPointsPlusTheDetail() {
+    func testSideColumnNeedsTheRingPlusAboutThreeEightyPoints() {
         let s = snapshot(all)
-        XCTAssertEqual(plan(s, visible: v1440).mode, .outerRing, "1440 x 900 holds 820 + a 300-point card")
-        XCTAssertEqual(plan(s, visible: v1024).mode, .sideList, "1024 x 640 cannot hold 820")
-        let tight = CGRect(x: 0, y: 0, width: 1100, height: 819)
-        XCTAssertNotEqual(plan(s, visible: tight).mode, .outerRing, "819 points high cannot hold the 820 footprint")
-    }
-
-    func testOuterRingFallsBackWhenMoreTextCannotFitItsSectors() {
-        let wide = snapshot(all) { kind, reading in
-            self.snapshotMeasure(kind, reading, more: CGSize(width: 220, height: 60))
-        }
-        XCTAssertEqual(plan(wide, visible: vLarge).mode, .sideList)
-    }
-
-    private func snapshotMeasure(_ kind: StatKind, _ reading: RingReading, more: CGSize) -> CGSize {
-        let favourites = Set(all.prefix(RingGeometry.maxFavourites))
-        return favourites.contains(kind) ? RingTypography.blockSize(name: kind.displayName, reading: reading) : more
+        XCTAssertEqual(plan(s, visible: v1024).mode, .sideList, "1024 x 640 holds 360 + the 380-point side area")
+        let narrow = CGRect(x: 0, y: 0, width: 700, height: 900)
+        XCTAssertEqual(plan(s, visible: narrow).mode, .wholeList, "700 points wide cannot hold 360 + 6 + 380")
+        let small = snapshot(all, preset: .small)
+        XCTAssertEqual(plan(small, visible: CGRect(x: 0, y: 0, width: 660, height: 900)).mode, .sideList,
+                       "Small needs 260 + 6 + 380")
     }
 
     func testSideListAt1024x640KeepsListAboveDetailBesideTheBase() throws {
@@ -149,22 +153,32 @@ final class RingPlacementTests: XCTestCase {
         for frame in p.detailFrames.values { XCTAssertLessThanOrEqual(frame.height, v1024.height) }
     }
 
-    func testNothingInMoreUsesTheBaseAloneAndNeedsNoSurface() {
+    func testNothingInMoreHasNoListAndNoMoreNode() throws {
         let s = snapshot(eight)
         XCTAssertTrue(s.moreKinds.isEmpty)
         let p = plan(s, visible: v1024)
-        XCTAssertEqual(p.mode, .outerRing)
+        XCTAssertEqual(p.mode, .sideList, "the column then holds the detail card alone")
         XCTAssertNil(p.moreSurface)
         XCTAssertNil(p.nodeFrames[.more])
+        for kind in eight { XCTAssertFalse(try XCTUnwrap(p.detailFrames[kind]).intersects(p.baseFrame)) }
         assertInside(p, v1024)
     }
 
-    func testZeroOneSixEightFavouritesAndTwelveEnabledAllPlace() {
+    func testNoStatsAndNoDetailsReserveNothingBesideTheRing() {
+        let s = snapshot([])
+        let p = plan(s, visible: v1024, detail: [:])
+        XCTAssertEqual(p.mode, .sideList)
+        XCTAssertEqual(p.allFrames, [p.baseFrame])
+    }
+
+    func testZeroOneSixEightFavouritesAndElevenEnabledPlaceInEveryPreset() {
         let six: [StatKind] = [.cpu, .memory, .disk, .network, .gpu, .temps]
-        for kinds in [[StatKind](), [.cpu], six, eight, all] {
-            for visible in [v1024, v1440] {
-                let p = plan(snapshot(kinds), visible: visible)
-                assertInside(p, visible, "\(kinds.count) stats on \(visible)")
+        for preset in RingSizePreset.allCases {
+            for kinds in [[StatKind](), [.cpu], six, eight, all] {
+                for visible in [v1024, v1440] {
+                    let p = plan(snapshot(kinds, preset: preset), visible: visible)
+                    assertInside(p, visible, "\(preset) \(kinds.count) stats on \(visible)")
+                }
             }
         }
     }
@@ -185,15 +199,15 @@ final class RingPlacementTests: XCTestCase {
                     let label = "\(kinds.count) stats at \(point) on \(visible) mode \(p.mode)"
                     assertInside(p, visible, label)
                     if p.mode != .wholeList {
-                        XCTAssertEqual(p.baseFrame.size, CGSize(width: 520, height: 520), label)
+                        XCTAssertEqual(p.baseFrame.size, s.size, label)
                     }
                     for (kind, detail) in p.detailFrames {
                         XCTAssertFalse(detail.intersects(p.baseFrame), "\(label): \(kind) covers the ring")
                         if let surface = p.moreSurface, s.moreKinds.contains(kind) {
                             XCTAssertFalse(detail.intersects(surface), "\(label): \(kind) covers More")
                         }
-                        if let parent = p.nodeFrames[.wedge(kind)] ?? p.nodeFrames[.moreItem(kind)] {
-                            XCTAssertFalse(detail.intersects(parent) && p.mode == .outerRing, "\(label): \(kind) covers its parent")
+                        if let parent = p.nodeFrames[.wedge(kind)], p.mode != .wholeList {
+                            XCTAssertFalse(detail.intersects(parent), "\(label): \(kind) covers its parent")
                         }
                     }
                 }
@@ -208,8 +222,8 @@ final class RingPlacementTests: XCTestCase {
         XCTAssertEqual(fits.baseFrame, preferred(centeredAt: centre), "no shift when everything fits")
 
         let nearLeft = plan(s, visible: vLarge, at: CGPoint(x: 100, y: centre.y))
-        XCTAssertGreaterThanOrEqual(nearLeft.moreSurface?.minX ?? -1, 0, "ring pulled just inside the left edge")
-        XCTAssertEqual(nearLeft.moreSurface?.minX ?? -1, 0, accuracy: 0.001, "and no further than needed")
+        XCTAssertGreaterThanOrEqual(nearLeft.baseFrame.minX, 0, "ring pulled just inside the left edge")
+        XCTAssertEqual(nearLeft.baseFrame.minX, 0, accuracy: 0.001, "and no further than needed")
     }
 
     func testFixedBaseDoesNotShift() {
@@ -236,7 +250,7 @@ final class RingPlacementTests: XCTestCase {
         let rawOrigin = CGPoint(x: 301.25, y: 101.25)
         for scale in [CGFloat(1), 2] {
             let input = RingPlacement.Input(snapshot: s, visible: v1440,
-                                            preferredBase: CGRect(origin: rawOrigin, size: CGSize(width: 520, height: 520)),
+                                            preferredBase: CGRect(origin: rawOrigin, size: s.size),
                                             detailSizes: details(s.enabledKinds, width: 300.4, height: 320.6),
                                             scale: scale)
             let p = RingPlacement.resolve(input)
@@ -247,9 +261,9 @@ final class RingPlacementTests: XCTestCase {
             XCTAssertEqual(abs(p.baseFrame.minX - rawOrigin.x) <= 0.5 / scale + 0.001, true)
             assertInside(p, v1440)
         }
-        let one = RingPlacement.resolve(.init(snapshot: s, visible: v1440, preferredBase: CGRect(origin: rawOrigin, size: CGSize(width: 520, height: 520)),
+        let one = RingPlacement.resolve(.init(snapshot: s, visible: v1440, preferredBase: CGRect(origin: rawOrigin, size: s.size),
                                               detailSizes: details(s.enabledKinds), scale: 1))
-        let two = RingPlacement.resolve(.init(snapshot: s, visible: v1440, preferredBase: CGRect(origin: rawOrigin, size: CGSize(width: 520, height: 520)),
+        let two = RingPlacement.resolve(.init(snapshot: s, visible: v1440, preferredBase: CGRect(origin: rawOrigin, size: s.size),
                                               detailSizes: details(s.enabledKinds), scale: 2))
         XCTAssertEqual(one.mode, two.mode, "scale changes pixels, never the chosen arrangement")
         XCTAssertEqual(one.baseFrame.minX, 301, accuracy: 0.001)
@@ -268,7 +282,7 @@ final class RingPlacementTests: XCTestCase {
     func testReplanWithAnotherVisibleFrameKeepsChildrenInsideIt() {
         let s = snapshot(all)
         let other = CGRect(x: 2000, y: 100, width: 1024, height: 640)
-        let base = CGRect(x: 2100, y: 150, width: 520, height: 520)
+        let base = CGRect(x: 2100, y: 150, width: s.size.width, height: s.size.height)
         let p = RingPlacement.resolve(.init(snapshot: s, visible: other, preferredBase: base,
                                             detailSizes: details(all), canShift: false, allowWholeList: false))
         XCTAssertEqual(p.baseFrame, base)
@@ -295,32 +309,6 @@ final class RingPlacementTests: XCTestCase {
         let clamped = RingPlacement.resolve(input)
         XCTAssertEqual(clamped.baseFrame, edge)
         XCTAssertTrue(clamped.isClamped || clamped.detailFrames.values.allSatisfy { !$0.intersects(edge) })
-    }
-
-    // MARK: Outer More geometry
-
-    func testMoreRingHitsEntriesAndNeverTheGaps() throws {
-        let items = StatKind.allCases.dropFirst(8).map { (kind: $0, textSize: CGSize(width: 90, height: 48)) }
-        let g = RingMoreGeometry(items: items)
-        XCTAssertEqual(g.entries.count, items.count)
-        for entry in g.entries {
-            let p = RingGeometry.point(center: g.center, angle: entry.centerAngle, radius: RingMoreGeometry.textRadius)
-            XCTAssertEqual(g.target(at: p), entry.kind)
-            XCTAssertNotNil(g.frame(of: entry.kind))
-        }
-        let gapAngle = g.entries[0].centerAngle + (2 * .pi / Double(items.count)) / 2
-        XCTAssertNil(g.target(at: RingGeometry.point(center: g.center, angle: gapAngle, radius: RingMoreGeometry.textRadius)))
-        XCTAssertNil(g.target(at: g.center), "hub area selects nothing in the outer ring")
-        XCTAssertTrue(g.isOnRing(RingGeometry.point(center: g.center, angle: gapAngle, radius: RingMoreGeometry.textRadius)))
-    }
-
-    func testMoreRingHoldsTwelveEntriesAndDetectsOversizedText() {
-        let twelve = (0..<12).map { (kind: StatKind.allCases[$0 % StatKind.allCases.count], textSize: CGSize(width: 90, height: 48)) }
-        XCTAssertEqual(RingMoreGeometry(items: twelve).entries.count, 12)
-        let big = RingMoreGeometry(items: [(.fan, CGSize(width: 260, height: 90))])
-        XCTAssertFalse(big.allTextFits)
-        let small = RingMoreGeometry(items: [(.fan, CGSize(width: 80, height: 40)), (.power, CGSize(width: 80, height: 40))])
-        XCTAssertTrue(small.allTextFits)
     }
 
     // MARK: Scrolling list model
@@ -352,6 +340,6 @@ final class RingPlacementTests: XCTestCase {
     }
 
     func testListRowsAreAtLeastTheMinimumTargetHeight() {
-        XCTAssertGreaterThanOrEqual(RingListLayout.rowHeight, RingGeometry.minTargetHeight)
+        XCTAssertGreaterThanOrEqual(RingListLayout.rowHeight, RingSizePreset.minGearTarget)
     }
 }

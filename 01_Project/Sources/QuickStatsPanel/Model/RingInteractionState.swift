@@ -15,8 +15,8 @@ final class SystemRingClock: RingClock {
 
 // MARK: - Vocabulary
 
-/// Something that can own a branch: a favourite wedge, the hub's More control, or an
-/// entry of the More ring/list. Settings and the hub drag area are not nodes; they
+/// Something that can own a branch: a favourite wedge, the More wedge, or an
+/// entry of the More list. Settings and the hub drag area are not nodes; they
 /// never expand anything.
 enum RingNode: Hashable, Sendable {
     case wedge(StatKind)
@@ -29,7 +29,7 @@ enum RingHit: Equatable, Sendable {
     case node(RingNode)
     /// The open detail card.
     case detail
-    /// The open More ring/list, but no entry.
+    /// The open More list, but no entry.
     case moreSurface
     /// Base-ring space that selects nothing: hub, Settings, drag area, gaps.
     case inert

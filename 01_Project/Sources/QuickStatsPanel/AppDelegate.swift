@@ -11,7 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let panel = PanelWindowController()
     #if DEBUG
     /// Ring prototype (Debug only): nil unless launched with `--ring-prototype`
-    /// (see `RingPrototypeLaunch` for the fixture arguments).
+    /// (see `RingPrototypeLaunch` and `RingPrototypeOptions` for the arguments).
     private let ringLaunch = RingPrototypeLaunch.current
     private let ringPanel = RingPanelController()
     private var ringFixtureMode: Bool { ringLaunch?.fixture != nil }
@@ -281,20 +281,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func toggleRing() {
         if ringPanel.isVisible { ringPanel.hide(); return }
         let fixture = ringLaunch?.fixture
+        let options = ringLaunch?.options ?? RingPrototypeOptions()
         let store = self.store
+        store.ringPowerCeilingWatts = options.powerCeilingWatts
         let reading: (StatKind) -> RingReading = { kind in
-            fixture?.reading(for: kind) ?? store.ringReading(for: kind)
+            fixture?.reading(for: kind, powerCeilingWatts: options.powerCeilingWatts) ?? store.ringReading(for: kind)
         }
-        let snapshot = RingSnapshot.make(enabledKinds: fixture?.enabledKinds ?? store.enabledStatKinds,
+        // The first N enabled stats are favourites; the rest are reached through the More wedge.
+        let enabled = fixture?.enabledKinds ?? store.enabledStatKinds
+        let snapshot = RingSnapshot.make(enabledKinds: enabled, favourites: Array(enabled.prefix(options.favourites)),
+                                         preset: options.size, cap: options.text, fillScale: options.fill,
                                          reading: reading)
         let describe: (RingTarget) -> RingInputView.Description = { target in
             switch target {
             case .wedge(let kind):
                 let live = reading(kind)
-                let value = live.isAvailable
-                    ? [live.value, live.secondary].compactMap { $0 }.joined(separator: ", ")
-                    : "Unavailable"
-                return RingInputView.Description(name: kind.displayName, value: value, isAvailable: live.isAvailable)
+                return RingInputView.Description(name: kind.displayName, value: live.accessibilityText,
+                                                 isAvailable: live.isAvailable)
             case .more:
                 return RingInputView.Description(name: "More", value: "\(snapshot.moreKinds.count) more stats",
                                                  isAvailable: true)

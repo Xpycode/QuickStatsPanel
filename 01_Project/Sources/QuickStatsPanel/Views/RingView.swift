@@ -1,128 +1,121 @@
 #if DEBUG
 import SwiftUI
 
-/// Draws the favourite ring from the summon snapshot's frozen geometry. Input and
-/// accessibility live in `RingInputView`, which consumes the same geometry; this view
-/// is drawing only and hidden from accessibility so the two never duplicate elements.
+/// Draws the gauge ring from the summon snapshot's frozen layout: favourite wedges at their
+/// chosen content rung, the More wedge at six o'clock and the small hub. Input and
+/// accessibility live in `RingInputView`, which consumes the same layout; this view is
+/// drawing only and hidden from accessibility so the two never duplicate elements.
 struct RingView: View {
     let snapshot: RingSnapshot
     let state: RingPresentationState
     /// Live reading per stat. Called inside `body`, so Observation tracks the store.
     let reading: (StatKind) -> RingReading
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.colorSchemeContrast) private var contrast
+
     var body: some View {
         let theme = AppSettings.shared.theme
-        let geometry = snapshot.geometry
+        let layout = snapshot.layout
+        let context = RingDrawingContext(theme: theme, fillScale: snapshot.fillScale, reduceMotion: reduceMotion,
+                                         explicitEdge: differentiateWithoutColor || contrast == .increased)
         ZStack(alignment: .topLeading) {
-            ForEach(geometry.wedges, id: \.kind) { wedge in
-                wedgeView(wedge, geometry: geometry, theme: theme)
+            ForEach(layout.favourites, id: \.order) { favourite in
+                RingGaugeWedgeView(kind: favourite.kind, sector: favourite.sector, rung: favourite.rung,
+                                   textFrame: favourite.textFrame, live: reading(favourite.kind),
+                                   context: context,
+                                   hovered: state.hovered == .wedge(favourite.kind),
+                                   selected: state.selectedKind == favourite.kind)
             }
-            hub(geometry: geometry, theme: theme)
-        }
-        .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
-        .accessibilityHidden(true)
-    }
-
-    private func wedgeView(_ wedge: RingGeometry.Wedge, geometry: RingGeometry, theme: Theme) -> some View {
-        let live = reading(wedge.kind)
-        let outline = Path { path in
-            let points = geometry.outline(of: wedge)
-            guard let first = points.first else { return }
-            path.move(to: first)
-            points.dropFirst().forEach { path.addLine(to: $0) }
-            path.closeSubpath()
-        }
-        let hovered = state.hovered == .wedge(wedge.kind)
-        let selected = state.selectedKind == wedge.kind
-        return ZStack(alignment: .topLeading) {
-            outline.fill(theme.colors.background)
-            outline.fill(theme.color(for: live.band).opacity(live.isAvailable ? 0.22 : 0))
-            outline.fill(theme.colors.primaryText.opacity(hovered ? 0.14 : 0))
-            outline.stroke(selected ? theme.colors.primaryText : theme.colors.divider,
-                           lineWidth: selected ? 2 : 1)
-            textBlock(wedge, live: live, theme: theme)
-        }
-        .opacity(live.isAvailable ? 1 : 0.7)
-    }
-
-    /// Horizontal label, headline and optional secondary at the baseline sizes; never
-    /// rotated, scaled or truncated. The frame is the measured worst-case block.
-    private func textBlock(_ wedge: RingGeometry.Wedge, live: RingReading, theme: Theme) -> some View {
-        VStack(spacing: RingTypography.lineSpacing) {
-            Text(wedge.kind.displayName)
-                .font(.system(size: RingTypography.labelSize, weight: .medium))
-                .foregroundStyle(theme.colors.secondaryText)
-            Text(live.value)
-                .font(.system(size: RingTypography.valueSize, weight: theme.weight(for: live.band)).monospacedDigit())
-                .foregroundStyle(live.isAvailable ? theme.colors.primaryText : theme.colors.secondaryText)
-            if let secondary = live.secondary {
-                Text(secondary)
-                    .font(.system(size: RingTypography.secondarySize, weight: .regular).monospacedDigit())
-                    .foregroundStyle(theme.colors.secondaryText)
+            if let more = layout.more {
+                moreWedge(more, theme: theme)
             }
-        }
-        .lineLimit(1)
-        .fixedSize()
-        .frame(width: wedge.textRect.width, height: wedge.textRect.height)
-        .position(x: wedge.textRect.midX, y: wedge.textRect.midY)
-    }
-
-    private func hub(geometry: RingGeometry, theme: Theme) -> some View {
-        let center = geometry.center
-        let radius = RingGeometry.hubRadius
-        return ZStack(alignment: .topLeading) {
-            Circle()
-                .fill(theme.colors.background)
-                .overlay(Circle().stroke(theme.colors.divider, lineWidth: 1))
-                .frame(width: radius * 2, height: radius * 2)
-                .position(x: center.x, y: center.y)
-
-            if AppSettings.shared.isPinned {
-                Image(systemName: "pin.fill")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(theme.colors.secondaryText)
-                    .position(x: center.x, y: center.y - 58)
-            }
-
-            if let more = geometry.moreFrame {
-                control(more, hovered: state.hovered == .more || state.moreExpanded, theme: theme) {
-                    HStack(spacing: 6) {
-                        Text("More")
-                        Text("\(geometry.moreCount)").foregroundStyle(theme.colors.secondaryText)
-                    }
-                }
-            }
-            control(geometry.settingsFrame, hovered: state.hovered == .settings, theme: theme) {
-                HStack(spacing: 5) {
-                    Image(systemName: "gearshape")
-                    Text("Settings")
-                }
-            }
-
+            hub(layout: layout, theme: theme)
             if let message = snapshot.emptyMessage {
+                // Empty states live in the annulus, not the hub: twelve o'clock is free with no
+                // favourites and with no stats at all.
                 Text(message)
                     .font(.system(size: RingTypography.secondarySize))
                     .foregroundStyle(theme.colors.secondaryText)
                     .lineLimit(1)
                     .fixedSize()
-                    .position(x: center.x, y: center.y + 56)
+                    .position(x: layout.center.x,
+                              y: layout.center.y - (layout.preset.innerRadius + layout.preset.outerRadius) / 2)
             }
+        }
+        .frame(width: snapshot.size.width, height: snapshot.size.height, alignment: .topLeading)
+        .accessibilityHidden(true)
+    }
+
+    // MARK: More wedge
+
+    /// A narrow wedge with an icon and the count of remaining stats; no gauge fill.
+    private func moreWedge(_ more: RingLayout.MoreWedge, theme: Theme) -> some View {
+        let sector = more.sector
+        let active = state.hovered == .more || state.moreExpanded
+        let shape = RingBandShape(center: sector.center, centerAngle: sector.centerAngle, halfSpan: sector.halfSpan,
+                                  inner: sector.innerRadius, outer: sector.outerRadius)
+        return ZStack(alignment: .topLeading) {
+            shape.fill(theme.colors.background)
+            shape.fill(theme.colors.primaryText.opacity(active ? 0.2 : RingPalette.trackTint))
+            VStack(spacing: RingTypography.lineSpacing) {
+                Image(systemName: "ellipsis.circle")
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: RingTypography.iconSide, height: RingTypography.iconSide)
+                Text("\(more.count)")
+                    .font(.system(size: RingTypography.labelSize, weight: .medium).monospacedDigit())
+            }
+            .foregroundStyle(theme.colors.primaryText)
+            .lineLimit(1)
+            .fixedSize()
+            .frame(width: more.contentFrame.width, height: more.contentFrame.height)
+            .position(x: more.contentFrame.midX, y: more.contentFrame.midY)
+            shape.stroke(state.moreExpanded ? theme.colors.primaryText : theme.colors.divider,
+                         lineWidth: state.moreExpanded ? 2 : 1)
         }
     }
 
-    private func control<Label: View>(_ frame: CGRect, hovered: Bool, theme: Theme,
-                                      @ViewBuilder label: () -> Label) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(theme.colors.primaryText.opacity(hovered ? 0.20 : 0.08))
-            label()
-                .font(.system(size: RingTypography.secondarySize, weight: .medium))
+    // MARK: Hub
+
+    /// The hub offers only the gear and the drag area. The pin glyph shows Keep on Screen.
+    private func hub(layout: RingLayout, theme: Theme) -> some View {
+        let hub = layout.hub
+        let gear = hub.gearFrame
+        let hovered = state.hovered == .settings
+        return ZStack(alignment: .topLeading) {
+            Circle()
+                .fill(theme.colors.background)
+                .overlay(Circle().stroke(theme.colors.divider, lineWidth: 1))
+                .frame(width: hub.discRadius * 2, height: hub.discRadius * 2)
+                .position(x: hub.center.x, y: hub.center.y)
+
+            if AppSettings.shared.isPinned {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(theme.colors.secondaryText)
+                    .position(x: hub.center.x, y: hub.center.y - gear.height / 2 - 9)
+            }
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(theme.colors.primaryText.opacity(hovered ? 0.20 : 0.08))
+                HStack(spacing: RingLayout.gearWordGap) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 14, weight: .medium))
+                        .frame(width: RingSizePreset.minGearTarget - 8, height: RingSizePreset.minGearTarget - 8)
+                    if hub.showsSettingsWord {
+                        Text("Settings")
+                            .font(.system(size: RingTypography.secondarySize, weight: .medium))
+                    }
+                }
                 .foregroundStyle(theme.colors.primaryText)
                 .lineLimit(1)
                 .fixedSize()
+            }
+            .frame(width: gear.width, height: gear.height)
+            .position(x: gear.midX, y: gear.midY)
         }
-        .frame(width: frame.width, height: frame.height)
-        .position(x: frame.midX, y: frame.midY)
     }
 }
 #endif

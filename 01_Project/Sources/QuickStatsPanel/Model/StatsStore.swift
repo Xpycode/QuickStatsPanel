@@ -45,6 +45,10 @@ final class StatsStore {
     #if DEBUG
     /// Ring fixture mode: re-applied on each show because hiding clears the list.
     @ObservationIgnored var fixtureTopProcesses: TopProcessesSample?
+    /// Ring gauges (Debug prototype): the Power gauge's ceiling (`--ring-power-ceiling=`) and the
+    /// 60-second peak windows behind the peak ticks. Bookkeeping only, never observed state.
+    @ObservationIgnored var ringPowerCeilingWatts = RingGaugeMapper.defaultPowerCeilingWatts
+    @ObservationIgnored var ringPeakWindows: [RingPeakKey: RingPeakWindow] = [:]
     #endif
 
     init(transferHistoryRoot: URL? = nil, transferClock: (any TransferClock)? = nil,
@@ -269,6 +273,9 @@ final class StatsStore {
                 self?.cpu = sample
                 self?.cpuHistory.append(sample)
                 self?.historyRevisions[.cpu, default: 0] += 1
+                #if DEBUG
+                self?.recordRingPeak(.cpu, sample.totalUsagePercent / 100)
+                #endif
             }
         }
         let mem = MemorySampler(interval: interval) { [weak self] sample in
@@ -304,6 +311,10 @@ final class StatsStore {
                 self.network = sample
                 self.networkHistory.append(sample)
                 self.historyRevisions[.network, default: 0] += 1
+                #if DEBUG
+                self.recordRingPeak(.networkDown, RingRateScale.fraction(bytesPerSecond: sample.downBytesPerSec))
+                self.recordRingPeak(.networkUp, RingRateScale.fraction(bytesPerSecond: sample.upBytesPerSec))
+                #endif
             }
         }, onSample: { _ in })
         let battery = BatterySampler(interval: interval) { [weak self] sample in
@@ -314,16 +325,31 @@ final class StatsStore {
                 self?.gpu = sample
                 self?.gpuHistory.append(sample)
                 self?.historyRevisions[.gpu, default: 0] += 1
+                #if DEBUG
+                self?.recordRingPeak(.gpu, sample.utilizationPercent / 100)
+                #endif
             }
         }
         let fan = FanSampler(interval: interval) { [weak self] sample in
             Task { @MainActor in self?.fan = sample }
         }
         let power = PowerSampler(interval: interval) { [weak self] sample in
-            Task { @MainActor in self?.power = sample }
+            Task { @MainActor in
+                self?.power = sample
+                #if DEBUG
+                self?.recordRingPeak(.powerWatts, max(sample.systemWatts ?? 0, sample.totalWatts))
+                #endif
+            }
         }
         let temps = TemperatureSampler(interval: interval) { [weak self] sample in
-            Task { @MainActor in self?.temps = sample }
+            Task { @MainActor in
+                self?.temps = sample
+                #if DEBUG
+                if let hottest = sample.sensors.map(\.celsius).filter(RingGaugeMapper.isValidTemperature).max() {
+                    self?.recordRingPeak(.temperature, RingGaugeMapper.temperatureFraction(celsius: hottest))
+                }
+                #endif
+            }
         }
         let load = LoadAverageSampler(interval: interval) { [weak self] sample in
             Task { @MainActor in self?.loadAverage = sample }
@@ -418,7 +444,42 @@ final class StatsStore {
     }
 }
 
+/// Stats whose gauge draws a 60-second peak tick.
+enum RingPeakKey: Hashable, Sendable {
+    case cpu, gpu, temperature, networkDown, networkUp
+    /// Watts, not a fraction: the ceiling is a launch argument, applied when the gauge is built.
+    case powerWatts
+}
+
+extension StatsStore {
+    /// Power gauge ceiling: the launch argument in Debug, the provisional default otherwise.
+    var ringPowerCeiling: Double {
+        #if DEBUG
+        ringPowerCeilingWatts
+        #else
+        RingGaugeMapper.defaultPowerCeilingWatts
+        #endif
+    }
+
+    /// 60-second peak for a gauge's peak tick; nil outside Debug, where nothing records one.
+    func ringPeak(_ key: RingPeakKey) -> Double? {
+        #if DEBUG
+        ringPeakWindows[key]?.peak(at: ProcessInfo.processInfo.systemUptime)
+        #else
+        nil
+        #endif
+    }
+}
+
 #if DEBUG
+extension StatsStore {
+    /// Records a sample's value for the peak tick. The time base is system uptime, the same
+    /// one `ringPeak` reads, so the window never depends on the wall clock.
+    func recordRingPeak(_ key: RingPeakKey, _ value: Double) {
+        ringPeakWindows[key, default: RingPeakWindow()].record(value, at: ProcessInfo.processInfo.systemUptime)
+    }
+}
+
 extension StatsStore {
     /// Disposable store for ring fixture mode: its own temporary transfer-history
     /// root, no samplers, readings seeded deterministically.
@@ -438,30 +499,17 @@ extension StatsStore {
     /// Fixed readings, histories and process lists for the detail cards. Kinds in
     /// `unavailable` keep their empty sample so they resolve as unavailable.
     func seedRingFixture(unavailable: Set<StatKind>) {
-        cpu = CPUSample(totalUsagePercent: 42, userPercent: 28, systemPercent: 14, idlePercent: 58)
-        memory = MemorySample(usedBytes: 19_400_000_000, totalBytes: 34_359_738_368, pressurePercent: 38,
-                              appBytes: 9_000_000_000, wiredBytes: 3_000_000_000, compressedBytes: 2_000_000_000)
-        disk = DiskSample(usedBytes: 640_000_000_000, freeBytes: 360_000_000_000, totalBytes: 1_000_000_000_000,
-                          readBytesPerSec: 12_000_000, writeBytesPerSec: 3_000_000)
-        network = NetworkSample(downBytesPerSec: 4_200_000, upBytesPerSec: 300_000,
-                                interfaceName: "Wi-Fi (en0)", localIP: "192.168.1.20")
-        temps = TemperatureSample(thermalState: .fair, sensors: [])
-        loadAverage = LoadSample(one: 2.1, five: 1.8, fifteen: 1.5)
-        uptime = UptimeSample(seconds: 3 * 86_400 + 4 * 3_600)
-        if !unavailable.contains(.battery) {
-            battery = BatterySample(isPresent: true, percent: 76, isCharging: false, isOnAC: false,
-                                    minutesRemaining: 312, healthPercent: 91, cycleCount: 212, temperatureC: 31)
-        }
-        if !unavailable.contains(.gpu) {
-            gpu = GPUSample(isAvailable: true, utilizationPercent: 37, deviceName: "Apple GPU")
-        }
-        if !unavailable.contains(.fan) {
-            fan = FanSample(hasFans: true, fans: [FanSample.Fan(current: 1_800, min: 1_200, max: 5_800)])
-        }
-        if !unavailable.contains(.power) {
-            power = PowerSample(isAvailable: true, cpuWatts: 4.2, gpuWatts: 1.1, aneWatts: 0, dramWatts: 0.6,
-                                loadPercent: 40, systemWatts: 12.5, dcInWatts: 0)
-        }
+        cpu = RingFixtureSamples.cpu
+        memory = RingFixtureSamples.memory
+        disk = RingFixtureSamples.disk
+        network = RingFixtureSamples.network
+        temps = RingFixtureSamples.temperature
+        loadAverage = RingFixtureSamples.load
+        uptime = RingFixtureSamples.uptime
+        if !unavailable.contains(.battery) { battery = RingFixtureSamples.battery }
+        if !unavailable.contains(.gpu) { gpu = RingFixtureSamples.gpu }
+        if !unavailable.contains(.fan) { fan = RingFixtureSamples.fan }
+        if !unavailable.contains(.power) { power = RingFixtureSamples.power }
 
         let capacity = Self.historyCapacity(interval: AppSettings.shared.interval)
         cpuHistory = RingBuffer(capacity: capacity)

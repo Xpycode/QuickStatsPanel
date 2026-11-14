@@ -1,109 +1,6 @@
 import CoreGraphics
 import Foundation
 
-// MARK: - Outer More ring
-
-/// Second annulus holding every enabled non-favourite stat (D-034 baseline: radii 274-410,
-/// text centred at radius 342, 820 x 820 footprint centred on the base ring). Same
-/// conventions as `RingGeometry`: view space is top-left origin with y growing downward,
-/// angles are radians clockwise from twelve o'clock, slots are frozen at construction.
-struct RingMoreGeometry: Equatable, Sendable {
-    static let innerRadius: CGFloat = 274
-    static let outerRadius: CGFloat = 410
-    static let textRadius: CGFloat = 342
-    static let footprint = CGSize(width: 820, height: 820)
-    static let maxEntries = 12
-
-    struct Entry: Equatable, Sendable {
-        let kind: StatKind
-        let slot: Int
-        let centerAngle: Double
-        let halfSpan: Double
-        let textRect: CGRect
-    }
-
-    let size = RingMoreGeometry.footprint
-    let center = CGPoint(x: RingMoreGeometry.footprint.width / 2, y: RingMoreGeometry.footprint.height / 2)
-    let entries: [Entry]
-
-    init(items: [(kind: StatKind, textSize: CGSize)]) {
-        let center = CGPoint(x: Self.footprint.width / 2, y: Self.footprint.height / 2)
-        let used = Array(items.prefix(Self.maxEntries))
-        let n = used.count
-        let slotSpan = n >= 2 ? 2 * Double.pi / Double(n) : RingGeometry.singleWedgeSpan
-        let halfSpan: Double = n >= 2
-            ? slotSpan / 2 - Double(RingGeometry.separatorGap / Self.textRadius) / 2
-            : RingGeometry.singleWedgeSpan / 2
-        entries = used.enumerated().map { index, item in
-            let angle = n >= 2 ? slotSpan * Double(index) : 0
-            let anchor = RingGeometry.point(center: center, angle: angle, radius: Self.textRadius)
-            let rect = CGRect(x: anchor.x - item.textSize.width / 2, y: anchor.y - item.textSize.height / 2,
-                              width: item.textSize.width, height: item.textSize.height)
-            return Entry(kind: item.kind, slot: index, centerAngle: angle, halfSpan: halfSpan, textRect: rect)
-        }
-    }
-
-    func target(at point: CGPoint) -> StatKind? {
-        entries.first { contains(point, in: $0) }?.kind
-    }
-
-    func contains(_ point: CGPoint, in entry: Entry) -> Bool {
-        let dx = point.x - center.x, dy = point.y - center.y
-        let radius = hypot(dx, dy)
-        guard radius >= Self.innerRadius, radius <= Self.outerRadius else { return false }
-        return abs(RingGeometry.wrapped(atan2(dx, -dy) - entry.centerAngle)) <= entry.halfSpan
-    }
-
-    /// Whether `point` lies within the annulus at all (an entry or a gap between entries).
-    func isOnRing(_ point: CGPoint) -> Bool {
-        let radius = hypot(point.x - center.x, point.y - center.y)
-        return radius >= Self.innerRadius && radius <= Self.outerRadius
-    }
-
-    func textFits(_ entry: Entry, padding: CGFloat = RingGeometry.textPadding) -> Bool {
-        let rect = entry.textRect.insetBy(dx: -padding, dy: -padding)
-        var x = rect.minX
-        while x <= rect.maxX + 0.001 {
-            if !contains(CGPoint(x: x, y: rect.minY), in: entry) || !contains(CGPoint(x: x, y: rect.maxY), in: entry) { return false }
-            x += 1
-        }
-        var y = rect.minY
-        while y <= rect.maxY + 0.001 {
-            if !contains(CGPoint(x: rect.minX, y: y), in: entry) || !contains(CGPoint(x: rect.maxX, y: y), in: entry) { return false }
-            y += 1
-        }
-        return true
-    }
-
-    /// Every entry's measured block fits its sector; the outer ring is only chosen then.
-    var allTextFits: Bool { entries.allSatisfy { textFits($0) } }
-
-    func outline(of entry: Entry) -> [CGPoint] {
-        let steps = max(2, Int((2 * entry.halfSpan / (Double.pi / 90)).rounded(.up)))
-        let start = entry.centerAngle - entry.halfSpan, end = entry.centerAngle + entry.halfSpan
-        func angle(_ i: Int) -> Double { start + (end - start) * Double(i) / Double(steps) }
-        var points: [CGPoint] = []
-        for i in 0...steps { points.append(RingGeometry.point(center: center, angle: angle(i), radius: Self.outerRadius)) }
-        for i in stride(from: steps, through: 0, by: -1) {
-            points.append(RingGeometry.point(center: center, angle: angle(i), radius: Self.innerRadius))
-        }
-        return points
-    }
-
-    /// Bounding frame of an entry in view space.
-    func frame(of kind: StatKind) -> CGRect? {
-        guard let entry = entries.first(where: { $0.kind == kind }) else { return nil }
-        let points = outline(of: entry)
-        guard let first = points.first else { return nil }
-        var minX = first.x, maxX = first.x, minY = first.y, maxY = first.y
-        for p in points {
-            minX = min(minX, p.x); maxX = max(maxX, p.x)
-            minY = min(minY, p.y); maxY = max(maxY, p.y)
-        }
-        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
-    }
-}
-
 // MARK: - Scrolling list
 
 /// Compact labelled list used by the side More list and the whole-list fallback. The model
@@ -183,9 +80,8 @@ enum RingSide: CaseIterable, Sendable {
 /// and the reserved child frames. Screen coordinates (bottom-left origin, y up, points).
 struct RingPlan: Equatable, Sendable {
     enum Mode: Equatable, Sendable {
-        /// Full More annulus around the base ring (or just the base ring when nothing is in More).
-        case outerRing
-        /// More as a scrolling list above the single detail card in a fixed side column.
+        /// The base ring with a fixed side column: More as a scrolling list above the single
+        /// detail card. With nothing in More the column holds the card alone.
         case sideList
         /// The entire presentation is one compact list (favourites first, then Settings).
         case wholeList
@@ -194,7 +90,7 @@ struct RingPlan: Equatable, Sendable {
     var mode: Mode
     /// The panel that carries the ring (or, for `wholeList`, the list).
     var baseFrame: CGRect
-    /// Outer-ring footprint or side list frame; `nil` when nothing is in More.
+    /// Side list frame; `nil` when nothing is in More.
     var moreSurface: CGRect?
     /// Screen frames of parent targets, used for travel regions and detail placement.
     var nodeFrames: [RingNode: CGRect]
@@ -211,7 +107,7 @@ struct RingPlan: Equatable, Sendable {
         [baseFrame] + (moreSurface.map { [$0] } ?? []) + Array(detailFrames.values)
     }
 
-    static let empty = RingPlan(mode: .outerRing, baseFrame: .zero, moreSurface: nil, nodeFrames: [:],
+    static let empty = RingPlan(mode: .sideList, baseFrame: .zero, moreSurface: nil, nodeFrames: [:],
                                 detailFrames: [:], scrollingDetails: [], side: .right, isClamped: false)
 }
 
@@ -219,7 +115,7 @@ struct RingPlan: Equatable, Sendable {
 
 enum RingPlacement {
     static let gap: CGFloat = 6
-    /// Fallback image: the 520-point base ring plus a 380-point side area.
+    /// Width of the side area beside the base ring.
     static let sideAreaWidth: CGFloat = 380
     static let listMaxHeight: CGFloat = 224
     /// A tall detail may be scrolled in a capped slot, but never below this height.
@@ -231,9 +127,10 @@ enum RingPlacement {
         var visible: CGRect
         /// Where the base ring wants to be (anchor or cursor), before edge fitting.
         var preferredBase: CGRect
-        var geometry: RingGeometry
-        /// More entries in order with their measured worst-case text blocks.
-        var moreItems: [(kind: StatKind, textSize: CGSize)]
+        /// Frozen ring layout of the summon; the base panel is its ring-only footprint.
+        var layout: RingLayout
+        /// Enabled non-favourites in order: the rows of the side More list.
+        var moreKinds: [StatKind]
         /// Enabled stats in order, for the whole-list fallback.
         var enabledKinds: [StatKind]
         /// Measured detail card per stat (injected: the real cards live in `Views/`).
@@ -249,10 +146,6 @@ enum RingPlacement {
 
     static func resolve(_ input: Input) -> RingPlan {
         if input.forceWholeList { return wholeListPlan(input) }
-        let moreGeometry = input.moreItems.isEmpty ? nil : RingMoreGeometry(items: input.moreItems)
-        if moreGeometry?.allTextFits ?? true, let plan = outerRingPlan(input, moreGeometry: moreGeometry) {
-            return plan
-        }
         if let plan = sideListPlan(input, clamped: false) { return plan }
         if input.allowWholeList { return wholeListPlan(input) }
         return sideListPlan(input, clamped: true) ?? .empty
@@ -324,68 +217,13 @@ enum RingPlacement {
         }
     }
 
-    private static func baseNodeFrames(_ geometry: RingGeometry, baseFrame: CGRect) -> [RingNode: CGRect] {
+    private static func baseNodeFrames(_ layout: RingLayout, baseFrame: CGRect) -> [RingNode: CGRect] {
         var frames: [RingNode: CGRect] = [:]
-        for wedge in geometry.wedges {
-            if let local = geometry.frame(of: .wedge(wedge.kind)) {
-                frames[.wedge(wedge.kind)] = screenFrame(local, in: baseFrame)
-            }
+        for favourite in layout.favourites {
+            frames[.wedge(favourite.kind)] = screenFrame(favourite.sector.boundingFrame, in: baseFrame)
         }
-        if let more = geometry.moreFrame { frames[.more] = screenFrame(more, in: baseFrame) }
+        if let more = layout.more { frames[.more] = screenFrame(more.sector.boundingFrame, in: baseFrame) }
         return frames
-    }
-
-    // MARK: Outer ring
-
-    /// Chosen only when base + outer ring + detail fit the visible frame (about 820 points
-    /// each way plus the card). With nothing in More the "ring" is the base alone.
-    private static func outerRingPlan(_ input: Input, moreGeometry: RingMoreGeometry?) -> RingPlan? {
-        let g = input.geometry
-        let base = CGRect(origin: .zero, size: g.size)
-        let center = CGPoint(x: base.midX, y: base.midY)
-        let surface = moreGeometry == nil ? base
-            : CGRect(x: center.x - RingMoreGeometry.outerRadius, y: center.y - RingMoreGeometry.outerRadius,
-                     width: RingMoreGeometry.footprint.width, height: RingMoreGeometry.footprint.height)
-        let dMax = maxDetail(input)
-        let hasDetails = dMax != .zero
-
-        var best: (side: RingSide, origin: CGPoint, distance: CGFloat)?
-        for side in RingSide.allCases {
-            var bounds = base.union(surface)
-            if hasDetails { bounds = bounds.union(relativeDetailRect(dMax, beside: surface, side: side)) }
-            guard let origin = fitOrigin(preferred: input.preferredBase.origin, rel: bounds, visible: input.visible,
-                                         canShift: input.canShift, scale: input.scale) else { continue }
-            let distance = hypot(origin.x - input.preferredBase.minX, origin.y - input.preferredBase.minY)
-            if best == nil || distance < best!.distance - 0.001 { best = (side, origin, distance) }
-        }
-        guard let chosen = best else { return nil }
-
-        let baseFrame = CGRect(origin: chosen.origin, size: g.size)
-        let surfaceFrame = surface.offsetBy(dx: chosen.origin.x, dy: chosen.origin.y)
-        var nodes = baseNodeFrames(g, baseFrame: baseFrame)
-        var details: [StatKind: CGRect] = [:]
-        var scrolling = Set<StatKind>()
-
-        for wedge in g.wedges {
-            guard let size = input.detailSizes[wedge.kind], let parent = nodes[.wedge(wedge.kind)] else { continue }
-            let capped = cap(size, visible: input.visible)
-            details[wedge.kind] = besideFrame(size: capped.size, parent: parent, footprint: baseFrame,
-                                              side: chosen.side, visible: input.visible, scale: input.scale)
-            if capped.scrolls { scrolling.insert(wedge.kind) }
-        }
-        for item in input.moreItems {
-            guard let moreGeometry, let local = moreGeometry.frame(of: item.kind) else { continue }
-            let frame = screenFrame(local, in: surfaceFrame)
-            nodes[.moreItem(item.kind)] = frame
-            guard let size = input.detailSizes[item.kind] else { continue }
-            let capped = cap(size, visible: input.visible)
-            details[item.kind] = besideFrame(size: capped.size, parent: frame, footprint: surfaceFrame,
-                                             side: chosen.side, visible: input.visible, scale: input.scale)
-            if capped.scrolls { scrolling.insert(item.kind) }
-        }
-        return RingPlan(mode: .outerRing, baseFrame: baseFrame, moreSurface: moreGeometry == nil ? nil : surfaceFrame,
-                        nodeFrames: nodes, detailFrames: details, scrollingDetails: scrolling,
-                        side: chosen.side, isClamped: false)
     }
 
     private static func cap(_ size: CGSize, visible: CGRect) -> (size: CGSize, scrolls: Bool) {
@@ -397,15 +235,17 @@ enum RingPlacement {
     // MARK: Side list
 
     private static func sideListPlan(_ input: Input, clamped: Bool) -> RingPlan? {
-        let g = input.geometry
-        let base = CGRect(origin: .zero, size: g.size)
+        let size = input.layout.preset.footprintRingOnly
+        let base = CGRect(origin: .zero, size: size)
         let dMax = maxDetail(input)
-        let hasList = !input.moreItems.isEmpty
-        let width = sideAreaWidth
-        if !clamped, dMax.width > width { return nil }
+        let hasList = !input.moreKinds.isEmpty
+        // Nothing to show beside the ring (no More list, no detail card): no column is reserved.
+        let hasColumn = hasList || dMax != .zero
+        let width = hasColumn ? sideAreaWidth : 0
+        if !clamped, dMax.width > sideAreaWidth { return nil }
 
         let listHeight = hasList
-            ? min(CGFloat(input.moreItems.count) * RingListLayout.rowHeight + 2 * RingListLayout.padding, listMaxHeight) : 0
+            ? min(CGFloat(input.moreKinds.count) * RingListLayout.rowHeight + 2 * RingListLayout.padding, listMaxHeight) : 0
         let listBlock = hasList ? listHeight + gap : 0
         let available = input.visible.height - listBlock
         var slotHeight = min(dMax.height, available)
@@ -418,7 +258,9 @@ enum RingPlacement {
 
         func column(_ side: RingSide) -> CGRect {
             let x = side == .right ? base.maxX + gap : base.minX - gap - width
-            return CGRect(x: x, y: base.midY - columnHeight / 2, width: width, height: columnHeight)
+            // Snapped so an odd column height cannot leave the column's frames on half pixels.
+            return CGRect(x: x, y: snap(base.midY - columnHeight / 2, scale: input.scale),
+                          width: width, height: columnHeight)
         }
 
         var chosenSide = RingSide.right
@@ -433,7 +275,8 @@ enum RingPlacement {
         } else {
             var best: (side: RingSide, origin: CGPoint, distance: CGFloat)?
             for side in [RingSide.right, .left] {
-                guard let o = fitOrigin(preferred: input.preferredBase.origin, rel: base.union(column(side)),
+                guard let o = fitOrigin(preferred: input.preferredBase.origin,
+                                        rel: hasColumn ? base.union(column(side)) : base,
                                         visible: input.visible, canShift: input.canShift, scale: input.scale) else { continue }
                 let d = hypot(o.x - input.preferredBase.minX, o.y - input.preferredBase.minY)
                 if best == nil || d < best!.distance - 0.001 { best = (side, o, d) }
@@ -443,7 +286,7 @@ enum RingPlacement {
             origin = found.origin
         }
 
-        let baseFrame = CGRect(origin: origin, size: g.size)
+        let baseFrame = CGRect(origin: origin, size: size)
         var columnFrame = column(chosenSide).offsetBy(dx: origin.x, dy: origin.y)
         if clamped {
             columnFrame.origin.x = min(max(columnFrame.minX, input.visible.minX), max(input.visible.minX, input.visible.maxX - columnFrame.width))
@@ -453,11 +296,11 @@ enum RingPlacement {
             ? CGRect(x: columnFrame.minX, y: columnFrame.maxY - listHeight, width: width, height: listHeight) : nil
         let slot = CGRect(x: columnFrame.minX, y: columnFrame.minY, width: width, height: slotHeight)
 
-        var nodes = baseNodeFrames(g, baseFrame: baseFrame)
+        var nodes = baseNodeFrames(input.layout, baseFrame: baseFrame)
         var details: [StatKind: CGRect] = [:]
         var scrolling = Set<StatKind>()
-        let kinds = g.wedges.map(\.kind) + input.moreItems.map(\.kind)
-        for item in input.moreItems { if let listFrame { nodes[.moreItem(item.kind)] = listFrame } }
+        let kinds = input.layout.favourites.map(\.kind) + input.moreKinds
+        for kind in input.moreKinds { if let listFrame { nodes[.moreItem(kind)] = listFrame } }
         for kind in kinds {
             guard let size = input.detailSizes[kind] else { continue }
             let w = min(ceil(size.width), width), h = min(ceil(size.height), slotHeight)
@@ -524,8 +367,8 @@ extension RingPlacement.Input {
     /// Convenience for the snapshot's own favourites, More entries and enabled stats.
     init(snapshot: RingSnapshot, visible: CGRect, preferredBase: CGRect, detailSizes: [StatKind: CGSize],
          scale: CGFloat = 1, canShift: Bool = true, allowWholeList: Bool = true) {
-        self.init(visible: visible, preferredBase: preferredBase, geometry: snapshot.geometry,
-                  moreItems: snapshot.moreEntries.map { (kind: $0.kind, textSize: snapshot.moreTextSizes[$0.kind] ?? .zero) },
+        self.init(visible: visible, preferredBase: preferredBase, layout: snapshot.layout,
+                  moreKinds: snapshot.moreKinds,
                   enabledKinds: snapshot.enabledKinds, detailSizes: detailSizes, scale: scale,
                   canShift: canShift, allowWholeList: allowWholeList)
     }

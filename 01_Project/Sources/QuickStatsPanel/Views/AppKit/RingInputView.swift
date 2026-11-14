@@ -9,7 +9,7 @@ final class PassthroughHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
-/// One accessibility element per wedge, More, Settings or list row.
+/// One accessibility element per wedge, the More wedge, the gear or a list row.
 final class RingAccessibilityElement: NSAccessibilityElement {
     var onPress: (@MainActor @Sendable () -> Void)?
 
@@ -61,7 +61,7 @@ class RingForwardingView: NSView {
 }
 
 /// Content view of the base ring panel. Hit testing and accessibility use the same
-/// `RingGeometry` the drawing consumes.
+/// frozen `RingLayout` the drawing consumes.
 final class RingInputView: RingForwardingView {
 
     struct Description {
@@ -72,15 +72,15 @@ final class RingInputView: RingForwardingView {
         var isExpanded = false
     }
 
-    let geometry: RingGeometry
+    let snapshot: RingSnapshot
     /// Name / value / availability / expanded for a target, read live when accessibility asks.
     var describe: (RingTarget) -> Description = { _ in Description(name: "", value: "", isAvailable: true) }
     /// Accessibility Press: follows the same rules as a click.
     var onPress: ((RingTarget) -> Void)?
 
-    init(geometry: RingGeometry) {
-        self.geometry = geometry
-        super.init(frame: NSRect(origin: .zero, size: geometry.size))
+    init(snapshot: RingSnapshot) {
+        self.snapshot = snapshot
+        super.init(frame: NSRect(origin: .zero, size: snapshot.size))
         setAccessibilityRole(.group)
         setAccessibilityLabel("Quick stats ring")
     }
@@ -91,11 +91,11 @@ final class RingInputView: RingForwardingView {
     override func isAccessibilityElement() -> Bool { false }
 
     override func accessibilityChildren() -> [Any]? {
-        var targets: [RingTarget] = geometry.wedges.map { .wedge($0.kind) }
-        if geometry.moreFrame != nil { targets.append(.more) }
+        var targets: [RingTarget] = snapshot.favourites.map { .wedge($0.kind) }
+        if snapshot.layout.more != nil { targets.append(.more) }
         targets.append(.settings)
         return targets.compactMap { target -> RingAccessibilityElement? in
-            guard let frame = geometry.frame(of: target) else { return nil }
+            guard let frame = snapshot.frame(of: target) else { return nil }
             let info = describe(target)
             let element = RingAccessibilityElement()
             element.setAccessibilityRole(.button)
@@ -112,8 +112,8 @@ final class RingInputView: RingForwardingView {
     }
 }
 
-/// Content view of the More outer ring and of list panels (side More list, whole-list
-/// fallback). Draws nothing; its accessibility children come from the controller.
+/// Content view of list panels (side More list, whole-list fallback). Draws nothing; its
+/// accessibility children come from the controller.
 final class RingSurfaceInputView: RingForwardingView {
     var accessibilityElementsProvider: (() -> [RingAccessibilityElement])?
 

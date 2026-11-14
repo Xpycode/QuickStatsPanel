@@ -13,7 +13,7 @@ final class RingInteractionTests: XCTestCase {
     private let far = CGPoint(x: 5_000, y: 5_000)
     private let summonPoint = CGPoint(x: -1_000, y: -1_000)
 
-    // Frames (screen points): two sibling wedges, the More control, two More entries.
+    // Frames (screen points): two sibling wedges, the More wedge, two More entries.
     private let cpuFrame = CGRect(x: 0, y: 0, width: 100, height: 100)
     private let memoryFrame = CGRect(x: 0, y: 110, width: 100, height: 100)
     private let moreFrame = CGRect(x: 0, y: 220, width: 100, height: 40)
@@ -34,7 +34,7 @@ final class RingInteractionTests: XCTestCase {
             nodes[.moreItem(kind)] = CGRect(x: 500, y: 120, width: 100, height: 50)
             details[kind] = CGRect(x: 700, y: 0, width: 150, height: 200)
         }
-        return RingPlan(mode: .outerRing, baseFrame: CGRect(x: 0, y: 0, width: 520, height: 520),
+        return RingPlan(mode: .sideList, baseFrame: CGRect(x: 0, y: 0, width: 520, height: 520),
                         moreSurface: CGRect(x: 480, y: 0, width: 140, height: 300), nodeFrames: nodes,
                         detailFrames: details, scrollingDetails: [], side: .right, isClamped: false)
     }

@@ -11,16 +11,16 @@ enum RingSpecial: Equatable, Sendable {
 /// frames. Kept out of the panel controller so the inert/outside distinction is testable.
 ///
 /// Inert space (separator gaps, the band between hub and inner radius, the inactive
-/// annulus, gaps between More entries) selects nothing but is still inside the HUD: only
+/// annulus) selects nothing but is still inside the HUD: only
 /// points beyond the outer radius (or outside every panel) are "outside".
 struct RingHitResolver {
     var plan: RingPlan
     /// Actual screen frame of the base panel (ring or whole list).
     var baseFrame: CGRect
-    var geometry: RingGeometry
+    /// The summon snapshot: its frozen layout answers every ring-space hit.
+    var snapshot: RingSnapshot
     var openDetailKind: StatKind?
     var moreOpen: Bool
-    var moreGeometry: RingMoreGeometry?
     var sideList: RingListLayout?
     var wholeList: RingListLayout?
 
@@ -46,15 +46,13 @@ struct RingHitResolver {
                 if case .node(let node)? = layout.hit(at: point) { return (.node(node), nil) }
                 return (.moreSurface, nil)
             }
-            if plan.mode == .outerRing, let ring = moreGeometry {
-                if let kind = ring.target(at: point) { return (.node(.moreItem(kind)), nil) }
-            }
         }
 
         if baseFrame.contains(p) {
             let point = local(baseFrame)
-            if hypot(point.x - geometry.center.x, point.y - geometry.center.y) <= RingGeometry.outerRadius {
-                switch geometry.target(at: point) {
+            let layout = snapshot.layout
+            if hypot(point.x - layout.center.x, point.y - layout.center.y) <= layout.preset.outerRadius {
+                switch snapshot.target(at: point) {
                 case .wedge(let kind)?: return (.node(.wedge(kind)), nil)
                 case .more?: return (.node(.more), nil)
                 case .settings?: return (.inert, .settings)
@@ -64,14 +62,6 @@ struct RingHitResolver {
             }
         }
 
-        // Between the base ring and the More ring, and its gaps: inside the open branch.
-        if moreOpen, plan.mode == .outerRing, let surface = plan.moreSurface, surface.contains(p),
-           let ring = moreGeometry {
-            let point = local(surface)
-            if hypot(point.x - ring.center.x, point.y - ring.center.y) <= RingMoreGeometry.outerRadius {
-                return (.moreSurface, nil)
-            }
-        }
         return (.none, nil)
     }
 }

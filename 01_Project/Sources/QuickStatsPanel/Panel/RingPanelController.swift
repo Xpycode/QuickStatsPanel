@@ -3,36 +3,29 @@ import AppKit
 import OSLog
 import SwiftUI
 
-/// Debug-only launch configuration for the ring prototype.
+/// Debug-only launch configuration for the ring prototype. `RingPrototypeOptions` owns the
+/// argument grammar (`--ring-prototype` is required; `--ring-fixture`, `--ring-size`,
+/// `--ring-text`, `--ring-fill`, `--ring-favourites`, `--ring-parts` and
+/// `--ring-power-ceiling` are optional); this adds the fixture lookup and the launch log.
 ///
-/// Arguments (both are needed; `--ring-fixture` alone is ignored and launches Strip):
-///   --ring-prototype              Show Ring instead of Strip. Real data: ordinary store,
-///                                 samplers and transfer-history lifecycle.
-///   --ring-fixture=<name>         With `--ring-prototype`: deterministic fixture mode on a
-///                                 disposable store; no samplers, retained transfer history,
-///                                 updater or first-run hint, and no production defaults written.
-///                                 Names: none, one, six, eight, twelve, long, paired,
-///                                 unavailable. (`twelve` enables all eleven stat kinds.)
-///                                 An unknown name logs an error and falls back to `six`.
+/// Without `--ring-fixture` the ring shows real data: ordinary store, samplers and transfer-history
+/// lifecycle. With it, fixture mode: a disposable store, no samplers, retained transfer history,
+/// updater or first-run hint, and no production defaults written. An unknown value logs and falls
+/// back to the argument's default (an unknown fixture falls back to `six`).
 struct RingPrototypeLaunch: Sendable {
+    let options: RingPrototypeOptions
     let fixture: RingFixture?
 
     static let current: RingPrototypeLaunch? = parse(CommandLine.arguments)
 
     static func parse(_ arguments: [String]) -> RingPrototypeLaunch? {
-        guard arguments.contains("--ring-prototype") else { return nil }
-        let prefix = "--ring-fixture="
-        guard let raw = arguments.first(where: { $0.hasPrefix(prefix) }) else {
-            return RingPrototypeLaunch(fixture: nil)
-        }
-        let name = String(raw.dropFirst(prefix.count))
-        if let fixture = RingFixture.named(name) { return RingPrototypeLaunch(fixture: fixture) }
-        NSLog("Unknown --ring-fixture '%@'; using 'six'. Valid: %@", name, RingFixture.names.joined(separator: ", "))
-        return RingPrototypeLaunch(fixture: RingFixture.named("six"))
+        guard let options = RingPrototypeOptions.parse(arguments) else { return nil }
+        for warning in options.warnings { NSLog("%@", warning) }
+        return RingPrototypeLaunch(options: options, fixture: options.fixtureName.flatMap(RingFixture.named))
     }
 }
 
-/// Shows the ring, its More surface and (through callbacks) the detail card as separate
+/// Shows the ring, its side More list and (through callbacks) the detail card as separate
 /// borderless, non-activating `NSPanel`s sized to visible content, never one large
 /// transparent window. Everything about where surfaces go comes from the summon's frozen
 /// `RingPlan`; everything about when they open comes from `RingInteractionState`. This
@@ -58,7 +51,6 @@ final class RingPanelController {
 
     private var basePanel: NSPanel?
     private var morePanel: NSPanel?
-    private var moreGeometry: RingMoreGeometry?
     private var sideListLayout: RingListLayout?
     private var wholeListLayout: RingListLayout?
     private var placementInput: RingPlacement.Input?
@@ -113,7 +105,7 @@ final class RingPanelController {
         let cursor = NSEvent.mouseLocation
         let host = NSScreen.screens.first { $0.frame.contains(cursor) } ?? NSScreen.main
         let visible = host?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let size = snapshot.geometry.size
+        let size = snapshot.size
         let input = RingPlacement.Input(
             snapshot: snapshot, visible: visible,
             preferredBase: NSRect(origin: preferredOrigin(forSize: size, anchor: anchor, cursor: cursor, visible: visible), size: size),
@@ -124,7 +116,6 @@ final class RingPanelController {
         self.plan = plan
         self.placementInput = input
         self.readingProvider = reading
-        moreGeometry = nil
         sideListLayout = nil
         wholeListLayout = nil
 
@@ -132,7 +123,7 @@ final class RingPanelController {
         if plan.mode == .wholeList {
             panel = makeWholeListPanel(plan: plan, snapshot: snapshot, reading: reading)
         } else {
-            let inputView = RingInputView(geometry: snapshot.geometry)
+            let inputView = RingInputView(snapshot: snapshot)
             inputView.describe = { [weak self] target in
                 var description = describe(target)
                 description.isExpanded = self?.isExpanded(target) ?? false
@@ -177,7 +168,6 @@ final class RingPanelController {
         readingProvider = nil
         sideListLayout = nil
         wholeListLayout = nil
-        moreGeometry = nil
         pressed = nil
         state.reset()
         onVisibilityChanged?(false)
@@ -261,9 +251,9 @@ final class RingPanelController {
 
     private func resolve(_ p: CGPoint) -> (hit: RingHit, special: RingSpecial?) {
         guard let plan, let snapshot, let interaction, let basePanel else { return (.none, nil) }
-        return RingHitResolver(plan: plan, baseFrame: basePanel.frame, geometry: snapshot.geometry,
+        return RingHitResolver(plan: plan, baseFrame: basePanel.frame, snapshot: snapshot,
                                openDetailKind: interaction.expansion.detail?.kind,
-                               moreOpen: interaction.expansion.more != nil, moreGeometry: moreGeometry,
+                               moreOpen: interaction.expansion.more != nil,
                                sideList: sideListLayout, wholeList: wholeListLayout).resolve(p)
     }
 
@@ -352,57 +342,25 @@ final class RingPanelController {
 
     // MARK: More surface
 
+    /// The More wedge opens the side list above the detail card (the declared fallback until
+    /// the outer band exists); the whole-list plan has no separate More surface.
     private func showMoreSurface() {
-        guard morePanel == nil, let plan, let snapshot, let basePanel, let surface = plan.moreSurface,
-              let reading = readingProvider else { return }
-        let panel: NSPanel
-        switch plan.mode {
-        case .outerRing:
-            let geometry = RingMoreGeometry(items: snapshot.moreEntries.map {
-                (kind: $0.kind, textSize: snapshot.moreTextSizes[$0.kind] ?? .zero)
-            })
-            moreGeometry = geometry
-            let input = RingSurfaceInputView(size: geometry.size, label: "More stats")
-            input.accessibilityElementsProvider = { [weak self] in self?.moreAccessibility() ?? [] }
-            wire(input)
-            let hosting = PassthroughHostingView(rootView: RingMoreRingView(geometry: geometry, state: state, reading: reading))
-            hosting.frame = NSRect(origin: .zero, size: geometry.size)
-            input.addSubview(hosting)
-            panel = makePanel(size: geometry.size)
-            panel.contentView = input
-        case .sideList:
-            let layout = RingListLayout(size: surface.size, rows: snapshot.moreKinds.map { .moreItem($0) }, hasChrome: false)
-            sideListLayout = layout
-            state.listOffset = 0
-            panel = makeListPanel(layout: layout, label: "More stats", reading: reading)
-        case .wholeList:
-            return
-        }
+        guard morePanel == nil, let plan, let snapshot, let surface = plan.moreSurface,
+              plan.mode == .sideList, let reading = readingProvider else { return }
+        let layout = RingListLayout(size: surface.size, rows: snapshot.moreKinds.map { .moreItem($0) }, hasChrome: false)
+        sideListLayout = layout
+        state.listOffset = 0
+        let panel = makeListPanel(layout: layout, label: "More stats", reading: reading)
         panel.setFrame(surface, display: true)
         morePanel = panel
-        if plan.mode == .outerRing {
-            // Behind the base panel so the hub controls always win where the two overlap.
-            panel.order(.below, relativeTo: basePanel.windowNumber)
-        } else {
-            panel.orderFrontRegardless()
-        }
+        panel.orderFrontRegardless()
     }
 
     private func hideMoreSurface() {
         morePanel?.orderOut(nil)
         morePanel = nil
-        moreGeometry = nil
         sideListLayout = nil
         state.listOffset = 0
-    }
-
-    private func moreAccessibility() -> [RingAccessibilityElement] {
-        guard let snapshot, let plan, plan.mode == .outerRing, let geometry = moreGeometry,
-              let reading = readingProvider else { return [] }
-        return snapshot.moreKinds.compactMap { kind in
-            guard let frame = geometry.frame(of: kind) else { return nil }
-            return makeElement(kind: kind, node: .moreItem(kind), frame: frame, reading: reading)
-        }
     }
 
     private func makeElement(kind: StatKind, node: RingNode, frame: CGRect,
@@ -411,8 +369,7 @@ final class RingPanelController {
         let element = RingAccessibilityElement()
         element.setAccessibilityRole(.button)
         element.setAccessibilityLabel(kind.displayName)
-        element.setAccessibilityValue(live.isAvailable
-            ? [live.value, live.secondary].compactMap { $0 }.joined(separator: ", ") : "Unavailable")
+        element.setAccessibilityValue(live.accessibilityText)
         element.setAccessibilityEnabled(true)
         element.setAccessibilityExpanded(interaction?.isExpanded(node) ?? false)
         if !live.isAvailable { element.setAccessibilityHelp("No reading is available for this stat right now.") }
@@ -576,7 +533,7 @@ final class RingPanelController {
             logger.info("first hover event delivered by \(mechanism.rawValue, privacy: .public)")
         }
         if plan.mode != .wholeList {
-            state.updatePointer(screenPoint: point, ringFrame: basePanel.frame, geometry: snapshot.geometry)
+            state.updatePointer(screenPoint: point, ringFrame: basePanel.frame, snapshot: snapshot)
         }
         apply(interaction.pointerMoved(to: point, hit: resolve(point).hit))
     }

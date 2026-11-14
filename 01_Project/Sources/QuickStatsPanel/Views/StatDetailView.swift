@@ -175,6 +175,17 @@ struct StatDetailView: View {
                     .opacity(row == nil ? 0 : 1)                 // pad slots stay invisible
                 }
             }
+
+            // Ring only: names what the wedge's fill measures where that can differ from the
+            // configured text reading. Present in the Close-row card, which Ring alone uses.
+            if onClose != nil, let note = store.ringGauge(for: kind).basisNote {
+                Divider().padding(.vertical, 2)
+                Text(note)
+                    .font(theme.fonts.detailValue)
+                    .foregroundStyle(theme.colors.secondaryText)
+                    .frame(maxWidth: 240, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
