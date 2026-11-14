@@ -1,7 +1,7 @@
 # Gauge Ring Prototype — Implementation Plan
 
-**Created:** 2026-11-14 · **Status:** Waves 1–2 complete (2.1 replanned under D-037); Wave 3 needs a new request
-**Progress:** 4/7 tasks complete; external acceptance: **E1** open.
+**Created:** 2026-11-14 · **Status:** Waves 1–2 complete (2.1 replanned under D-037); Wave 3 (3.1 + 3.2) in progress
+**Progress:** 4/8 tasks complete; external acceptance: **E1** open.
 **Task states:** unchecked = pending / implemented-unverified / blocked (name the gate); checked =
 complete with required evidence. This file owns task status and evidence; `docs/TASKS.md` links
 here without duplicating completion boxes. Task identity is this plan path plus ID.
@@ -159,6 +159,9 @@ parent agree by construction.
 - **Execution scope/limits:** 2026-11-14 owner requested "execute wave 1" only; Wave 1 done.
   2026-11-14 (later): owner chose fit option (a) (D-037), asked to replan 2.1 and execute **Wave 2
   only**. Wave 3 needs a new request. No push authorized.
+  2026-11-14 (session 3): owner reviewed screenshots of the running 2.1 build, asked to add a
+  bounded fix task (3.2) and run it **with Wave 3** (3.1 + 3.2 in parallel, Wave 3 only); owner
+  authorized commit and push of the Wave 2 records (`3738529`, pushed).
 - **Precondition for Wave 1:** commit and push this plan, the revised spec and the pending
   documentation edits (with the owner's confirmation), so wave diffs are clean and the other Mac
   can see them.
@@ -177,7 +180,8 @@ parent agree by construction.
   single-task and serial: each rewrites the same ring model/controller/view surface and consumes
   the previous wave's result. Wave 5 is validation.
 
-Dependency check: 1.1, 1.2, 1.3 → none. 2.1 → 1.1, 1.2, 1.3. 3.1 → 2.1. 4.1 → 3.1. 5.1 → 4.1.
+Dependency check: 1.1, 1.2, 1.3 → none. 2.1 → 1.1, 1.2, 1.3. 3.1 → 2.1. 3.2 → 2.1. 4.1 → 3.1, 3.2.
+5.1 → 4.1.
 E1 → 5.1. No cycle; every prerequisite is a task in this plan.
 
 **Interfaces to establish before dispatch** (names proposed; shapes binding):
@@ -370,7 +374,7 @@ E1 → 5.1. No cycle; every prerequisite is a task in this plan.
     replacements. `git diff --check`. Then a fresh-build handoff of the B artifact under the
     standing authorization, so the owner can look early; no reply is needed to continue.
 
-### Wave 3 (serial — pure branch model; consumes 2.1)
+### Wave 3 (parallel — 3.1 pure branch model, 3.2 view/card fixes; disjoint files; both consume 2.1)
 
 - [ ] **3.1 — Generalise branch state and placement to an outer band owned by any wedge**
   - Depends on: 2.1. External gates: none.
@@ -405,7 +409,42 @@ E1 → 5.1. No cycle; every prerequisite is a task in this plan.
     independent read-only review of the state-machine diff; findings fixed and affected suites
     rerun.
 
-### Wave 4 (serial — native arcs; consumes 3.1)
+- [ ] **3.2 — Owner-look fixes on the 2.1 build: card fit and wedge value overflow**
+  - Depends on: 2.1. External gates: none. Added 2026-11-14 from the owner's screenshots of the
+    running 2.1 build (`/Users/sim/Desktop/QSPtemp`, 02:09; Medium, live data).
+  - Owns: `Sources/Views/StatDetailView.swift`, `Sources/Views/RingGaugeWedgeView.swift`,
+    `Sources/Model/StatDescriptor.swift` (ring reading `value`/`widestValue` only), the ring-card
+    measurement and `showRingDetail` in `Sources/AppDelegate.swift`, and tests for what it changes
+    (new test file or the existing suite covering ring readings). Must **not** edit 3.1's files
+    (`RingInteractionState.swift`, `RingPlacement.swift`, `RingHitResolver.swift`,
+    `RingPresentation.swift` and their tests); a needed change there is returned to the coordinator.
+  - Defect A — cards scroll and clip although they fit. Every Ring card shows a scroller; the Fans
+    value "1510 rpm (1499–5348)" wraps, Battery "On battery" is cut off, Memory/CPU/Load footnotes
+    are truncated. Cause (confirmed): `AppleShowScrollBars = Always` on the owner's Mac; the card
+    frame is the natural `fittingSize` measured without a `ScrollView`, but `showRingDetail` shows
+    it with `scrollsBody: true`, whose legacy scroller takes ~15 points of width inside the frame,
+    so text wraps and overflows. Fix so a card whose content fits renders exactly as measured with
+    no scroller under every scroll-bar setting, and only a genuinely too-tall card scrolls (Close
+    stays outside the scroll region, C1/AC-39 unchanged). Also look at the large blank gap between
+    "Unsaved · Last saved …" and Used/Free in the Disk and Network cards: fix it if it is
+    ring-card-only, otherwise report whether the strip card shows it too and leave it.
+  - Defect B — wedge value overflows its wedge. Power (live, on battery) drew
+    "In 0.0 W · System 35.1 W" across the CPU wedge; CPU's label/value/secondary block crowds its
+    rim line. Cause to confirm: the value is drawn with `.lineLimit(1).fixedSize()` and the rung is
+    frozen at summon from `RingTypography.rungSizes` using `value`/`widestValue`, which evidently do
+    not cover the form the value takes later (paired Power reading). Fix so the rendered wedge text
+    can never exceed the frozen measured block: the wedge shows a value whose worst case the summon
+    measured (for example a compact wedge form, with the paired reading left to the card and
+    accessibility), honouring the plan's text rules (no shrink, no truncation, no rotation; rung
+    and slot frozen per summon; icon-only accepted per D-037). Check every stat with a paired or
+    variable-length reading (Power, CPU, Battery, Network, Disk, Temperature, Fans).
+  - Success: hostless tests show, for each stat's ring reading, that every value form it can emit
+    is no wider than its `widestValue` (fixture samples covering paired/on-battery/no-sensor
+    cases). T-ring passes with the count reconciled; B passes. Native confirmation of both defects
+    is an E1 row (C1 real-data cards under "Always" scroll bars; Power on battery).
+  - Backpressure: T-ring; B; `git diff --check`.
+
+### Wave 4 (serial — native arcs; consumes 3.1, 3.2)
 
 - [ ] **4.1 — Native sub-ring and More arcs, captions and segment accessibility**
   - Depends on: 3.1. External gates: none.
