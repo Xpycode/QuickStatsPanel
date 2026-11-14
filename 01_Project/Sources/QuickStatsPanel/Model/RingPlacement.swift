@@ -80,8 +80,12 @@ enum RingSide: CaseIterable, Sendable {
 /// and the reserved child frames. Screen coordinates (bottom-left origin, y up, points).
 struct RingPlan: Equatable, Sendable {
     enum Mode: Equatable, Sendable {
+        /// The base ring inside a reserved footprint with outer band: the More arc and the
+        /// sub-rings open in the band and each card sits beside the band footprint, next to
+        /// its parent. A More arc that cannot fit leaves More as a side list above the card.
+        case outerBand
         /// The base ring with a fixed side column: More as a scrolling list above the single
-        /// detail card. With nothing in More the column holds the card alone.
+        /// detail card. With nothing in More the column holds the card alone. No sub-rings.
         case sideList
         /// The entire presentation is one compact list (favourites first, then Settings).
         case wholeList
@@ -90,7 +94,7 @@ struct RingPlan: Equatable, Sendable {
     var mode: Mode
     /// The panel that carries the ring (or, for `wholeList`, the list).
     var baseFrame: CGRect
-    /// Side list frame; `nil` when nothing is in More.
+    /// Side list frame; `nil` when nothing is in More or More opens as an arc.
     var moreSurface: CGRect?
     /// Screen frames of parent targets, used for travel regions and detail placement.
     var nodeFrames: [RingNode: CGRect]
@@ -101,10 +105,21 @@ struct RingPlan: Equatable, Sendable {
     var side: RingSide
     /// True when no arrangement fit around a fixed base, so surfaces were clamped individually.
     var isClamped: Bool
+    /// `.outerBand` only: the reserved footprint with band, concentric with the base.
+    var bandFrame: CGRect? = nil
+    /// `.outerBand` only: the frame of each arc that can open this summon, snapped outward to
+    /// the pixel grid. An owner without a frame opens no arc (its card still opens).
+    var arcFrames: [RingArcOwner: CGRect] = [:]
+
+    /// The child surface `owner` opens: its arc, or the side list for More.
+    func surfaceFrame(of owner: RingArcOwner) -> CGRect? {
+        arcFrames[owner] ?? (owner == .more ? moreSurface : nil)
+    }
 
     /// Every frame the plan can show; used by tests and the display-fit check.
     var allFrames: [CGRect] {
-        [baseFrame] + (moreSurface.map { [$0] } ?? []) + Array(detailFrames.values)
+        [baseFrame] + (bandFrame.map { [$0] } ?? []) + (moreSurface.map { [$0] } ?? [])
+            + Array(arcFrames.values) + Array(detailFrames.values)
     }
 
     static let empty = RingPlan(mode: .sideList, baseFrame: .zero, moreSurface: nil, nodeFrames: [:],
@@ -142,13 +157,23 @@ enum RingPlacement {
         var allowWholeList = true
         /// A dragged whole-list panel keeps its presentation: only the detail frames are re-chosen.
         var forceWholeList = false
+        /// Arcs laid out once for this summon (`RingSnapshot.arcs`), in the layout's ring space.
+        /// With none, the band is never reserved.
+        var arcs: [RingArcOwner: RingArcLayout] = [:]
+        /// Whether `.outerBand` may be chosen. Off until the native arc panels exist (4.1).
+        var allowsOuterBand = false
     }
 
+    /// Outer band when it is allowed, some arc exists and the ring, band and largest card fit;
+    /// otherwise the side list (no sub-rings); otherwise the whole list; otherwise, for a
+    /// dragged base, the side list clamped surface by surface.
     static func resolve(_ input: Input) -> RingPlan {
         if input.forceWholeList { return wholeListPlan(input) }
-        if let plan = sideListPlan(input, clamped: false) { return plan }
+        if input.allowsOuterBand, !input.arcs.isEmpty,
+           let plan = columnPlan(input, clamped: false, band: true) { return plan }
+        if let plan = columnPlan(input, clamped: false, band: false) { return plan }
         if input.allowWholeList { return wholeListPlan(input) }
-        return sideListPlan(input, clamped: true) ?? .empty
+        return columnPlan(input, clamped: true, band: false) ?? .empty
     }
 
     // MARK: Helpers
@@ -166,6 +191,15 @@ enum RingPlacement {
     private static func snap(_ value: CGFloat, scale: CGFloat) -> CGFloat {
         let s = max(scale, 1)
         return (value * s).rounded() / s
+    }
+
+    /// Smallest pixel-aligned rect containing `rect`; a 1e-6 pixel tolerance keeps edges that
+    /// are already on the grid (up to trigonometric rounding) where they are.
+    private static func snapOutward(_ rect: CGRect, scale: CGFloat) -> CGRect {
+        let s = max(scale, 1)
+        let minX = floor(rect.minX * s + 1e-6) / s, minY = floor(rect.minY * s + 1e-6) / s
+        let maxX = ceil(rect.maxX * s - 1e-6) / s, maxY = ceil(rect.maxY * s - 1e-6) / s
+        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
     }
 
     /// Origin for a layout whose bounds relative to the base origin are `rel`: the preferred
@@ -232,13 +266,21 @@ enum RingPlacement {
         return (CGSize(width: s.width, height: visible.height), true)
     }
 
-    // MARK: Side list
+    // MARK: Ring with a side column (outer band or side list)
 
-    private static func sideListPlan(_ input: Input, clamped: Bool) -> RingPlan? {
-        let size = input.layout.preset.footprintRingOnly
+    /// The ring with a 380-point column beside its footprint. With `band`, the footprint is
+    /// the preset's footprint with outer band, arcs get frames, and cards sit beside the band
+    /// next to their parent unless More needs the side list, which keeps the list-above-card
+    /// column. Without `band`, the footprint is the ring alone and nothing opens in a band.
+    private static func columnPlan(_ input: Input, clamped: Bool, band: Bool) -> RingPlan? {
+        let layout = input.layout
+        let size = layout.preset.footprintRingOnly
         let base = CGRect(origin: .zero, size: size)
+        let reach = band ? (layout.preset.footprintWithBand.width - size.width) / 2 : 0
+        let footprint = base.insetBy(dx: -reach, dy: -reach)
+        let moreArc = band ? input.arcs[.more] : nil
         let dMax = maxDetail(input)
-        let hasList = !input.moreKinds.isEmpty
+        let hasList = !input.moreKinds.isEmpty && moreArc == nil
         // Nothing to show beside the ring (no More list, no detail card): no column is reserved.
         let hasColumn = hasList || dMax != .zero
         let width = hasColumn ? sideAreaWidth : 0
@@ -257,7 +299,7 @@ enum RingPlacement {
         let columnHeight = listBlock + slotHeight
 
         func column(_ side: RingSide) -> CGRect {
-            let x = side == .right ? base.maxX + gap : base.minX - gap - width
+            let x = side == .right ? footprint.maxX + gap : footprint.minX - gap - width
             // Snapped so an odd column height cannot leave the column's frames on half pixels.
             return CGRect(x: x, y: snap(base.midY - columnHeight / 2, scale: input.scale),
                           width: width, height: columnHeight)
@@ -276,7 +318,7 @@ enum RingPlacement {
             var best: (side: RingSide, origin: CGPoint, distance: CGFloat)?
             for side in [RingSide.right, .left] {
                 guard let o = fitOrigin(preferred: input.preferredBase.origin,
-                                        rel: hasColumn ? base.union(column(side)) : base,
+                                        rel: hasColumn ? footprint.union(column(side)) : footprint,
                                         visible: input.visible, canShift: input.canShift, scale: input.scale) else { continue }
                 let d = hypot(o.x - input.preferredBase.minX, o.y - input.preferredBase.minY)
                 if best == nil || d < best!.distance - 0.001 { best = (side, o, d) }
@@ -287,6 +329,7 @@ enum RingPlacement {
         }
 
         let baseFrame = CGRect(origin: origin, size: size)
+        let footprintFrame = footprint.offsetBy(dx: origin.x, dy: origin.y)
         var columnFrame = column(chosenSide).offsetBy(dx: origin.x, dy: origin.y)
         if clamped {
             columnFrame.origin.x = min(max(columnFrame.minX, input.visible.minX), max(input.visible.minX, input.visible.maxX - columnFrame.width))
@@ -296,19 +339,43 @@ enum RingPlacement {
             ? CGRect(x: columnFrame.minX, y: columnFrame.maxY - listHeight, width: width, height: listHeight) : nil
         let slot = CGRect(x: columnFrame.minX, y: columnFrame.minY, width: width, height: slotHeight)
 
-        var nodes = baseNodeFrames(input.layout, baseFrame: baseFrame)
+        var nodes = baseNodeFrames(layout, baseFrame: baseFrame)
+        var arcFrames: [RingArcOwner: CGRect] = [:]
+        if band {
+            for (owner, arc) in input.arcs where arc.span > 0 && nodes[owner.node] != nil {
+                let surface = RingSector(center: arc.center, innerRadius: arc.innerRadius, outerRadius: arc.outerRadius,
+                                         centerAngle: arc.parentMidAngle, halfSpan: arc.span / 2)
+                arcFrames[owner] = snapOutward(screenFrame(surface.boundingFrame, in: baseFrame), scale: input.scale)
+            }
+        }
+        if let moreArc, arcFrames[.more] != nil {
+            for segment in moreArc.segments where input.moreKinds.indices.contains(segment.index) {
+                nodes[.moreItem(input.moreKinds[segment.index])] = screenFrame(segment.sector.boundingFrame, in: baseFrame)
+            }
+        } else if let listFrame {
+            for kind in input.moreKinds { nodes[.moreItem(kind)] = listFrame }
+        }
+
         var details: [StatKind: CGRect] = [:]
         var scrolling = Set<StatKind>()
-        let kinds = input.layout.favourites.map(\.kind) + input.moreKinds
-        for kind in input.moreKinds { if let listFrame { nodes[.moreItem(kind)] = listFrame } }
-        for kind in kinds {
+        let favouriteKinds = layout.favourites.map(\.kind)
+        // Beside the band, each card follows its parent; the list-above-card column stays fixed.
+        let besideParent = band && !hasList
+        for kind in favouriteKinds + input.moreKinds {
             guard let size = input.detailSizes[kind] else { continue }
             let w = min(ceil(size.width), width), h = min(ceil(size.height), slotHeight)
-            details[kind] = CGRect(x: slot.minX, y: slot.maxY - h, width: w, height: h)
+            let parent = nodes[favouriteKinds.contains(kind) ? .wedge(kind) : .moreItem(kind)]
+            if besideParent, let parent {
+                details[kind] = besideFrame(size: CGSize(width: w, height: h), parent: parent, footprint: footprintFrame,
+                                            side: chosenSide, visible: input.visible, scale: input.scale)
+            } else {
+                details[kind] = CGRect(x: slot.minX, y: slot.maxY - h, width: w, height: h)
+            }
             if ceil(size.height) > slotHeight || ceil(size.width) > width { scrolling.insert(kind) }
         }
-        return RingPlan(mode: .sideList, baseFrame: baseFrame, moreSurface: listFrame, nodeFrames: nodes,
-                        detailFrames: details, scrollingDetails: scrolling, side: chosenSide, isClamped: clamped)
+        return RingPlan(mode: band ? .outerBand : .sideList, baseFrame: baseFrame, moreSurface: listFrame,
+                        nodeFrames: nodes, detailFrames: details, scrollingDetails: scrolling, side: chosenSide,
+                        isClamped: clamped, bandFrame: band ? footprintFrame : nil, arcFrames: arcFrames)
     }
 
     // MARK: Whole list
@@ -364,12 +431,14 @@ enum RingPlacement {
 }
 
 extension RingPlacement.Input {
-    /// Convenience for the snapshot's own favourites, More entries and enabled stats.
+    /// Convenience for the snapshot's own favourites, More entries, enabled stats and arcs.
+    /// `allowsOuterBand` defaults to off while the panel controller has no arc surface (4.1).
     init(snapshot: RingSnapshot, visible: CGRect, preferredBase: CGRect, detailSizes: [StatKind: CGSize],
-         scale: CGFloat = 1, canShift: Bool = true, allowWholeList: Bool = true) {
+         scale: CGFloat = 1, canShift: Bool = true, allowWholeList: Bool = true, allowsOuterBand: Bool = false) {
         self.init(visible: visible, preferredBase: preferredBase, layout: snapshot.layout,
                   moreKinds: snapshot.moreKinds,
                   enabledKinds: snapshot.enabledKinds, detailSizes: detailSizes, scale: scale,
-                  canShift: canShift, allowWholeList: allowWholeList)
+                  canShift: canShift, allowWholeList: allowWholeList,
+                  arcs: snapshot.arcs, allowsOuterBand: allowsOuterBand)
     }
 }

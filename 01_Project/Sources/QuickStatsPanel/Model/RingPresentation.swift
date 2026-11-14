@@ -66,6 +66,24 @@ extension StatKind {
         case .uptime:              return "88d 88h"
         }
     }
+
+    /// The four stats whose wedge opens a sub-ring of its parts (cores, volumes, interfaces,
+    /// sensors) when it has two or more.
+    var opensSubRing: Bool {
+        switch self {
+        case .cpu, .disk, .network, .temps: return true
+        default: return false
+        }
+    }
+
+    /// Worst-case value of one part, so a segment label measured at summon covers later ticks.
+    var ringPartWidestValue: String {
+        switch self {
+        case .network: return "\u{2193}888 MB/s \u{2191}888 MB/s"
+        case .temps: return "110\u{00B0}C"
+        default: return "100%"
+        }
+    }
 }
 
 // MARK: - Typography and measurement
@@ -134,6 +152,14 @@ enum RingTypography {
                               height: iconSide + lineSpacing + height(valueFont)),
             icon: CGSize(width: iconSide, height: iconSide))
     }
+
+    /// One-line label of a sub-ring segment: the part's name and its worst-case value in the
+    /// 12-point secondary font. A segment shows it only when it fits; otherwise it is a sliver.
+    static func partLabelSize(_ part: RingPart, stat: StatKind) -> CGSize {
+        let value = width(part.valueText, secondaryFont) > width(stat.ringPartWidestValue, secondaryFont)
+            ? part.valueText : stat.ringPartWidestValue
+        return CGSize(width: width("\(part.name) \(value)", secondaryFont), height: height(secondaryFont))
+    }
 }
 
 // MARK: - Snapshot
@@ -160,6 +186,15 @@ struct RingSnapshot: Sendable {
     let layout: RingLayout
     /// Explains an empty or favourite-less ring; `nil` otherwise.
     let emptyMessage: String?
+    /// Part list per favourite that opens a sub-ring, frozen for the summon (order and
+    /// positions never change; a part that disappears later reads as unavailable).
+    let parts: [StatKind: RingPartList]
+    /// Outer-band arcs that fit this summon, laid out once from the frozen ring in its ring
+    /// space: the More arc, and the sub-ring of each favourite with two or more parts. An
+    /// owner without an arc opens its card alone; More then uses the side list.
+    let arcs: [RingArcOwner: RingArcLayout]
+    /// Content rung shared by every More-arc entry; `nil` when no More arc fits.
+    let moreArcRung: RingContentRung?
 
     /// Footprint of the favourites ring alone; the base panel's size.
     var size: CGSize { preset.footprintRingOnly }
@@ -169,7 +204,10 @@ struct RingSnapshot: Sendable {
     ///     Entries that are not enabled or repeat an earlier one are dropped, at most eight kept.
     ///     Every other enabled stat is reachable through More.
     ///   - cap: the Wedge text preference, the richest content rung a wedge may use.
-    ///   - measure: worst-case size of each content rung of a wedge.
+    ///   - measure: worst-case size of each content rung of a wedge (and of a More-arc entry).
+    ///   - parts: the part list of a stat at summon; `nil` (the default) means no parts, so
+    ///     no sub-ring. Only CPU, Disk, Network and Temperature favourites use it.
+    ///   - measurePart: measured label of a sub-ring segment.
     static func make(
         enabledKinds: [StatKind],
         favourites explicit: [StatKind]? = nil,
@@ -179,6 +217,10 @@ struct RingSnapshot: Sendable {
         reading: (StatKind) -> RingReading,
         measure: (StatKind, RingReading) -> RingRungSizes = { kind, reading in
             RingTypography.rungSizes(name: kind.displayName, reading: reading)
+        },
+        parts: (StatKind) -> RingPartList? = { _ in nil },
+        measurePart: (RingPart, StatKind) -> CGSize = { part, stat in
+            RingTypography.partLabelSize(part, stat: stat)
         }
     ) -> RingSnapshot {
         var favouriteKinds: [StatKind] = []
@@ -199,8 +241,58 @@ struct RingSnapshot: Sendable {
             settingsWordWidth: RingTypography.settingsWordWidth)
         let message: String? = enabledKinds.isEmpty ? "No stats enabled"
             : (entries.isEmpty ? "No favourites selected" : nil)
+
+        var partLists: [StatKind: RingPartList] = [:]
+        for favourite in layout.favourites where favourite.kind.opensSubRing {
+            if let list = parts(favourite.kind) { partLists[favourite.kind] = list }
+        }
+        var arcs = subRingArcs(layout: layout, parts: partLists, measurePart: measurePart)
+        let more = moreArc(layout: layout, entries: moreEntries, cap: cap, measure: measure)
+        if let more { arcs[.more] = more.arc }
         return RingSnapshot(generation: UUID(), enabledKinds: enabledKinds, preset: preset, fillScale: fillScale,
-                            favourites: entries, moreEntries: moreEntries, layout: layout, emptyMessage: message)
+                            favourites: entries, moreEntries: moreEntries, layout: layout, emptyMessage: message,
+                            parts: partLists, arcs: arcs, moreArcRung: more?.rung)
+    }
+
+    // MARK: Arcs
+
+    /// Sub-ring of each favourite with two or more parts, centred on its wedge, groups apart.
+    /// A list that cannot fit even as slivers gets no arc (its card still opens).
+    private static func subRingArcs(layout: RingLayout, parts: [StatKind: RingPartList],
+                                    measurePart: (RingPart, StatKind) -> CGSize) -> [RingArcOwner: RingArcLayout] {
+        var arcs: [RingArcOwner: RingArcLayout] = [:]
+        for favourite in layout.favourites {
+            guard let list = parts[favourite.kind], list.hasSubRing else { continue }
+            let groups = list.groups
+            let entries = list.parts.map { part in
+                RingArcEntry(group: groups.firstIndex(of: part.group) ?? 0, labelSize: measurePart(part, favourite.kind))
+            }
+            let arc = RingArcLayout(preset: layout.preset, kind: .subRing, center: layout.center,
+                                    parentMidAngle: favourite.sector.centerAngle, parentSpan: favourite.sector.span,
+                                    entries: entries, allowsSlivers: true)
+            if arc.status == .fits, !arc.segments.isEmpty { arcs[.stat(favourite.kind)] = arc }
+        }
+        return arcs
+    }
+
+    /// The More arc at the richest content rung (up to `cap`) at which every entry is
+    /// labelled within a full circle, down to icon only; `nil` when none fits, so More uses
+    /// the side list.
+    private static func moreArc(layout: RingLayout, entries: [Entry], cap: RingTextCap,
+                                measure: (StatKind, RingReading) -> RingRungSizes)
+        -> (arc: RingArcLayout, rung: RingContentRung)? {
+        guard let more = layout.more, !entries.isEmpty else { return nil }
+        let sizes = entries.map { measure($0.kind, $0.initialReading) }
+        for rung in RingContentRung.allCases.reversed() where rung <= cap.maxRung {
+            // A rung no entry has (a secondary line) is the next rung under another name.
+            guard sizes.contains(where: { $0.size(for: rung) != nil }) else { continue }
+            let arcEntries = sizes.map { RingArcEntry(group: 0, labelSize: $0.size(for: rung) ?? $0.labelValue) }
+            let arc = RingArcLayout(preset: layout.preset, kind: .more, center: layout.center,
+                                    parentMidAngle: more.sector.centerAngle, parentSpan: more.sector.span,
+                                    entries: arcEntries, allowsSlivers: false)
+            if arc.status == .fits, arc.segments.count == entries.count { return (arc, rung) }
+        }
+        return nil
     }
 
     // MARK: Hit testing and frames
@@ -244,10 +336,14 @@ final class RingPresentationState {
     private(set) var pointerInRing: CGPoint?
     /// The wedge whose detail is currently shown; set by the owner of the detail panel.
     var selectedKind: StatKind?
-    /// More branch visuals, mirrored from the interaction state by the panel controller.
+    /// Branch visuals, mirrored from the interaction state by the panel controller.
     private(set) var moreExpanded = false
     private(set) var hoveredMoreKind: StatKind?
     private(set) var selectedMoreKind: StatKind?
+    /// Owner of the open outer arc (More or a favourite's sub-ring).
+    private(set) var openArc: RingArcOwner?
+    /// Sub-ring segment whose caption is shown.
+    private(set) var hoveredSegment: RingSegmentRef?
     /// Stat under the pointer in a list (favourite row or More row).
     private(set) var hoveredNodeKind: StatKind?
     /// Scroll offset of the side/whole list, so drawing follows the layout's model offset.
@@ -269,16 +365,19 @@ final class RingPresentationState {
     }
 
     /// Mirrors the interaction state's open branches into the drawing state.
-    func syncExpansion(_ expansion: RingExpansion, hovered node: RingNode?) {
-        let wedge = expansion.detail.flatMap { $0.viaMore ? nil : $0.kind }
-        let more = expansion.detail.flatMap { $0.viaMore ? $0.kind : nil }
+    func syncExpansion(_ expansion: RingExpansion, hovered node: RingNode?, hoveredSegment segment: RingSegmentRef? = nil) {
+        let wedge = expansion.detail.flatMap { $0.owner == .more ? nil : $0.kind }
+        let more = expansion.detail.flatMap { $0.owner == .more ? $0.kind : nil }
         var hoveredMore: StatKind?
         if case .moreItem(let kind)? = node { hoveredMore = kind }
         if selectedKind != wedge { selectedKind = wedge }
         if selectedMoreKind != more { selectedMoreKind = more }
-        let open = expansion.more != nil
+        let arc = expansion.arc?.owner
+        if openArc != arc { openArc = arc }
+        let open = arc == .more
         if moreExpanded != open { moreExpanded = open }
         if hoveredMoreKind != hoveredMore { hoveredMoreKind = hoveredMore }
+        if hoveredSegment != segment { hoveredSegment = segment }
         var listKind: StatKind?
         switch node {
         case .wedge(let kind)?, .moreItem(let kind)?: listKind = kind

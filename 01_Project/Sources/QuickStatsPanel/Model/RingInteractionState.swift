@@ -16,21 +16,46 @@ final class SystemRingClock: RingClock {
 // MARK: - Vocabulary
 
 /// Something that can own a branch: a favourite wedge, the More wedge, or an
-/// entry of the More list. Settings and the hub drag area are not nodes; they
-/// never expand anything.
+/// entry of the More arc or list. Settings and the hub drag area are not nodes; they
+/// never expand anything. Sub-ring segments are not nodes either: they are caption-only.
 enum RingNode: Hashable, Sendable {
     case wedge(StatKind)
     case more
     case moreItem(StatKind)
 }
 
+/// A parent target that can own the single outer arc: the More wedge (its arc of
+/// non-favourites, or the side More list standing in for it when no arc fits) or a
+/// favourite stat wedge (its sub-ring of parts).
+enum RingArcOwner: Hashable, Sendable {
+    case more
+    case stat(StatKind)
+
+    /// The parent target in the ring.
+    var node: RingNode {
+        switch self {
+        case .more: return .more
+        case .stat(let kind): return .wedge(kind)
+        }
+    }
+}
+
+/// One part segment of a stat's sub-ring, by its frozen index.
+struct RingSegmentRef: Hashable, Sendable {
+    let stat: StatKind
+    let index: Int
+}
+
 /// What the pointer is over, resolved by the owner against the frozen geometry.
-enum RingHit: Equatable, Sendable {
+enum RingBranchHit: Equatable, Sendable {
     case node(RingNode)
     /// The open detail card.
     case detail
-    /// The open More list, but no entry.
-    case moreSurface
+    /// The open child surface of `owner` away from any entry or segment: its outer arc,
+    /// including the gap between the ring and the band, or the side More list's padding.
+    case arc(RingArcOwner)
+    /// A part segment of an open sub-ring. Caption only: no dwell target, no further level.
+    case segment(RingSegmentRef)
     /// Base-ring space that selects nothing: hub, Settings, drag area, gaps.
     case inert
     case none
@@ -48,30 +73,44 @@ enum RingHold: Equatable, Sendable {
     case held
 }
 
-/// The open branches, independent of `isPinned`.
+/// The open branch, independent of `isPinned`: at most one outer arc and at most one detail
+/// card. When both are open they belong to the same owner. A favourite's sub-ring and card
+/// share one hold; a More child card that is held also holds the More arc.
 struct RingExpansion: Equatable, Sendable {
-    struct Detail: Equatable, Sendable {
-        var kind: StatKind
-        /// True when the detail belongs to a More entry rather than a favourite wedge.
-        var viaMore: Bool
+    struct Arc: Equatable, Sendable {
+        var owner: RingArcOwner
         var hold: RingHold
     }
 
-    var more: RingHold?
+    struct Detail: Equatable, Sendable {
+        var kind: StatKind
+        /// `.stat(kind)` for a favourite's card, `.more` for a card opened from the More arc or list.
+        var owner: RingArcOwner
+        var hold: RingHold
+
+        /// The target the card hangs from: the favourite wedge or the More entry.
+        var parent: RingNode {
+            owner == .more ? .moreItem(kind) : .wedge(kind)
+        }
+    }
+
+    var arc: Arc?
     var detail: Detail?
 
-    static let collapsed = RingExpansion(more: nil, detail: nil)
+    static let collapsed = RingExpansion(arc: nil, detail: nil)
 
-    var detailOwner: RingNode? {
-        detail.map { $0.viaMore ? .moreItem($0.kind) : .wedge($0.kind) }
-    }
+    var detailOwner: RingNode? { detail?.parent }
+
+    /// Owner of the open branch, if any.
+    var owner: RingArcOwner? { detail?.owner ?? arc?.owner }
 }
 
 /// Effects the owner performs. Hold-only changes emit nothing; read `expansion`.
-enum RingCommand: Equatable, Sendable {
-    case showMore
-    case hideMore
-    case showDetail(StatKind, viaMore: Bool)
+enum RingBranchCommand: Equatable, Sendable {
+    /// Show the child surface of `owner`: a sub-ring, the More arc, or the side More list.
+    case showArc(RingArcOwner)
+    case hideArc(RingArcOwner)
+    case showDetail(StatKind, owner: RingArcOwner)
     case hideDetail
     case hideHUD
     case openSettings
@@ -85,7 +124,7 @@ enum RingCommand: Equatable, Sendable {
 struct RingTravelRegion: Equatable, Sendable {
     let polygon: [CGPoint]
 
-    init(from parent: CGRect, to child: CGRect, tolerance: CGFloat = RingInteractionState.routeTolerance) {
+    init(from parent: CGRect, to child: CGRect, tolerance: CGFloat = RingBranchState.routeTolerance) {
         let a = parent.insetBy(dx: -tolerance, dy: -tolerance)
         let b = child.insetBy(dx: -tolerance, dy: -tolerance)
         let corners = [a, b].flatMap { r in
@@ -128,15 +167,20 @@ struct RingTravelRegion: Equatable, Sendable {
 // MARK: - State machine
 
 /// Collapsed / preview / held branches for the ring, following the spec's interaction
-/// table. Pure: time comes from an injected clock, geometry from the summon's `RingPlan`
-/// and pointer position from the owner, so nothing here touches AppKit.
+/// table. Any parent target (the More wedge or a favourite) can own the one outer arc, plus
+/// at most one detail card. Pure: time comes from an injected clock, geometry from the
+/// summon's `RingPlan` and pointer position from the owner, so nothing here touches AppKit.
+///
+/// A favourite opens its card together with its sub-ring when the plan reserved an arc
+/// frame for it; otherwise (fewer than two parts, or no outer band this summon) the card
+/// opens alone. A stat reached through More opens its card only and keeps the More arc.
 ///
 /// Timers are values, not callbacks. After every call the owner schedules one wake-up at
 /// `nextDeadline` and hands back `timerToken` when it fires; any change to the pending
 /// timers (or a hide, drag, settings or summon) changes the token, so a callback scheduled
 /// earlier is ignored. `generation` identifies the summon-level epoch and
 /// `branchGeneration` the current branch, for owners with their own async work.
-final class RingInteractionState {
+final class RingBranchState {
 
     /// Starting values from the spec; to be validated natively, not exposed as settings.
     static let dwell: TimeInterval = 0.35
@@ -151,13 +195,15 @@ final class RingInteractionState {
     private(set) var expansion = RingExpansion.collapsed
     /// Node under the pointer, for highlight.
     private(set) var hovered: RingNode?
+    /// Segment of the open sub-ring under the pointer, for its caption.
+    private(set) var hoveredSegment: RingSegmentRef?
     private(set) var generation: UInt64 = 0
     private(set) var branchGeneration: UInt64 = 0
     private(set) var timerToken: UInt64 = 0
 
     private var armed = false
     private var suppressPoint: CGPoint?
-    private var lastHit: RingHit?
+    private var lastHit: RingBranchHit?
     private var lastPoint: CGPoint?
     /// Closed by click, Close or Escape: not reopened until the pointer exits and re-enters.
     private var closedParent: RingNode?
@@ -182,9 +228,9 @@ final class RingInteractionState {
     /// Accessibility expanded state of a node.
     func isExpanded(_ node: RingNode) -> Bool {
         switch node {
-        case .wedge(let kind): return expansion.detail.map { !$0.viaMore && $0.kind == kind } ?? false
-        case .more: return expansion.more != nil
-        case .moreItem(let kind): return expansion.detail.map { $0.viaMore && $0.kind == kind } ?? false
+        case .wedge(let kind): return expansion.owner == .stat(kind)
+        case .more: return expansion.arc?.owner == .more
+        case .moreItem(let kind): return expansion.detail.map { $0.owner == .more && $0.kind == kind } ?? false
         }
     }
 
@@ -200,11 +246,11 @@ final class RingInteractionState {
 
     /// Hotkey, click-away, Escape's last step or any other whole-HUD hide.
     @discardableResult
-    func hide() -> [RingCommand] { closeEverything() }
+    func hide() -> [RingBranchCommand] { closeEverything() }
 
     /// Mouse-down on the hub drag area: cancel pending hover and close expansions first.
     @discardableResult
-    func dragBegan() -> [RingCommand] { closeEverything() }
+    func dragBegan() -> [RingBranchCommand] { closeEverything() }
 
     /// Mouse-up after a drag. Hover resumes only after movement; the owner supplies the
     /// re-resolved plan for the new position.
@@ -215,24 +261,25 @@ final class RingInteractionState {
         lastHit = nil
         lastPoint = nil
         hovered = nil
+        hoveredSegment = nil
     }
 
     /// Settings opens in an activating window: close descendants, cancel everything.
     @discardableResult
-    func settingsRequested() -> [RingCommand] {
+    func settingsRequested() -> [RingBranchCommand] {
         closeEverything() + [.openSettings]
     }
 
     /// Host display removed or reconfigured: dismiss; the next summon recomputes geometry.
     @discardableResult
-    func displayChanged() -> [RingCommand] {
+    func displayChanged() -> [RingBranchCommand] {
         closeEverything() + [.hideHUD]
     }
 
     // MARK: Pointer
 
     @discardableResult
-    func pointerMoved(to point: CGPoint, hit: RingHit) -> [RingCommand] {
+    func pointerMoved(to point: CGPoint, hit: RingBranchHit) -> [RingBranchCommand] {
         tracked {
             if !armed {
                 guard let start = suppressPoint,
@@ -240,15 +287,19 @@ final class RingInteractionState {
                 armed = true
             }
             let owner = currentOwner
-            let wasOnOwner = owner != nil && lastHit?.node == owner
+            let wasOnSource = owner != nil && isRouteSource(lastHit)
             lastHit = hit
             lastPoint = point
             hovered = hit.node
+            hoveredSegment = nil
+            if case .segment(let segment) = hit, expansion.arc?.owner == .stat(segment.stat) {
+                hoveredSegment = segment
+            }
             if let owner {
                 if hit.node == owner || isChildHit(hit) {
                     transitUntil = nil
-                } else if wasOnOwner, transitUntil == nil {
-                    // Left the owner towards (possibly) its child: bounded grace begins.
+                } else if wasOnSource, transitUntil == nil {
+                    // Left the owner (or its sub-ring) towards (possibly) its card: bounded grace begins.
                     transitUntil = clock.now() + Self.maxTransit
                 }
             }
@@ -261,47 +312,45 @@ final class RingInteractionState {
     /// Explicit click (or accessibility Press) on a node. Always wins over hover, travel
     /// grace and pending timers.
     @discardableResult
-    func click(_ node: RingNode) -> [RingCommand] {
+    func click(_ node: RingNode) -> [RingBranchCommand] {
         tracked {
             var next = expansion
             switch node {
             case .wedge(let kind):
-                if let d = next.detail, !d.viaMore, d.kind == kind {
-                    if d.hold == .held {
-                        next.detail = nil
+                if expansion.owner == .stat(kind) {
+                    if branchHold == .held {
+                        next = .collapsed
                         closedParent = node
                     } else {
-                        next.detail?.hold = .held
+                        next = statBranch(kind, hold: .held)
                     }
                 } else {
-                    next.more = nil
-                    next.detail = .init(kind: kind, viaMore: false, hold: .held)
+                    next = statBranch(kind, hold: .held)
                 }
             case .more:
-                switch next.more {
+                switch expansion.arc?.owner == .more ? expansion.arc?.hold : nil {
                 case .held:
-                    next.more = nil
-                    next.detail = nil
+                    next = .collapsed
                     closedParent = node
                 case .preview:
-                    next.more = .held
+                    next.arc?.hold = .held
                 case nil:
-                    next.detail = nil   // an explicit More click replaces a favourite detail
-                    next.more = .held
+                    // An explicit More click replaces a favourite's branch.
+                    next = RingExpansion(arc: .init(owner: .more, hold: .held), detail: nil)
                 }
             case .moreItem(let kind):
-                guard next.more != nil else { return [] }
-                if let d = next.detail, d.viaMore, d.kind == kind {
+                guard next.arc?.owner == .more else { return [] }
+                if let d = next.detail, d.owner == .more, d.kind == kind {
                     if d.hold == .held {
                         next.detail = nil
                         closedParent = node
                     } else {
                         next.detail?.hold = .held
-                        next.more = .held
+                        next.arc?.hold = .held
                     }
                 } else {
-                    next.detail = .init(kind: kind, viaMore: true, hold: .held)
-                    next.more = .held   // a held child holds its More branch
+                    next.detail = .init(kind: kind, owner: .more, hold: .held)
+                    next.arc?.hold = .held   // a held child holds its More branch
                 }
             }
             cancelTimers()
@@ -312,46 +361,60 @@ final class RingInteractionState {
 
     /// Settings was clicked or pressed.
     @discardableResult
-    func settingsClicked() -> [RingCommand] { settingsRequested() }
+    func settingsClicked() -> [RingBranchCommand] { settingsRequested() }
 
     /// Mouse-down inside the detail card: a preview becomes held before any control acts.
+    /// A favourite's sub-ring and a More child's arc are held with it.
     @discardableResult
-    func detailInteracted() -> [RingCommand] {
+    func detailInteracted() -> [RingBranchCommand] {
         tracked {
-            guard var detail = expansion.detail, detail.hold == .preview else { return [] }
+            guard expansion.detail?.hold == .preview else { return [] }
             var next = expansion
-            detail.hold = .held
-            next.detail = detail
-            if detail.viaMore, next.more != nil { next.more = .held }
+            next.detail?.hold = .held
+            next.arc?.hold = .held
             cancelTimers()
             return set(next)
         }
     }
 
-    /// Close button on the detail card: the first step of Escape.
+    /// Mouse-down inside an open sub-ring: a preview branch becomes held, card included,
+    /// as when interacting with the card. The More arc is not promoted by its padding;
+    /// its entries are clicked instead.
     @discardableResult
-    func closeDetail() -> [RingCommand] {
+    func arcInteracted() -> [RingBranchCommand] {
         tracked {
-            guard let owner = expansion.detailOwner else { return [] }
-            closedParent = owner
+            guard let arc = expansion.arc, arc.owner != .more, arc.hold == .preview else { return [] }
             var next = expansion
-            next.detail = nil
+            next.arc?.hold = .held
+            next.detail?.hold = .held
             cancelTimers()
-            return set(next) + evaluate()
+            return set(next)
         }
     }
 
-    /// Escape in Ring, including while pinned: detail, then More, then the HUD.
+    /// Close button on the detail card: the first step of Escape. A favourite's sub-ring
+    /// closes with its card; the More arc stays when it owned the card.
     @discardableResult
-    func escape() -> [RingCommand] {
+    func closeDetail() -> [RingBranchCommand] {
+        tracked {
+            guard let detail = expansion.detail else { return [] }
+            closedParent = detail.parent
+            cancelTimers()
+            return set(closingDetail(detail)) + evaluate()
+        }
+    }
+
+    /// Escape in Ring, including while pinned: detail (with its sub-ring), then More, then the HUD.
+    @discardableResult
+    func escape() -> [RingBranchCommand] {
         tracked {
             var next = expansion
-            if let owner = expansion.detailOwner {
-                closedParent = owner
-                next.detail = nil
-            } else if expansion.more != nil {
-                closedParent = .more
-                next.more = nil
+            if let detail = expansion.detail {
+                closedParent = detail.parent
+                next = closingDetail(detail)
+            } else if let arc = expansion.arc {
+                closedParent = arc.owner.node
+                next.arc = nil
             } else {
                 return [.hideHUD]
             }
@@ -365,11 +428,11 @@ final class RingInteractionState {
     /// Called when the wake-up scheduled for `token` fires. A token from before the latest
     /// change to the pending timers, hide, drag, settings or summon is stale and ignored.
     @discardableResult
-    func fire(token: UInt64) -> [RingCommand] {
+    func fire(token: UInt64) -> [RingBranchCommand] {
         guard token == timerToken else { return [] }
         return tracked {
             let now = clock.now()
-            var commands: [RingCommand] = []
+            var commands: [RingBranchCommand] = []
             if let pending = dwell, pending.deadline <= now {
                 dwell = nil
                 commands += openAfterDwell(pending.node)
@@ -390,7 +453,7 @@ final class RingInteractionState {
     /// Recomputes the pending timers from the pointer's last known position. Idempotent:
     /// a timer that still applies keeps its original deadline, so pointer jitter inside a
     /// target never restarts a dwell or a leave.
-    private func evaluate() -> [RingCommand] {
+    private func evaluate() -> [RingBranchCommand] {
         guard armed, let hit = lastHit, let point = lastPoint else { return [] }
         let node = hit.node
         if let closed = closedParent, closed != node { closedParent = nil }
@@ -422,30 +485,28 @@ final class RingInteractionState {
         return []
     }
 
-    private func openAfterDwell(_ node: RingNode) -> [RingCommand] {
+    private func openAfterDwell(_ node: RingNode) -> [RingBranchCommand] {
         guard lastHit?.node == node, allowsHover(node), closedParent != node else { return [] }
         var next = expansion
         switch node {
         case .wedge(let kind):
-            next.more = nil
-            next.detail = .init(kind: kind, viaMore: false, hold: .preview)
+            next = statBranch(kind, hold: .preview)
         case .more:
-            next.detail = nil
-            next.more = .preview
+            next = RingExpansion(arc: .init(owner: .more, hold: .preview), detail: nil)
         case .moreItem(let kind):
-            guard next.more != nil else { return [] }
-            next.detail = .init(kind: kind, viaMore: true, hold: .preview)
+            guard next.arc?.owner == .more else { return [] }
+            next.detail = .init(kind: kind, owner: .more, hold: .preview)
         }
         transitUntil = nil
         return set(next)
     }
 
-    private func closeUnheld() -> [RingCommand] {
+    private func closeUnheld() -> [RingBranchCommand] {
         var next = expansion
         if next.detail?.hold == .preview { next.detail = nil }
-        if next.more == .preview {
-            next.more = nil
-            next.detail = nil   // a held child would have held More, so only a preview child remains
+        if next.arc?.hold == .preview {
+            next.arc = nil
+            next.detail = nil   // a held child would have held its arc, so only a preview child remains
         }
         transitUntil = nil
         return set(next)
@@ -453,64 +514,107 @@ final class RingInteractionState {
 
     // MARK: Rules
 
-    /// A held detail resists every hover replacement; a held More resists everything but
-    /// moving between its own entries.
+    /// A favourite's branch: its card, plus its sub-ring when the plan reserved one.
+    private func statBranch(_ kind: StatKind, hold: RingHold) -> RingExpansion {
+        let owner = RingArcOwner.stat(kind)
+        let arc = plan.arcFrames[owner] != nil ? RingExpansion.Arc(owner: owner, hold: hold) : nil
+        return RingExpansion(arc: arc, detail: .init(kind: kind, owner: owner, hold: hold))
+    }
+
+    /// What Close or Escape on `detail` leaves open.
+    private func closingDetail(_ detail: RingExpansion.Detail) -> RingExpansion {
+        var next = expansion
+        next.detail = nil
+        if detail.owner != .more { next.arc = nil }
+        return next
+    }
+
+    /// Hold of the open branch: the card's, or the arc's when no card is open.
+    private var branchHold: RingHold? { expansion.detail?.hold ?? expansion.arc?.hold }
+
+    /// A held card resists every hover replacement; a held arc resists everything but
+    /// moving between the More arc's own entries.
     private func allowsHover(_ node: RingNode) -> Bool {
         if expansion.detail?.hold == .held { return false }
-        if expansion.more == .held {
-            if case .moreItem = node { return true }
+        if let arc = expansion.arc, arc.hold == .held {
+            if arc.owner == .more, case .moreItem = node { return true }
             return false
         }
-        if case .moreItem = node { return expansion.more != nil }
+        if case .moreItem = node { return expansion.arc?.owner == .more }
         return true
     }
 
     private func isOpen(_ node: RingNode) -> Bool { isExpanded(node) }
 
     private var hasUnheld: Bool {
-        expansion.detail?.hold == .preview || expansion.more == .preview
+        expansion.detail?.hold == .preview || expansion.arc?.hold == .preview
     }
 
     /// The node whose child surface is the pointer's destination.
     private var currentOwner: RingNode? {
-        expansion.detailOwner ?? (expansion.more != nil ? .more : nil)
+        expansion.detailOwner ?? expansion.arc?.owner.node
     }
 
-    private func isChildHit(_ hit: RingHit) -> Bool {
+    /// Where leaving starts the transit grace: the owner, or a favourite's open sub-ring on
+    /// the way to its card.
+    private func isRouteSource(_ hit: RingBranchHit?) -> Bool {
+        guard let hit else { return false }
+        if hit.node != nil { return hit.node == currentOwner }
+        guard let detail = expansion.detail, detail.owner != .more, expansion.arc?.owner == detail.owner else {
+            return false
+        }
         switch hit {
-        case .detail: return expansion.detail != nil
-        case .moreSurface: return expansion.more != nil
-        case .node(.moreItem): return expansion.more != nil
+        case .arc(let owner): return owner == detail.owner
+        case .segment(let segment): return RingArcOwner.stat(segment.stat) == detail.owner
         default: return false
         }
     }
 
-    private func isInside(_ hit: RingHit, point: CGPoint, transitActive: Bool) -> Bool {
+    private func isChildHit(_ hit: RingBranchHit) -> Bool {
+        switch hit {
+        case .detail: return expansion.detail != nil
+        case .arc(let owner): return expansion.arc?.owner == owner
+        case .segment(let segment): return expansion.arc?.owner == .stat(segment.stat)
+        case .node(.moreItem): return expansion.arc?.owner == .more
+        default: return false
+        }
+    }
+
+    private func isInside(_ hit: RingBranchHit, point: CGPoint, transitActive: Bool) -> Bool {
         if isChildHit(hit) { return true }
         if let owner = currentOwner, hit.node == owner { return true }
         return transitActive
     }
 
     private func isTransitActive(at point: CGPoint, now: TimeInterval) -> Bool {
-        guard let until = transitUntil, now < until, let region = travelRegion() else { return false }
-        return region.contains(point)
+        guard let until = transitUntil, now < until else { return false }
+        return travelRegions().contains { $0.contains(point) }
     }
 
-    private func travelRegion() -> RingTravelRegion? {
-        if let owner = expansion.detailOwner, let detail = expansion.detail,
-           let parent = plan.nodeFrames[owner], let child = plan.detailFrames[detail.kind] {
-            return RingTravelRegion(from: parent, to: child)
+    /// Routes from the actual frames: parent target to card, and a favourite's sub-ring to
+    /// its card; without a card, parent target to its arc or list.
+    private func travelRegions() -> [RingTravelRegion] {
+        var regions: [RingTravelRegion] = []
+        if let detail = expansion.detail, let card = plan.detailFrames[detail.kind] {
+            if let parent = plan.nodeFrames[detail.parent] {
+                regions.append(RingTravelRegion(from: parent, to: card))
+            }
+            if detail.owner != .more, expansion.arc?.owner == detail.owner,
+               let arc = plan.arcFrames[detail.owner] {
+                regions.append(RingTravelRegion(from: arc, to: card))
+            }
         }
-        if expansion.more != nil, let hub = plan.nodeFrames[.more], let surface = plan.moreSurface {
-            return RingTravelRegion(from: hub, to: surface)
+        if regions.isEmpty, let arc = expansion.arc, let parent = plan.nodeFrames[arc.owner.node],
+           let surface = plan.surfaceFrame(of: arc.owner) {
+            regions.append(RingTravelRegion(from: parent, to: surface))
         }
-        return nil
+        return regions
     }
 
     // MARK: Mutation plumbing
 
     /// Runs a mutating input and bumps the timer token when the pending timers changed.
-    private func tracked(_ body: () -> [RingCommand]) -> [RingCommand] {
+    private func tracked(_ body: () -> [RingBranchCommand]) -> [RingBranchCommand] {
         let before = timerSignature()
         let commands = body()
         if timerSignature() != before { timerToken &+= 1 }
@@ -527,35 +631,38 @@ final class RingInteractionState {
         transitUntil = nil
     }
 
-    /// Applies a new expansion and emits only the open/close/replace effects.
-    private func set(_ next: RingExpansion) -> [RingCommand] {
+    /// Applies a new expansion and emits only the open/close/replace effects, closing the
+    /// old surfaces before opening the new ones.
+    private func set(_ next: RingExpansion) -> [RingBranchCommand] {
         let old = expansion
         guard next != old else { return [] }
         expansion = next
         branchGeneration &+= 1
-        var commands: [RingCommand] = []
+        if let segment = hoveredSegment, next.arc?.owner != .stat(segment.stat) { hoveredSegment = nil }
+        var commands: [RingBranchCommand] = []
         if old.detail != nil, next.detail == nil { commands.append(.hideDetail) }
-        if old.more != nil, next.more == nil { commands.append(.hideMore) }
-        if old.more == nil, next.more != nil { commands.append(.showMore) }
+        if let arc = old.arc, next.arc?.owner != arc.owner { commands.append(.hideArc(arc.owner)) }
+        if let arc = next.arc, old.arc?.owner != arc.owner { commands.append(.showArc(arc.owner)) }
         if let detail = next.detail,
-           old.detail?.kind != detail.kind || old.detail?.viaMore != detail.viaMore {
-            commands.append(.showDetail(detail.kind, viaMore: detail.viaMore))
+           old.detail?.kind != detail.kind || old.detail?.owner != detail.owner {
+            commands.append(.showDetail(detail.kind, owner: detail.owner))
         }
         return commands
     }
 
-    private func closeEverything() -> [RingCommand] {
+    private func closeEverything() -> [RingBranchCommand] {
         let old = expansion
         resetAll()
-        var commands: [RingCommand] = []
+        var commands: [RingBranchCommand] = []
         if old.detail != nil { commands.append(.hideDetail) }
-        if old.more != nil { commands.append(.hideMore) }
+        if let arc = old.arc { commands.append(.hideArc(arc.owner)) }
         return commands
     }
 
     private func resetAll() {
         expansion = .collapsed
         hovered = nil
+        hoveredSegment = nil
         armed = false
         suppressPoint = nil
         lastHit = nil
@@ -566,4 +673,109 @@ final class RingInteractionState {
         branchGeneration &+= 1
         timerToken &+= 1
     }
+}
+
+// MARK: - Compatibility for RingPanelController (removed by 4.1)
+
+/// Hit vocabulary of the 2.1 controller. `.moreSurface` is the More child surface; sub-ring
+/// hits have no equivalent and read as inert.
+enum RingHit: Equatable, Sendable {
+    case node(RingNode)
+    case detail
+    case moreSurface
+    case inert
+    case none
+
+    var node: RingNode? {
+        if case .node(let node) = self { return node }
+        return nil
+    }
+
+    init(_ hit: RingBranchHit) {
+        switch hit {
+        case .node(let node): self = .node(node)
+        case .detail: self = .detail
+        case .arc(.more): self = .moreSurface
+        case .arc(.stat), .segment: self = .inert
+        case .inert: self = .inert
+        case .none: self = .none
+        }
+    }
+
+    var branchHit: RingBranchHit {
+        switch self {
+        case .node(let node): return .node(node)
+        case .detail: return .detail
+        case .moreSurface: return .arc(.more)
+        case .inert: return .inert
+        case .none: return .none
+        }
+    }
+}
+
+/// Command vocabulary of the 2.1 controller. Sub-ring arcs have no native surface before
+/// 4.1, so their show/hide commands are dropped.
+enum RingCommand: Equatable, Sendable {
+    case showMore
+    case hideMore
+    case showDetail(StatKind, viaMore: Bool)
+    case hideDetail
+    case hideHUD
+    case openSettings
+
+    static func legacy(_ commands: [RingBranchCommand]) -> [RingCommand] {
+        commands.compactMap { command in
+            switch command {
+            case .showArc(.more): return .showMore
+            case .hideArc(.more): return .hideMore
+            case .showArc(.stat), .hideArc(.stat): return nil
+            case .showDetail(let kind, let owner): return .showDetail(kind, viaMore: owner == .more)
+            case .hideDetail: return .hideDetail
+            case .hideHUD: return .hideHUD
+            case .openSettings: return .openSettings
+            }
+        }
+    }
+}
+
+extension RingExpansion {
+    /// Hold of the More branch, as the 2.1 controller reads it.
+    var more: RingHold? { arc?.owner == .more ? arc?.hold : nil }
+}
+
+/// The 2.1 controller's interface over `RingBranchState`: same inputs, legacy hits and
+/// commands.
+final class RingInteractionState {
+    let branch: RingBranchState
+
+    init(plan: RingPlan, clock: any RingClock = SystemRingClock()) {
+        branch = RingBranchState(plan: plan, clock: clock)
+    }
+
+    var plan: RingPlan { branch.plan }
+    var expansion: RingExpansion { branch.expansion }
+    var hovered: RingNode? { branch.hovered }
+    var generation: UInt64 { branch.generation }
+    var branchGeneration: UInt64 { branch.branchGeneration }
+    var timerToken: UInt64 { branch.timerToken }
+    var isArmed: Bool { branch.isArmed }
+    var nextDeadline: TimeInterval? { branch.nextDeadline }
+
+    func isExpanded(_ node: RingNode) -> Bool { branch.isExpanded(node) }
+    func summon(plan: RingPlan, pointer: CGPoint) { branch.summon(plan: plan, pointer: pointer) }
+    func dragEnded(plan: RingPlan, pointer: CGPoint) { branch.dragEnded(plan: plan, pointer: pointer) }
+
+    @discardableResult func hide() -> [RingCommand] { RingCommand.legacy(branch.hide()) }
+    @discardableResult func dragBegan() -> [RingCommand] { RingCommand.legacy(branch.dragBegan()) }
+    @discardableResult func settingsRequested() -> [RingCommand] { RingCommand.legacy(branch.settingsRequested()) }
+    @discardableResult func displayChanged() -> [RingCommand] { RingCommand.legacy(branch.displayChanged()) }
+    @discardableResult func pointerMoved(to point: CGPoint, hit: RingHit) -> [RingCommand] {
+        RingCommand.legacy(branch.pointerMoved(to: point, hit: hit.branchHit))
+    }
+    @discardableResult func click(_ node: RingNode) -> [RingCommand] { RingCommand.legacy(branch.click(node)) }
+    @discardableResult func settingsClicked() -> [RingCommand] { RingCommand.legacy(branch.settingsClicked()) }
+    @discardableResult func detailInteracted() -> [RingCommand] { RingCommand.legacy(branch.detailInteracted()) }
+    @discardableResult func closeDetail() -> [RingCommand] { RingCommand.legacy(branch.closeDetail()) }
+    @discardableResult func escape() -> [RingCommand] { RingCommand.legacy(branch.escape()) }
+    @discardableResult func fire(token: UInt64) -> [RingCommand] { RingCommand.legacy(branch.fire(token: token)) }
 }

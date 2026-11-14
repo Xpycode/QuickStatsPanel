@@ -342,4 +342,266 @@ final class RingPlacementTests: XCTestCase {
     func testListRowsAreAtLeastTheMinimumTargetHeight() {
         XCTAssertGreaterThanOrEqual(RingListLayout.rowHeight, RingSizePreset.minGearTarget)
     }
+
+    // MARK: Snapshot arcs
+
+    private func partLists(_ name: RingPartFixtureName) -> (StatKind) -> RingPartList? {
+        let set = RingPartFixtures.make(name)
+        return { kind in
+            switch kind {
+            case .cpu: return set.cpuParts
+            case .disk: return set.diskParts
+            case .network: return set.networkParts
+            case .temps: return set.temperatureParts
+            default: return nil
+            }
+        }
+    }
+
+    private func bandSnapshot(_ kinds: [StatKind], favourites: [StatKind]? = nil, preset: RingSizePreset = .medium,
+                              parts: RingPartFixtureName = .typical, cap: RingTextCap = .label) -> RingSnapshot {
+        RingSnapshot.make(enabledKinds: kinds, favourites: favourites, preset: preset, cap: cap, reading: reading,
+                          parts: partLists(parts))
+    }
+
+    private func bandPlan(_ s: RingSnapshot, visible: CGRect, at p: CGPoint? = nil,
+                          detail: [StatKind: CGSize]? = nil, scale: CGFloat = 1,
+                          canShift: Bool = true, allowWholeList: Bool = true) -> RingPlan {
+        let center = p ?? CGPoint(x: visible.midX, y: visible.midY)
+        return RingPlacement.resolve(.init(snapshot: s, visible: visible,
+                                           preferredBase: preferred(centeredAt: center, side: s.size.width),
+                                           detailSizes: detail ?? details(s.enabledKinds), scale: scale,
+                                           canShift: canShift, allowWholeList: allowWholeList, allowsOuterBand: true))
+    }
+
+    private let subRingKinds: [StatKind] = [.cpu, .disk, .network, .temps]
+
+    func testSnapshotLaysOutASubRingForEachFavouriteWithTwoOrMoreParts() throws {
+        for preset in RingSizePreset.allCases {
+            let s = bandSnapshot(eight, preset: preset)
+            for kind in subRingKinds {
+                let arc = try XCTUnwrap(s.arcs[.stat(kind)], "\(preset) \(kind)")
+                let wedge = try XCTUnwrap(s.layout.favourites.first { $0.kind == kind }).sector
+                let parts = try XCTUnwrap(s.parts[kind])
+                XCTAssertEqual(arc.status, .fits)
+                XCTAssertEqual(arc.segments.count, parts.parts.count, "\(preset) \(kind): one segment per part")
+                XCTAssertEqual(arc.parentMidAngle, wedge.centerAngle, accuracy: 1e-12, "centred on its parent")
+                XCTAssertGreaterThanOrEqual(arc.span, wedge.span - 1e-9, "at least the parent's span")
+                XCTAssertEqual(arc.center, s.layout.center, "in the ring's own space")
+                XCTAssertEqual(arc.innerRadius, preset.outerRadius + RingSizePreset.bandGap, "6 points outside the ring")
+            }
+            for kind in eight where !subRingKinds.contains(kind) {
+                XCTAssertNil(s.arcs[.stat(kind)], "\(preset) \(kind) has no parts")
+            }
+            XCTAssertNil(s.arcs[.more], "nothing in More")
+        }
+    }
+
+    func testFewerThanTwoPartsOrRealDataGivesNoSubRing() {
+        let minimal = bandSnapshot(eight, parts: .minimal)
+        XCTAssertNotNil(minimal.arcs[.stat(.cpu)], "minimal still has ten cores")
+        for kind in [StatKind.disk, .network, .temps] {
+            XCTAssertNil(minimal.arcs[.stat(kind)], "\(kind): fewer than two parts, card only")
+        }
+        let real = snapshot(eight)
+        XCTAssertTrue(real.arcs.isEmpty, "real data has no parts yet")
+        XCTAssertTrue(real.parts.isEmpty)
+    }
+
+    func testAStatReachedThroughMoreNeverGetsASubRing() {
+        let s = bandSnapshot(all, favourites: [.memory, .battery, .gpu])
+        for kind in subRingKinds {
+            XCTAssertNil(s.arcs[.stat(kind)], "\(kind) is in More")
+            XCTAssertNil(s.parts[kind])
+        }
+        XCTAssertNotNil(s.arcs[.more])
+    }
+
+    func testMoreArcTakesTheRichestRungThatFitsAndIsAbsentWhenNoneFits() throws {
+        for preset in RingSizePreset.allCases {
+            for favourites in [0, 1, 6, 8] {
+                let s = bandSnapshot(all, favourites: Array(all.prefix(favourites)), preset: preset)
+                let arc = try XCTUnwrap(s.arcs[.more], "\(preset) \(favourites) favourites")
+                let rung = try XCTUnwrap(s.moreArcRung)
+                XCTAssertEqual(arc.segments.count, s.moreKinds.count, "every non-favourite is an entry")
+                XCTAssertTrue(arc.segments.allSatisfy(\.isLabelled), "no More entry is a sliver")
+                XCTAssertEqual(arc.parentMidAngle, .pi, accuracy: 1e-12, "centred on six o'clock")
+                XCTAssertEqual(arc.kind, .more)
+                // A richer rung that some entry has would not have fitted.
+                let sizes = s.moreEntries.map { RingTypography.rungSizes(name: $0.name, reading: $0.initialReading) }
+                if let richer = RingContentRung(rawValue: rung.rawValue + 1),
+                   sizes.contains(where: { $0.size(for: richer) != nil }) {
+                    let wider = RingArcLayout(preset: preset, kind: .more, center: s.layout.center,
+                                              parentMidAngle: .pi, parentSpan: try XCTUnwrap(s.layout.more).sector.span,
+                                              entries: sizes.map { RingArcEntry(labelSize: $0.size(for: richer) ?? $0.labelValue) },
+                                              allowsSlivers: false)
+                    XCTAssertEqual(wider.status, .cannotFit, "\(preset) \(favourites): \(richer) should not fit")
+                }
+            }
+        }
+        XCTAssertEqual(bandSnapshot(all, favourites: Array(all.prefix(6)), cap: .icon).moreArcRung, .icon)
+
+        let huge = RingSnapshot.make(enabledKinds: all, favourites: Array(all.prefix(6)), reading: reading,
+                                     measure: { _, _ in
+                                         let big = CGSize(width: 400, height: 400)
+                                         return RingRungSizes(labelValueSecondary: big, labelValue: big, iconValue: big, icon: big)
+                                     })
+        XCTAssertNil(huge.arcs[.more], "a More arc that cannot fit even icons is not laid out")
+        XCTAssertNil(huge.moreArcRung)
+    }
+
+    // MARK: Outer band placement
+
+    func testOuterBandReservesTheBandFootprintAroundTheUnmovedRing() throws {
+        for preset in RingSizePreset.allCases {
+            let s = bandSnapshot(all, favourites: eight, preset: preset)
+            let ringOnly = plan(s, visible: vLarge)
+            let p = bandPlan(s, visible: vLarge)
+            XCTAssertEqual(p.mode, .outerBand, "\(preset)")
+            XCTAssertEqual(p.baseFrame, ringOnly.baseFrame, "\(preset): reserving the band never moves the ring")
+            XCTAssertEqual(p.baseFrame.size, preset.footprintRingOnly)
+            let band = try XCTUnwrap(p.bandFrame)
+            XCTAssertEqual(band.size, preset.footprintWithBand)
+            XCTAssertEqual(band.midX, p.baseFrame.midX, accuracy: 0.001)
+            XCTAssertEqual(band.midY, p.baseFrame.midY, accuracy: 0.001)
+            for favourite in s.layout.favourites {
+                XCTAssertEqual(p.nodeFrames[.wedge(favourite.kind)], ringOnly.nodeFrames[.wedge(favourite.kind)],
+                               "\(preset) \(favourite.kind): the parent target never moves")
+            }
+            XCTAssertEqual(Set(p.arcFrames.keys), Set(s.arcs.keys), "\(preset): every laid-out arc has a frame")
+            for (owner, frame) in p.arcFrames {
+                XCTAssertTrue(band.insetBy(dx: -0.001, dy: -0.001).contains(frame), "\(preset) \(owner) inside the band")
+            }
+            XCTAssertNil(p.moreSurface, "\(preset): More opens as an arc")
+            assertInside(p, vLarge)
+        }
+    }
+
+    func testOuterBandCardsSitBesideTheBandNextToTheirParentAndNeverOverAnArc() throws {
+        let s = bandSnapshot(all, favourites: Array(all.prefix(6)))
+        let p = bandPlan(s, visible: vLarge)
+        XCTAssertEqual(p.mode, .outerBand)
+        let band = try XCTUnwrap(p.bandFrame)
+        for kind in all {
+            let card = try XCTUnwrap(p.detailFrames[kind], "\(kind)")
+            XCTAssertFalse(card.intersects(band), "\(kind): beside the band footprint")
+            XCTAssertEqual(card.minX, band.maxX + RingPlacement.gap, accuracy: 0.001, "\(kind): right of the band")
+            for (owner, arc) in p.arcFrames { XCTAssertFalse(card.intersects(arc), "\(kind) over \(owner)'s arc") }
+            let parentNode: RingNode = s.moreKinds.contains(kind) ? .moreItem(kind) : .wedge(kind)
+            let parent = try XCTUnwrap(p.nodeFrames[parentNode])
+            XCTAssertEqual(card.midY, parent.midY, accuracy: 0.5, "\(kind): vertically centred on its parent")
+        }
+        for kind in s.moreKinds {
+            let entry = try XCTUnwrap(p.nodeFrames[.moreItem(kind)])
+            XCTAssertTrue(try XCTUnwrap(p.arcFrames[.more]).insetBy(dx: -1, dy: -1).contains(entry),
+                          "\(kind): its More-arc entry is its parent target")
+        }
+    }
+
+    func testMoreArcThatCannotFitKeepsTheListAboveTheCardBesideTheBand() throws {
+        let s = RingSnapshot.make(enabledKinds: all, favourites: eight, reading: reading,
+                                  measure: { kind, reading in
+                                      var sizes = RingTypography.rungSizes(name: kind.displayName, reading: reading)
+                                      sizes.icon = CGSize(width: 400, height: 400)   // no More-arc rung fits
+                                      sizes.iconValue = sizes.icon
+                                      sizes.labelValue = sizes.icon
+                                      sizes.labelValueSecondary = nil
+                                      return sizes
+                                  },
+                                  parts: partLists(.typical))
+        XCTAssertNil(s.arcs[.more])
+        XCTAssertNotNil(s.arcs[.stat(.cpu)])
+        let p = bandPlan(s, visible: vLarge)
+        XCTAssertEqual(p.mode, .outerBand, "sub-rings still use the band")
+        let band = try XCTUnwrap(p.bandFrame)
+        let list = try XCTUnwrap(p.moreSurface, "More falls back to the side list")
+        XCTAssertNil(p.arcFrames[.more])
+        XCTAssertEqual(p.surfaceFrame(of: .more), list)
+        XCTAssertFalse(list.intersects(band))
+        for kind in all {
+            let card = try XCTUnwrap(p.detailFrames[kind])
+            XCTAssertFalse(card.intersects(band))
+            XCTAssertLessThanOrEqual(card.maxY, list.minY - RingPlacement.gap + 0.001, "\(kind) below the list")
+        }
+        for kind in s.moreKinds { XCTAssertEqual(p.nodeFrames[.moreItem(kind)], list) }
+        assertInside(p, vLarge)
+    }
+
+    func testBandThatCannotFitOmitsSubRingsAndUsesTheSideList() {
+        let s = bandSnapshot(all, favourites: Array(all.prefix(6)))
+        // 880 wide holds 360 + 6 + 380 but not the 500-point band footprint + 6 + 380.
+        let narrow = CGRect(x: 0, y: 0, width: 880, height: 900)
+        let side = bandPlan(s, visible: narrow)
+        XCTAssertEqual(side.mode, .sideList)
+        XCTAssertTrue(side.arcFrames.isEmpty, "no sub-ring and no More arc this summon")
+        XCTAssertNil(side.bandFrame)
+        XCTAssertNotNil(side.moreSurface)
+        XCTAssertEqual(bandPlan(s, visible: CGRect(x: 0, y: 0, width: 886, height: 900)).mode, .outerBand,
+                       "500 + 6 + 380 is exactly enough")
+        // 480 tall holds the ring but not the band.
+        XCTAssertEqual(bandPlan(s, visible: CGRect(x: 0, y: 0, width: 1440, height: 480)).mode, .sideList)
+        XCTAssertEqual(bandPlan(s, visible: CGRect(x: 0, y: 0, width: 700, height: 900)).mode, .wholeList,
+                       "the ring plus 380 points cannot fit either")
+    }
+
+    func testConvenienceInputKeepsTheBandOffUntilTheNativeArcsExist() {
+        let s = bandSnapshot(all, favourites: eight)
+        XCTAssertFalse(s.arcs.isEmpty)
+        XCTAssertEqual(plan(s, visible: vLarge).mode, .sideList)
+        XCTAssertEqual(bandPlan(s, visible: vLarge).mode, .outerBand)
+        XCTAssertEqual(bandPlan(snapshot(eight), visible: vLarge).mode, .sideList, "no arcs: no band reserved")
+    }
+
+    func testOuterBandAtEveryEdgeCornerDisplayScaleAndPreset() throws {
+        let six: [StatKind] = [.cpu, .memory, .disk, .network, .gpu, .temps]
+        for preset in RingSizePreset.allCases {
+            let s = bandSnapshot(all, favourites: six, preset: preset)
+            for visible in [v1024, v1440, vNegative, vLarge] {
+                XCTAssertEqual(bandPlan(s, visible: visible).mode, .outerBand,
+                               "\(preset) centred on \(visible): the band fits the minimum workspace")
+                for point in positions(in: visible) {
+                    for scale in [CGFloat(1), 2] {
+                        let p = bandPlan(s, visible: visible, at: point, scale: scale)
+                        let label = "\(preset) at \(point) on \(visible) @\(scale)x mode \(p.mode)"
+                        assertInside(p, visible, label)
+                        for frame in p.allFrames {
+                            XCTAssertEqual(frame.minX * scale, (frame.minX * scale).rounded(), accuracy: 1e-6, label)
+                            XCTAssertEqual(frame.minY * scale, (frame.minY * scale).rounded(), accuracy: 1e-6, label)
+                        }
+                        guard p.mode == .outerBand else { continue }
+                        let band = try XCTUnwrap(p.bandFrame, label)
+                        XCTAssertEqual(p.baseFrame.size, s.size, label)
+                        for (kind, card) in p.detailFrames {
+                            XCTAssertFalse(card.intersects(band), "\(label): \(kind) over the band")
+                        }
+                        for (owner, frame) in p.arcFrames {
+                            XCTAssertTrue(band.insetBy(dx: -0.001, dy: -0.001).contains(frame), "\(label): \(owner)")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func testDraggedBaseKeepsTheBandWhereItFitsAndFallsBackWhereItDoesNot() {
+        let s = bandSnapshot(all, favourites: eight)
+        let centre = CGPoint(x: v1440.midX, y: v1440.midY)
+        let kept = bandPlan(s, visible: v1440, at: centre, canShift: false, allowWholeList: false)
+        XCTAssertEqual(kept.mode, .outerBand)
+        XCTAssertEqual(kept.baseFrame, preferred(centeredAt: centre))
+        let edge = CGPoint(x: v1440.maxX - 200, y: v1440.midY)
+        let fallback = bandPlan(s, visible: v1440, at: edge, canShift: false, allowWholeList: false)
+        XCTAssertNotEqual(fallback.mode, .outerBand, "the band would leave the display")
+        XCTAssertEqual(fallback.baseFrame, preferred(centeredAt: edge), "a drag never moves the base")
+        XCTAssertTrue(fallback.arcFrames.isEmpty)
+    }
+
+    func testBandPlanIsFrozenAgainstSampleUpdates() {
+        let quiet = bandSnapshot(all, favourites: eight)
+        let busy = RingSnapshot.make(enabledKinds: all, favourites: eight, reading: { kind in
+            RingReading(value: "99%", widestValue: kind.ringFallbackWidest, band: .hot)
+        }, parts: partLists(.typical))
+        XCTAssertEqual(bandPlan(quiet, visible: v1440), bandPlan(busy, visible: v1440))
+        XCTAssertEqual(quiet.arcs, busy.arcs, "arcs are laid out from worst-case strings, not live values")
+    }
 }
