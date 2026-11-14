@@ -71,10 +71,19 @@ enum RingPartFixtures {
                                     upBytesPerSec: interfaces.reduce(0) { $0 + $1.upBytesPerSec },
                                     interfaceName: interfaces.first?.name, localIP: nil)
 
-        // One reading per sensor so the Temperature gauge sees the same hottest sensor as the
-        // parts; invalid inputs stay in so the mapper's own filter is exercised.
-        let temperature = TemperatureSample(thermalState: .nominal,
-                                            sensors: sensors.map { TempReading(label: $0.name, celsius: $0.celsius) })
+        // One reading per role, labelled by role as the real reader does ("CPU", "GPU"…), so
+        // the CPU and GPU temperature panel values resolve on fixtures. Each role reports its
+        // hottest valid sensor, so the gauge sees the same hottest reading as the parts. A role
+        // with no valid sensor passes its raw readings through so the mapper's own filter is
+        // still exercised.
+        var roles: [String] = []
+        for s in sensors where !roles.contains(s.group) { roles.append(s.group) }
+        let temperature = TemperatureSample(thermalState: .nominal, sensors: roles.flatMap { role -> [TempReading] in
+            let members = sensors.filter { $0.group == role }
+            let valid = members.filter { RingGaugeMapper.isValidTemperature($0.celsius) }
+            if let hottest = valid.map(\.celsius).max() { return [TempReading(label: role, celsius: hottest)] }
+            return members.map { TempReading(label: role, celsius: $0.celsius) }
+        })
 
         return RingPartFixtureSet(name: name, cpuParts: cpuParts, diskParts: diskParts,
                                   networkParts: networkParts, temperatureParts: temperatureParts,

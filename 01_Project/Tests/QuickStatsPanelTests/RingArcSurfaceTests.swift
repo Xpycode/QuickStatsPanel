@@ -123,13 +123,24 @@ final class RingArcSurfaceTests: XCTestCase {
         XCTAssertEqual(dense.captionSlots, busy.captionSlots, "slots come from the frozen parts, not live values")
         XCTAssertEqual(dense.arcs[.stat(.cpu)]?.segments.count, 32, "dense: 32 cores, one segment each")
         let sensors = try XCTUnwrap(dense.parts[.temps])
-        XCTAssertTrue(sensors.isCollapsed)
-        XCTAssertEqual(dense.arcs[.stat(.temps)]?.segments.count, sensors.parts.count, "the collapsed group is one segment")
+        XCTAssertEqual(dense.arcs[.stat(.temps)]?.segments.count, sensors.parts.count, "one segment per sensor role")
         XCTAssertNotNil(dense.captionSlots[.stat(.temps)])
-        let collapsed = try XCTUnwrap(sensors.parts.first { $0.id.hasSuffix(RingPartBuilder.collapsedSuffix) })
-        XCTAssertTrue(RingCaption.text(for: collapsed, stat: .temps).hasSuffix("hottest of \(collapsed.memberCount)"))
-        let plain = try XCTUnwrap(sensors.parts.first { $0.memberCount == 1 })
+        let role = try XCTUnwrap(sensors.parts.first)
+        XCTAssertEqual(RingCaption.text(for: role, stat: .temps),
+                       "\(role.name) \(role.valueText) \u{00B7} hottest of \(role.memberCount)")
+        let single = RingPartBuilder.temperature(sensors: [RingSensorInput(group: "SSD", name: "NAND", celsius: 40),
+                                                           RingSensorInput(group: "GPU", name: "die", celsius: 50)])
+        let plain = try XCTUnwrap(single.parts.first)
         XCTAssertEqual(RingCaption.text(for: plain, stat: .temps), "\(plain.name) \(plain.valueText)")
+        // A collapsed core group still names its rule.
+        let many = RingPartBuilder.cpu(cores: (0..<34).map {
+            RingCoreInput(id: "c\($0)", name: "P\($0 + 1)", group: "Performance", usagePercent: Double($0))
+        } + [RingCoreInput(id: "e", name: "E1", group: "Efficiency", usagePercent: 3)])
+        let collapsed = try XCTUnwrap(many.parts.first { $0.id.hasSuffix(RingPartBuilder.collapsedSuffix) })
+        XCTAssertTrue(RingCaption.text(for: collapsed, stat: .cpu).hasSuffix("highest of \(collapsed.memberCount)"))
+        // Disk says what its percentage measures.
+        let volume = try XCTUnwrap(RingPartFixtures.make(.typical).diskParts.parts.first)
+        XCTAssertEqual(RingCaption.text(for: volume, stat: .disk), "\(volume.name) \(volume.valueText) used")
     }
 
     func testASubRingWhoseCaptionCannotFitOpensItsCardAlone() {
@@ -258,10 +269,14 @@ final class RingArcSurfaceTests: XCTestCase {
         let volume = try XCTUnwrap(set.diskParts.parts.first)
         XCTAssertEqual(volume.gauge(stat: .disk).totalFraction, try XCTUnwrap(volume.fraction), accuracy: 1e-12)
 
+        // Network: one level for download plus upload, and that combined rate as the label.
         let interface = try XCTUnwrap(set.networkParts.parts.first)
-        let halves = try XCTUnwrap(interface.gauge(stat: .network).halves)
-        XCTAssertEqual(halves.left, try XCTUnwrap(interface.fraction))
-        XCTAssertEqual(halves.right, try XCTUnwrap(interface.secondFraction))
+        let total = try XCTUnwrap(interface.raw) + (interface.rawSecondary ?? 0)
+        let netGauge = interface.gauge(stat: .network)
+        XCTAssertNil(netGauge.halves)
+        XCTAssertEqual(netGauge.totalFraction, RingRateScale.fraction(bytesPerSecond: total), accuracy: 1e-12)
+        XCTAssertEqual(interface.labelValue(stat: .network), NetworkSample.rate(total))
+        XCTAssertEqual(volume.labelValue(stat: .disk), volume.valueText)
 
         let sensor = try XCTUnwrap(set.temperatureParts.parts.first)
         let heat = sensor.gauge(stat: .temps)

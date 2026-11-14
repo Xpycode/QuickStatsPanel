@@ -67,7 +67,7 @@ final class RingPartsTests: XCTestCase {
             RingSensorInput(group: "SSD", name: "S", celsius: 35)]
         let list = RingPartBuilder.temperature(sensors: input)
         XCTAssertEqual(list.groups, ["CPU", "SSD", "Battery", "Other"])
-        XCTAssertEqual(list.parts.map(\.name), ["C", "S", "B", "M"])
+        XCTAssertEqual(list.parts.map(\.name), ["CPU", "SSD", "Battery", "Other"])
     }
 
     // MARK: Temperature rules
@@ -84,8 +84,12 @@ final class RingPartsTests: XCTestCase {
             RingSensorInput(group: "SoC", name: "edge-high", celsius: 110),
             RingSensorInput(group: "SSD", name: "nan", celsius: .nan)]
         let list = RingPartBuilder.temperature(sensors: input)
-        XCTAssertEqual(list.parts.map(\.id), ["CPU/die", "GPU/die", "SoC/edge-low", "SoC/edge-high"])
+        // One segment per role; same-named CPU readings merged first, invalid SoC/SSD dropped.
+        XCTAssertEqual(list.parts.map(\.id), ["CPU", "GPU", "SoC"])
+        XCTAssertEqual(list.parts.map(\.memberCount), [1, 1, 2])
         XCTAssertEqual(list.parts.first?.raw, 72)
+        XCTAssertEqual(list.parts.last?.raw, 110, "a role shows its hottest valid sensor")
+        XCTAssertEqual(list.sourceCount, 4)
         XCTAssertEqual(list.parentAggregate?.primary, 110)
     }
 
@@ -125,31 +129,36 @@ final class RingPartsTests: XCTestCase {
         XCTAssertEqual(aggregate?.primary ?? -1, list.parentAggregate?.primary ?? -2, accuracy: 1e-9)
     }
 
-    func testCollapseKeepsTheParentTotalAndEndsAtOrBelow32() throws {
+    func testSensorsShowOneSegmentPerRoleAtItsHottest() throws {
         let input = sensors([("CPU", 20), ("GPU", 12), ("SoC", 8), ("SSD", 4), ("Battery", 3)])  // 47
         let list = RingPartBuilder.temperature(sensors: input)
         XCTAssertEqual(list.sourceCount, 47)
-        XCTAssertLessThanOrEqual(list.parts.count, 32)
-        XCTAssertTrue(list.isCollapsed)
-        // The parent value is the pre-collapse hottest and the displayed hottest still matches it.
+        XCTAssertEqual(list.parts.map(\.name), ["CPU", "GPU", "SoC", "SSD", "Battery"])
+        XCTAssertFalse(list.isCollapsed)
+        for part in list.parts {
+            let members = input.filter { $0.group == part.group }
+            XCTAssertEqual(part.memberCount, members.count)
+            XCTAssertEqual(part.raw, members.map(\.celsius).max())
+        }
+        // The parent is the hottest sensor and the displayed hottest matches it.
         let expected = input.map(\.celsius).max()
         XCTAssertEqual(list.parentAggregate?.primary, expected)
         XCTAssertEqual(list.aggregate()?.primary, expected)
-        // No source part is silently dropped.
+        // No source sensor is silently dropped.
         XCTAssertEqual(list.parts.reduce(0) { $0 + $1.memberCount }, 47)
-        // Indices are contiguous.
         XCTAssertEqual(list.parts.map(\.index), Array(0..<list.parts.count))
     }
 
     func testCollapseTakesTheLargestGroupFirstAndShowsItsHighestMember() throws {
-        let input = sensors([("CPU", 30), ("GPU", 4)])   // 34 -> collapse CPU only
-        let list = RingPartBuilder.temperature(sensors: input)
-        XCTAssertEqual(list.parts.count, 5)              // CPU collapses to one, GPU stays 4
-        let cpu = try XCTUnwrap(list.parts.first { $0.group == "CPU" })
-        XCTAssertEqual(cpu.memberCount, 30)
-        let cpuMax = input.filter { $0.group == "CPU" }.map(\.celsius).max()
-        XCTAssertEqual(cpu.raw, cpuMax)
-        XCTAssertEqual(list.parts.filter { $0.group == "GPU" }.count, 4)
+        let input = cores([("Efficiency", 4), ("Performance", 30)])   // 34 -> collapse Performance only
+        let list = RingPartBuilder.cpu(cores: input)
+        XCTAssertEqual(list.parts.count, 5)              // Performance collapses to one, Efficiency stays 4
+        XCTAssertTrue(list.isCollapsed)
+        let performance = try XCTUnwrap(list.parts.first { $0.group == "Performance" })
+        XCTAssertEqual(performance.memberCount, 30)
+        XCTAssertEqual(performance.raw, input.filter { $0.group == "Performance" }.map(\.usagePercent).max())
+        XCTAssertEqual(list.parts.filter { $0.group == "Efficiency" }.count, 4)
+        XCTAssertEqual(list.parts.map(\.index), Array(0..<list.parts.count))
     }
 
     func testCollapseKeepsMeanParentTotalForCores() {
@@ -188,7 +197,7 @@ final class RingPartsTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(list.aggregate()).primary * 100, disk.usedPercent, accuracy: 1e-9)
     }
 
-    func testNetworkInterfacesSumAndUseHalvesOnTheLogScale() throws {
+    func testNetworkInterfacesSumAndKeepHalvesOnTheLogScale() throws {
         let list = RingPartBuilder.network(interfaces: [
             RingInterfaceInput(id: "en0", name: "Wi-Fi", downBytesPerSec: 1_000_000, upBytesPerSec: 100_000),
             RingInterfaceInput(id: "en5", name: "Ethernet", downBytesPerSec: 500, upBytesPerSec: 2_000_000)])
@@ -290,8 +299,11 @@ final class RingPartsTests: XCTestCase {
         XCTAssertEqual(set.cpuParts.groups.count, 2)
         XCTAssertEqual(set.diskParts.parts.count, 4)
         XCTAssertEqual(set.networkParts.parts.count, 3)
-        XCTAssertEqual(set.temperatureParts.parts.count, 29)
+        XCTAssertEqual(set.temperatureParts.sourceCount, 29)
+        XCTAssertEqual(set.temperatureParts.parts.map(\.name), ["CPU", "GPU", "SoC", "SSD", "Battery"])
         XCTAssertFalse(set.temperatureParts.isCollapsed)
+        // Role-labelled readings, as the real reader reports, so CPU temperature resolves.
+        XCTAssertEqual(set.temperature.sensors.map(\.label), ["CPU", "GPU", "SoC", "SSD", "Battery"])
         try assertAgree(set)
     }
 
@@ -303,8 +315,7 @@ final class RingPartsTests: XCTestCase {
         XCTAssertEqual(set.diskParts.parts.count, 4)
         XCTAssertEqual(set.networkParts.parts.count, 3)
         XCTAssertGreaterThan(set.temperatureParts.sourceCount, 32)
-        XCTAssertTrue(set.temperatureParts.isCollapsed)
-        XCTAssertLessThanOrEqual(set.temperatureParts.parts.count, 32)
+        XCTAssertEqual(set.temperatureParts.parts.count, 5, "one segment per sensor role")
         XCTAssertEqual(set.temperatureParts.parts.reduce(0) { $0 + $1.memberCount }, set.temperatureParts.sourceCount)
         try assertAgree(set)
     }

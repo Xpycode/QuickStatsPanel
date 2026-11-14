@@ -352,3 +352,102 @@ wraps to two when shown. The card then overflows its frozen frame and falls thro
 scrolling layout. Affects every card with a fill-basis note (Power, and Disk under G2). Fix: give
 the note a definite width so measurement and display agree; add a test. Deferred until the batch
 returns, so the artifact doesn't change mid-review.
+
+### Batch 2 — 2026-11-14 (artifact `25064385…`, launch `twelve --ring-favourites=6 --ring-parts=typical`)
+
+| Row | Result |
+|---|---|
+| B6 | Pass |
+| B7 | Pass |
+| G5 | Pass at Medium. Small and Large still open |
+| G6 | Pass |
+| M1 | Pass |
+| E1a | Pass |
+| A1 | Skipped: VoiceOver not tested |
+
+**F2 confirmed across cards.** Screenshots of the More cards show the same clipping on every card
+with a fill-basis note: Load ("Fill shows load per active core,"), Temperature ("Fill shows the
+hottest valid sensor; the"), Power ("…a fixed 30") and Fans ("Fill shows the fastest fan
+between its"), each with a scroll bar. Uptime, which has no note, fits with no scroll bar. Memory and
+Disk carry notes too and are expected to fail the same way. The fixture Temperature card (29
+sensors) is tall but would fit without the note.
+
+**Owner correction:** the card's Close button is redundant. Cards already close by clicking the
+wedge again, Escape, or click-away. Removing it changes the spec (hover rules, "Held details …
+close by owner click, Close, or Escape", and the interaction table's "Close button / Escape" row)
+and rows B1, H5 and C1. VoiceOver can still close a card by pressing the wedge again.
+
+### Batch 3 — 2026-11-14 (artifact `25064385…`, launch `eight --ring-parts=typical`, Medium)
+
+Ten screenshots, no row verdicts yet (B1, B2, B3, B8, B11, P1 open). Claude's observations:
+
+- **F2 also on Memory** ("Fill shows memory in use against", with a scroll bar). The Disk card,
+  which has a fixed width, shows its two-line note in full, which supports the F2 root cause.
+- **F3 (fixture only): CPU and Temperature wedges read "—°C".** The owner's real settings are
+  CPU = Usage + temperature and Temperature = CPU temperature. That reading looks for a sensor
+  labelled exactly "CPU". The `typical` fixture names its sensors "CPU sensor 1…", so there's no
+  match. Real data is unaffected; the fixture should include a "CPU" (and "GPU") role sensor.
+- **Caption repeats the in-segment label** when hovering a labelled segment (CPU "P3 76%" in both).
+- **Disk arc caption floats far from a short arc**: the caption sits at the top of the band footprint,
+  well above the four-segment arc.
+- **Temperature arc segment widths vary widely**: each sensor group appears to get an equal share
+  of the arc, so CPU's 12 sensors are thin slivers while SSD's and Battery's 3 are wide. Owner to judge.
+- **Network arc**: segments differ in length and the paired fills are hard to read (already a correction).
+- CPU and Memory cards keep empty reserved process rows below four fixture processes (D-008, by
+  design). The Network transfer card fits with no scroll bar.
+
+Owner answers on Batch 3:
+
+- **Caption repeating the label:** pass, fine for now. Possible later Settings toggle (captions
+  or in-segment labels).
+- **Disk caption position:** acceptable, but the arc doesn't make clear what its segments are
+  (volumes). Needs identification, e.g. a title or role in the caption.
+- **Temperature arc density (Q8):** owner questions whether that many CPU sensors need to be
+  visible, and suggests a further fan-out. Claude's recommendation: the arc shows one segment per
+  sensor group (CPU, GPU, SoC, SSD, Battery, each at its hottest sensor), and individual sensors
+  stay in the card. A third fan-out level would break the "one arc and one card" rule (Q1), so
+  defer it unless the group arc proves too coarse.
+
+Row verdicts (Medium): **B1, B2, B3, B8, B11 pass. P1 pass** for placement, with one defect:
+
+**F4 — dragging the ring to a left or right screen edge switches Space.** The panel follows to the
+next Space, then input is slow to respond for a while. Cause: the hub drag uses
+`NSWindow.performDrag(with:)` (`RingPanelController.swift`), a window-server drag that gets
+macOS's "hold a dragged window at the edge to switch Space" behaviour. The panel is
+`.canJoinAllSpaces`, so it comes along. Fix direction: replace it with an AppKit event-tracking
+loop that moves the panel with `setFrameOrigin` and clamps it to the screen. That loop isn't
+paced by SwiftUI rendering, which was why `performDrag` was chosen. The Strip uses the same
+`performDrag` (`PanelWindowController.swift`) and likely shares the defect.
+
+Small and Large (`--ring-size=small`, `large`): **B1 and P1 pass**, text comfortable.
+
+### Fix pass 1 — 2026-11-14 (new artifact)
+
+| Field | Value |
+|---|---|
+| Executable SHA-256 | `d973794615e701f927b901a2f9c930057646b1218b245a96e711ce86f7d6ff5f` (`.debug.dylib` `07b4507de9fa1ccd8700c26a978bb2e34372cc5dc9af006f3fdb45054516b016`) |
+| Build | B, log `01_Project/build/GaugePrototype-E1fix-B-run01.log`, exit 0; `codesign --verify --deep --strict` OK |
+| Tests | T-all `01_Project/build/GaugePrototypeAllTests-E1fix-run01.xcresult`: **390 tests, 0 failures** (tests rewritten one-for-one for the new rules) |
+| Running | PID 7984, started 21:52:51 with `--ring-prototype --ring-fixture=eight --ring-parts=typical`; executable and `.debug.dylib` paths verified. No earlier instance was running |
+
+Changes:
+
+- **F2:** the fill-basis note has a definite 220-point width (`StatDetailView.basisNoteWidth`), so the
+  one-time measurement and the display agree. View-only; verified natively, not hostless.
+- **Close removed** from ring cards. They close by clicking the wedge again, Escape or click-away.
+- **F4:** the hub drag is an AppKit event-tracking loop (`RingPanelController.trackDrag`) that keeps
+  the ring on the visible frame of the screen under the pointer, so macOS never sees a window drag
+  and doesn't switch Space. The Strip still uses `performDrag` (not changed; owner to confirm whether
+  it shows the same Space switch).
+- **CPU arc:** Efficiency-core fills are drawn at half opacity, so E and P cores read apart.
+- **Network arc:** one fill for download plus upload on the log scale, and the segment label shows
+  that combined rate. The caption keeps the ↓/↑ pair.
+- **Temperature arc (provisional Q8):** one segment per sensor role at its hottest sensor; the caption
+  says "hottest of N". The real reader already reports one reading per role.
+- **Disk arc:** the caption says "<volume> <n>% used".
+- **F3 (fixture):** fixture temperature readings are role-labelled ("CPU", "GPU"…), as the real
+  reader reports, so CPU and GPU temperature panel values resolve on fixtures and the card lists
+  one row per role.
+
+Rows invalidated by this pass and to be rerun on this artifact: B1 (Close), B3 (Temperature and
+Network arcs), G4/D1/B11 (drag), H5 (Close), C1/C2/C4 (cards), P1 (drag clamping near edges).

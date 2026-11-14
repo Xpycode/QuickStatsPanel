@@ -45,9 +45,15 @@ enum RingCaption {
     static let clearance: CGFloat = 1
 
     /// One caption line: the part's name and value, plus the collapse rule for a segment
-    /// that stands for a collapsed group (AC-35).
+    /// that stands for a collapsed group (AC-35) or a sensor role. Disk says what its
+    /// percentage measures, since a bare "Archive 35%" doesn't say it is a volume's use (E1).
     static func text(for part: RingPart, stat: StatKind) -> String {
-        let base = "\(part.name) \(part.valueText)"
+        let base = stat == .disk && part.isAvailable
+            ? "\(part.name) \(part.valueText) used"
+            : "\(part.name) \(part.valueText)"
+        if stat == .temps, part.memberCount > 1 {
+            return "\(base) \u{00B7} hottest of \(part.memberCount)"
+        }
         guard part.id.hasSuffix(RingPartBuilder.collapsedSuffix), part.memberCount > 1 else { return base }
         return "\(base) \u{00B7} \(stat == .temps ? "hottest" : "highest") of \(part.memberCount)"
     }
@@ -111,15 +117,24 @@ struct RingArcPanelGeometry: Equatable, Sendable {
 // MARK: - Parts as gauges and accessibility
 
 extension RingPart {
+    /// Text inside the segment where it fits: the value, except Network, which shows one
+    /// combined rate there (E1: paired fills were hard to read) and keeps the download and
+    /// upload pair for the caption.
+    func labelValue(stat: StatKind) -> String {
+        guard stat == .network, isAvailable, let raw else { return valueText }
+        return NetworkSample.rate(raw + (rawSecondary ?? 0))
+    }
+
     /// The segment's gauge on its parent's scale and colour basis: usage (CPU) or used
-    /// fraction (Disk) as a single level, download and upload halves on the log scale
-    /// (Network), or the heat ramp (Temperature). A missing part draws the empty track.
+    /// fraction (Disk) as a single level, combined download and upload as one level on the
+    /// log scale (Network), or the heat ramp (Temperature). A missing part draws the empty track.
     func gauge(stat: StatKind) -> RingGauge {
         guard isAvailable, let fraction else { return .unavailable(stat) }
         switch stat {
         case .network:
-            return RingGauge(stat: stat, halves: RingHalves(left: fraction, right: secondFraction ?? 0,
-                                                             leftPeak: nil, rightPeak: nil))
+            let total = (raw ?? 0) + (rawSecondary ?? 0)
+            return RingGauge(stat: stat, components: [
+                RingFillComponent(component: .level, fraction: RingRateScale.fraction(bytesPerSecond: total))])
         case .temps:
             return RingGauge(stat: stat, components: [RingFillComponent(component: .level, fraction: fraction)],
                              usesHeatRamp: true)
@@ -143,7 +158,7 @@ extension StatKind {
         switch self {
         case .cpu: return "0 to 100 percent of the core"
         case .disk: return "0 to 100 percent of the volume used"
-        case .network: return "1 KB/s to 1 GB/s on a log scale, download and upload"
+        case .network: return "1 KB/s to 1 GB/s on a log scale, download plus upload"
         case .temps: return "30 to 100 \u{00B0}C"
         default: return ""
         }

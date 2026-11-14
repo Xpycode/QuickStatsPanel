@@ -140,6 +140,10 @@ struct RingPartSegmentView: View {
     let context: RingDrawingContext
     let hovered: Bool
 
+    static let efficiencyFillOpacity = 0.5
+
+    private var isEfficiencyCore: Bool { stat == .cpu && part.group == "Efficiency" }
+
     var body: some View {
         let theme = context.theme
         let gauge = part.gauge(stat: stat)
@@ -149,11 +153,13 @@ struct RingPartSegmentView: View {
             shape.fill(theme.colors.background)
             shape.fill(theme.colors.primaryText.opacity(RingPalette.trackTint))
             if gauge.isAvailable {
+                // Efficiency cores draw a dimmer fill so the core classes read apart (E1).
                 RingGaugeFill(kind: stat, sector: sector, gauge: gauge, context: context, showsReferenceArcs: false)
+                    .opacity(isEfficiencyCore ? Self.efficiencyFillOpacity : 1)
             }
             shape.fill(theme.colors.primaryText.opacity(hovered ? 0.18 : 0))
             if let textFrame {
-                Text("\(part.name) \(part.valueText)")
+                Text("\(part.name) \(part.labelValue(stat: stat))")
                     .font(.system(size: RingTypography.secondarySize, weight: .regular).monospacedDigit())
                     .foregroundStyle(part.isAvailable ? theme.colors.primaryText : theme.colors.secondaryText)
                     .lineLimit(1)

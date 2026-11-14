@@ -90,7 +90,7 @@ extension StatKind {
     /// Worst-case value of one part, so a segment label measured at summon covers later ticks.
     var ringPartWidestValue: String {
         switch self {
-        case .network: return "\u{2193}888 MB/s \u{2191}888 MB/s"
+        case .network: return "888.8 MB/s"
         case .temps: return "110\u{00B0}C"
         default: return "100%"
         }
@@ -167,8 +167,9 @@ enum RingTypography {
     /// One-line label of a sub-ring segment: the part's name and its worst-case value in the
     /// 12-point secondary font. A segment shows it only when it fits; otherwise it is a sliver.
     static func partLabelSize(_ part: RingPart, stat: StatKind) -> CGSize {
-        let value = width(part.valueText, secondaryFont) > width(stat.ringPartWidestValue, secondaryFont)
-            ? part.valueText : stat.ringPartWidestValue
+        let text = part.labelValue(stat: stat)
+        let value = width(text, secondaryFont) > width(stat.ringPartWidestValue, secondaryFont)
+            ? text : stat.ringPartWidestValue
         return CGSize(width: width("\(part.name) \(value)", secondaryFont), height: height(secondaryFont))
     }
 

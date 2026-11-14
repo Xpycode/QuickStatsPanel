@@ -303,9 +303,11 @@ enum RingPartBuilder {
                       parent: RingPartAggregation.sum(all))
     }
 
-    /// Sensors grouped by role. Readings outside 0...110 degrees C are dropped; same-named
-    /// sensors in a role merge to their hottest reading, so the hottest segment still equals
-    /// the hottest valid reading.
+    /// One segment per sensor role (CPU, GPU, SoC, SSD, Battery, then Other), each showing its
+    /// hottest valid sensor; `memberCount` is the number of sensors it stands for. Individual
+    /// sensors stay in the card (E1: per-sensor slivers were too many to read). Readings outside
+    /// 0...110 degrees C are dropped and same-named sensors merge first, so the hottest segment
+    /// still equals the hottest valid reading.
     static func temperature(sensors: [RingSensorInput]) -> RingPartList {
         var order: [String] = []                 // "group\u{0}name" in first-seen order
         var merged: [String: RingSensorInput] = [:]
@@ -319,13 +321,19 @@ enum RingPartBuilder {
                 order.append(key)
             }
         }
-        let all = order.compactMap { merged[$0] }.map { s -> RingPart in
-            part(id: "\(s.group)/\(s.name)", group: s.group, name: s.name,
-                 text: String(format: "%.0f\u{00B0}C", s.celsius),
-                 fraction: RingGaugeMapper.temperatureFraction(celsius: s.celsius), raw: s.celsius)
+        let valid = order.compactMap { merged[$0] }
+        var roles: [String] = []
+        for s in valid where !roles.contains(s.group) { roles.append(s.group) }
+        let all = roles.compactMap { role -> RingPart? in
+            let members = valid.filter { $0.group == role }
+            guard let hottest = members.max(by: { $0.celsius < $1.celsius }) else { return nil }
+            return part(id: role, group: role, name: role,
+                        text: String(format: "%.0f\u{00B0}C", hottest.celsius),
+                        fraction: RingGaugeMapper.temperatureFraction(celsius: hottest.celsius),
+                        raw: hottest.celsius, memberCount: members.count)
         }
         return finish(.temps, parts: all, groupOrder: sensorGroupOrder + [otherSensorGroup],
-                      sourceCount: all.count, parent: RingPartAggregation.hottest(all).map { RingPartAggregate(primary: $0, secondary: nil) })
+                      sourceCount: valid.count, parent: RingPartAggregation.hottest(all).map { RingPartAggregate(primary: $0, secondary: nil) })
     }
 
     // MARK: Shared steps

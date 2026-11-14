@@ -262,6 +262,28 @@ final class RingPanelController {
         apply(interaction.fire(token: token))
     }
 
+    /// Moves `panel` with the pointer until mouse-up, kept on the visible frame of the screen
+    /// under the pointer. An AppKit event-tracking loop, not `performDrag(with:)`: a
+    /// window-server drag held at a screen edge makes macOS switch Space, and the all-Spaces
+    /// panel follows (F4). Like `performDrag`, it returns only after mouse-up, and it is not
+    /// paced by SwiftUI rendering.
+    private static func trackDrag(_ panel: NSPanel) {
+        let startPointer = NSEvent.mouseLocation
+        let startOrigin = panel.frame.origin
+        while let event = panel.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) {
+            let pointer = NSEvent.mouseLocation
+            var origin = NSPoint(x: startOrigin.x + pointer.x - startPointer.x,
+                                 y: startOrigin.y + pointer.y - startPointer.y)
+            if let visible = NSScreen.screens.first(where: { NSMouseInRect(pointer, $0.frame, false) })?.visibleFrame,
+               panel.frame.width <= visible.width, panel.frame.height <= visible.height {
+                origin.x = min(max(origin.x, visible.minX), visible.maxX - panel.frame.width)
+                origin.y = min(max(origin.y, visible.minY), visible.maxY - panel.frame.height)
+            }
+            if origin != panel.frame.origin { panel.setFrameOrigin(origin) }
+            if event.type == .leftMouseUp { break }
+        }
+    }
+
     // MARK: Resolving points against the plan
 
     private func resolveBranch(_ p: CGPoint) -> (hit: RingBranchHit, special: RingSpecial?) {
@@ -326,11 +348,11 @@ final class RingPanelController {
         }
     }
 
-    /// Hub drag: close descendants first, then the native window drag. Nothing persists.
+    /// Hub drag: close descendants first, then move the panel with the pointer. Nothing persists.
     private func beginDrag(_ event: NSEvent) {
         guard let interaction, let basePanel else { return }
         apply(interaction.dragBegan())
-        basePanel.performDrag(with: event)
+        Self.trackDrag(basePanel)
         guard self.basePanel != nil, var next = placementInput else { return }
         // Re-resolve around the base where the user left it: it stays put, only the child
         // surfaces are chosen again, so the next expansion is still fitted without clipping.

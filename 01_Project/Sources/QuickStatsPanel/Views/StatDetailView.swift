@@ -18,11 +18,13 @@ struct StatDetailView: View {
     /// reading. The strip leaves this off and keeps its availability-filtered lookup
     /// (a vanished stat collapses to an empty card, as before).
     var showsUnavailableState = false
-    /// Ring only: shows a Close row. The strip leaves this `nil` and is unchanged.
+    /// Ring only: marks the ring's card (fill-basis note, fit-or-scroll layout). The card has
+    /// no Close button since E1: a second click on the wedge, Escape or click-away closes it.
+    /// The strip leaves this `nil` and is unchanged.
     var onClose: (() -> Void)?
-    /// Ring only, set when the card is shown in its reserved frame: lets the body (not the
-    /// Close row) scroll when, and only when, it is taller than the frame. Measurement leaves
-    /// it false so `fittingSize` reports natural height.
+    /// Ring only, set when the card is shown in its reserved frame: lets the body scroll when,
+    /// and only when, it is taller than the frame. Measurement leaves it false so
+    /// `fittingSize` reports natural height.
     var scrollsBody = false
 
     /// Card graph geometry. Wide enough for roughly a minute of 2pt bars — the
@@ -30,6 +32,8 @@ struct StatDetailView: View {
     private static let graphWidth: CGFloat = 220
     private static let graphHeight: CGFloat = 44
     private static let transferWidth: CGFloat = 260
+    /// Fill-basis note width; within `transferWidth`, so Disk's card keeps its width.
+    static let basisNoteWidth: CGFloat = 220
 
     private var transferStat: TransferStat? {
         switch kind {
@@ -54,20 +58,18 @@ struct StatDetailView: View {
             }
         }
         Group {
-            if let onClose {
-                // Ring: only the card body scrolls; Close stays outside the scroll region so
-                // it is always visible. A card that fits is laid out exactly as measured, with
-                // no ScrollView at all: a ScrollView under the "Always show scroll bars"
-                // setting reserves a legacy scroller's width, which wraps text the measurement
-                // never wrapped. Only a card taller than its frame falls through to scrolling.
+            if onClose != nil {
+                // Ring: a card that fits is laid out exactly as measured, with no ScrollView at
+                // all: a ScrollView under the "Always show scroll bars" setting reserves a legacy
+                // scroller's width, which wraps text the measurement never wrapped. Only a card
+                // taller than its frame falls through to scrolling.
                 if scrollsBody {
                     ViewThatFits(in: .vertical) {
-                        ringBody(card, onClose, theme: theme)
-                        ringBody(ScrollView(.vertical) { card.frame(maxWidth: .infinity, alignment: .leading) },
-                                 onClose, theme: theme)
+                        card
+                        ScrollView(.vertical) { card.frame(maxWidth: .infinity, alignment: .leading) }
                     }
                 } else {
-                    ringBody(card, onClose, theme: theme)
+                    card
                 }
             } else {
                 card
@@ -83,23 +85,6 @@ struct StatDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: theme.metrics.cornerRadius, style: .continuous))
         .onDisappear {
             if let transferStat { store.cancelTransferReset(for: transferStat) }
-        }
-    }
-
-    private func ringBody<Body: View>(_ body: Body, _ onClose: @escaping () -> Void, theme: Theme) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            body
-            closeRow(onClose, theme: theme)
-        }
-    }
-
-    private func closeRow(_ onClose: @escaping () -> Void, theme: Theme) -> some View {
-        HStack {
-            Spacer(minLength: 0)
-            TransferHistoryButton(title: "Close", accessibilityLabel: "Close \(kind.displayName) details",
-                                  help: "Close this detail card.", background: theme.colors.background,
-                                  action: onClose)
-                .frame(width: 56, height: 22)
         }
     }
 
@@ -193,7 +178,9 @@ struct StatDetailView: View {
                 Text(note)
                     .font(theme.fonts.detailValue)
                     .foregroundStyle(theme.colors.secondaryText)
-                    .frame(maxWidth: 240, alignment: .leading)
+                    // A definite width: the card is measured once with no width proposal, where a
+                    // max-width frame measures the note as one line that later wraps (F2).
+                    .frame(width: Self.basisNoteWidth, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
