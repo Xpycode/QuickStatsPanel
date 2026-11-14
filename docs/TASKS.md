@@ -4,9 +4,10 @@
 
 ## Active plan
 
-[Gauge ring prototype](../IMPLEMENTATION_PLAN.md) — Waves 1–3 complete 2026-11-14 (6/8; 3.2 added
-from the owner's look at the 2.1 build); fit rule resolved by D-037. Wave 4 (4.1) ready. External gate
-E1 (owner review) closes the plan. Status and evidence live in the plan.
+[Gauge ring prototype](../IMPLEMENTATION_PLAN.md) — all 8 tasks complete 2026-11-14 (3.2 added from
+the owner's look at the 2.1 build; fit rule resolved by D-037). External gate E1 (owner review,
+[checklist](evidence/gauge-ring-prototype.md#e1-owner-review-checklist)) closes the plan. Status and
+evidence live in the plan.
 
 Previous: [Native ring prototype](sessions/IMPLEMENTATION_PLAN-ring-prototype-DONE.md) complete
 2026-11-13; E1 closed with interaction accepted and look redirected (D-035).
@@ -38,6 +39,11 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
       fixture) shows a darker inner quadrilateral inside the amber Temperature/Memory wedges
       (fainter in others). Not fixed in 1.2 (out of its scope); bounded prototype correction
       candidate for 1.3/E1. E1 checklist case C3 re-checks it.
+- [ ] **Fixture-mode Settings saves to real defaults (Debug only, minor)** — 5.1 review F1, 2026-11-14.
+      A `--ring-fixture` launch opens the real Settings on the fixture store, so edits persist; unticking
+      a fixture sensor/fan under "Detail card rows" stores a made-up label in `hiddenDetailRows`
+      (orphan, no visible effect). Kept for E1 (rows B9/G4 use Settings in fixture mode); doc comment
+      corrected. Fix candidate: a volatile `UserDefaults` suite for `AppSettings` in fixture mode.
 - [ ] **Fixture temp roots never removed (Debug only, minor)** — found by 1.3 inspection, 2026-11-13.
       Each `--ring-fixture` launch leaves `QuickStatsPanel-ring-fixture-<UUID>` in the temp folder
       (`StatsStore.makeRingFixtureStore`; nothing removes it after the termination flush). Fix: keep the

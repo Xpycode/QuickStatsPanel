@@ -10,8 +10,8 @@ import SwiftUI
 ///
 /// Without `--ring-fixture` the ring shows real data: ordinary store, samplers and transfer-history
 /// lifecycle. With it, fixture mode: a disposable store, no samplers, retained transfer history,
-/// updater or first-run hint, and no production defaults written. An unknown value logs and falls
-/// back to the argument's default (an unknown fixture falls back to `six`).
+/// updater or first-run hint, and no ring state persisted (Settings edits still save; see TASKS).
+/// An unknown value logs and falls back to the argument's default (unknown fixture → `six`).
 struct RingPrototypeLaunch: Sendable {
     let options: RingPrototypeOptions
     let fixture: RingFixture?
