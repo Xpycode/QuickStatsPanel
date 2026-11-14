@@ -4,8 +4,8 @@
 
 ## Active plan
 
-[Gauge ring prototype](../IMPLEMENTATION_PLAN.md) — planned 2026-11-14, execution not yet requested.
-First ready: Wave 1 tasks 1.1, 1.2 and 1.3 (no prerequisites; commit the plan and pending docs first).
+[Gauge ring prototype](../IMPLEMENTATION_PLAN.md) — Wave 1 complete 2026-11-14 (3/7); Wave 2 (2.1)
+blocked on an owner decision about the Medium/eight-favourite fit rule (see the plan's Blocked tasks).
 External gate E1 (owner review) closes the plan. Status and evidence live in the plan.
 
 Previous: [Native ring prototype](sessions/IMPLEMENTATION_PLAN-ring-prototype-DONE.md) complete

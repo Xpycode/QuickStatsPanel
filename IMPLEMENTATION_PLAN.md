@@ -1,7 +1,7 @@
 # Gauge Ring Prototype — Implementation Plan
 
-**Created:** 2026-11-14 · **Status:** Planned; execution not yet requested
-**Progress:** 0/7 tasks complete; external acceptance: **E1** open.
+**Created:** 2026-11-14 · **Status:** Wave 1 complete; **stopped before Wave 2** on the Medium/eight-favourite fit rule (see Blocked tasks)
+**Progress:** 3/7 tasks complete; external acceptance: **E1** open.
 **Task states:** unchecked = pending / implemented-unverified / blocked (name the gate); checked =
 complete with required evidence. This file owns task status and evidence; `docs/TASKS.md` links
 here without duplicating completion boxes. Task identity is this plan path plus ID.
@@ -154,8 +154,8 @@ parent agree by construction.
 
 ## Execution schedule and ownership
 
-- **Execution scope/limits:** awaiting an execute request. This planning request authorizes no
-  source change, build, launch or commit.
+- **Execution scope/limits:** 2026-11-14 owner requested "execute wave 1" only. Wave 1 done;
+  Wave 2 needs a new request after the stop condition is resolved.
 - **Precondition for Wave 1:** commit and push this plan, the revised spec and the pending
   documentation edits (with the owner's confirmation), so wave diffs are clean and the other Mac
   can see them.
@@ -199,7 +199,13 @@ E1 → 5.1. No cycle; every prerequisite is a task in this plan.
 
 ### Wave 1 (parallel — no dependencies, disjoint files)
 
-- [ ] **1.1 — Preset geometry kit (pure, additive)**
+- [x] **1.1 — Preset geometry kit (pure, additive)** — done 2026-11-14. Files as planned; API:
+  `RingSizePreset` (in `RingSector.swift`), `RingSector`, `RingFillScale`, `RingLayout` (hit target
+  `RingLayoutTarget`, since `RingTarget` exists), `RingArcLayout`. Angle convention as `RingGeometry`
+  (radians clockwise from twelve, y down). 48 tests. Rung matrix and arc fit:
+  [evidence](docs/evidence/gauge-ring-w1-rung-matrix.md). **Raised the plan's stop condition**:
+  Medium + 8 favourites + More reaches only icon-only for Memory, Disk, Network, Fans, Power,
+  Uptime. Also: a More arc with label + value entries fits only 1–2 entries (Small: 1).
   - Depends on / external gates: none.
   - Owns: new `Sources/Model/RingSector.swift`, `Sources/Model/RingLayout.swift`,
     `Sources/Model/RingArcLayout.swift`; new `Tests/RingSectorTests.swift`,
@@ -230,7 +236,12 @@ E1 → 5.1. No cycle; every prerequisite is a task in this plan.
   - Backpressure: T-focus with the three new suites. No build of the app is required beyond the
     test bundle compiling.
 
-- [ ] **1.2 — Gauge content, palette and parts (pure, additive)**
+- [x] **1.2 — Gauge content, palette and parts (pure, additive)** — done 2026-11-14. Files:
+  `RingGauge.swift` (`RingGauge`, `RingGaugeMapper`, `RingRateScale`, `RingPeakWindow`),
+  `RingPalette.swift`, `RingParts.swift`, `RingPartFixtures.swift` (`#if DEBUG`). 51 tests. Every
+  `ThemePreset` passes 3:1 edge contrast (worst neon 3.12), so no explicit-edge fallback is needed;
+  four mockup hues were lightened to achieve this, and Fans/Load hues were chosen (provisional,
+  for E1). Over-32 backstop merges trailing single parts into "Other" (beyond the spec).
   - Depends on / external gates: none.
   - Owns: new `Sources/Model/RingGauge.swift`, `Sources/Model/RingParts.swift`; new
     `Tests/RingGaugeTests.swift`, `Tests/RingPartsTests.swift`. Edits no existing file.
@@ -262,7 +273,11 @@ E1 → 5.1. No cycle; every prerequisite is a task in this plan.
     reports unavailable (AC-38).
   - Backpressure: T-focus with the two new suites.
 
-- [ ] **1.3 — Detail card keeps Close visible (C1)**
+- [x] **1.3 — Detail card keeps Close visible (C1)** — done 2026-11-14. Close sits outside the
+  body `ScrollView` (`StatDetailView` `scrollsBody`); Ring measures with 10 process rows reserved
+  (`descriptor(for:settings:reservingProcessRows:)`); Strip path unchanged. **Criterion amended:**
+  Disk has no per-process data source in code, so it reserves no section (tested as nil in both
+  modes); CPU and Memory reserve. Native check stays E1 row C1.
   - Depends on / external gates: none. Native confirmation is E1 row C1; it does not gate 2.1.
   - Owns: `Sources/Views/StatDetailView.swift`, `Sources/Model/StatDescriptor.swift` (process
     section reservation only), the ring detail functions in `Sources/AppDelegate.swift`
@@ -510,15 +525,31 @@ Carried from the ring prototype plan; add new ones during execution.
   target are inert, only beyond it is outside.
 - Keep every result bundle, including failed runs.
 - The `twelve` fixture enables all eleven stat kinds.
+- Agent worktrees are created from `origin/main`, not local `HEAD`: push (or tell agents to read the
+  plan/spec from the main checkout) before dispatch. Worktree builds need `Config/Debug.local.xcconfig`
+  copied and an APFS clone (`cp -cR`) of `build/SparklePackages`.
+- The Bash tool runs zsh: build `-only-testing` lists as an array (`O+=(...)`, `"${O[@]}"`); a
+  space-joined string is passed as one argument and xcodebuild rejects it.
 
 ## Blocked tasks
 
-None. Wave 1 waits only for the commit precondition and an execute request.
+- **2.1 (and 3.1–5.1 behind it) — stopped, needs owner decision.** The stop condition in "Goal
+  and bounded scope" fired in 1.1: at Medium with 8 favourites and a More wedge, the diagonal
+  wedges (~40°, ~115 points deep) allow ~65 points of padded text; a 16-point value such as
+  Memory's or Network's worst-case string is ~90 points, so six stats fall to icon-only
+  ([matrix](docs/evidence/gauge-ring-w1-rung-matrix.md)). Note the ladder's icon + value rung is
+  horizontal and therefore wider than stacked label + value, so it rarely rescues a wedge.
+  Related finding for 4.1: More-arc entries with label + value text fit only one or two per arc.
+  Options to decide before replanning 2.1: (a) accept icon-only for those stats at Medium/8 and
+  rely on the card; (b) make Large the default or cap Medium at 6 favourites; (c) a narrower or
+  lighter value font for the ring (spec currently fixes 16 points); (d) stack icon above value so
+  that rung needs only the value width. More-arc entries likely need an icon/gauge-only rung.
 
 ## Execution log
 
 | Wave / IDs | Assignment or serial reason | Validation / evidence | Commit / exception | Remaining gates / next action or stop reason |
 |---|---|---|---|---|
+| W1 / 1.1, 1.2, 1.3 | Parallel, three fresh developer agents (Sonnet), each in its own git worktree with its own generated project and derived data (adaptation: lets agents compile; coordinator re-validated on `main`) | Agents: 1.1 139/139 (incl. existing ring suites), 1.2 51/51, 1.3 B ok + 20/20. Integrated on `main`: B `build/GaugePrototype-W1-B-run01.log` exit 0; T-focus 14 suites `build/GaugePrototypeTests-W1-run02.xcresult` 211 tests, 0 failures (run01 was a shell argument error, no tests ran); `git diff --check` clean | see commit after `6558f59` | Stop condition raised by 1.1 → 2.1 blocked on owner decision (Blocked tasks) |
 
 Planning performed no source change, build, test run, app launch or product acceptance.
 
