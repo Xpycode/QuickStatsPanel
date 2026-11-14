@@ -1,7 +1,7 @@
 # Gauge Ring Prototype — Implementation Plan
 
-**Created:** 2026-11-14 · **Status:** Waves 1–2 complete (2.1 replanned under D-037); Wave 3 (3.1 + 3.2) in progress
-**Progress:** 4/8 tasks complete; external acceptance: **E1** open.
+**Created:** 2026-11-14 · **Status:** Waves 1–3 complete (2.1 replanned under D-037; 3.2 added from the owner's look); Wave 4 (4.1) needs a new request
+**Progress:** 6/8 tasks complete; external acceptance: **E1** open.
 **Task states:** unchecked = pending / implemented-unverified / blocked (name the gate); checked =
 complete with required evidence. This file owns task status and evidence; `docs/TASKS.md` links
 here without duplicating completion boxes. Task identity is this plan path plus ID.
@@ -376,7 +376,24 @@ E1 → 5.1. No cycle; every prerequisite is a task in this plan.
 
 ### Wave 3 (parallel — 3.1 pure branch model, 3.2 view/card fixes; disjoint files; both consume 2.1)
 
-- [ ] **3.1 — Generalise branch state and placement to an outer band owned by any wedge**
+- [x] **3.1 — Generalise branch state and placement to an outer band owned by any wedge** —
+  done 2026-11-14 (`bbe1432`; review fixes `77619ff`). New vocabulary in `RingInteractionState.swift`:
+  `RingArcOwner` (`.more` / `.stat`), `RingExpansion` = `arc: Arc?` + `detail: Detail?` (shared owner;
+  replaces the `more` slot and `viaMore`), `RingSegmentRef`, `RingBranchHit`, `RingBranchCommand`
+  (`showArc`/`hideArc(owner)`, `showDetail(kind, owner:)`, `hideDetail`, `hideHUD`, `openSettings`),
+  state machine `RingBranchState`. Placement: `.outerBand` → side list → whole list → clamped; base
+  stays the ring-only footprint, `bandFrame` concentric, `arcFrames[owner]` pixel-snapped, cards beside
+  the band centred on their parent. Arcs built in `RingSnapshot.make` (new defaulted `parts:` /
+  `measurePart:`; More-arc rung chosen at summon). Hit API `RingHitResolver.resolveBranch`.
+  **Shims for 4.1 to remove:** `RingInteractionState` (wrapper), `RingCommand` + `.legacy`, `RingHit`
+  + `init(_:)`/`branchHit`, `RingExpansion.more`, the resolver's `moreOpen:` init and `resolve(_:)`;
+  **band off by default** (`RingPlacement.Input.allowsOuterBand = false`), so the running build keeps
+  2.1 behaviour until 4.1 turns it on. Independent read-only review (Opus): PASS_WITH_CONCERNS; one
+  confirmed defect (More wedge not inside while a More child card is open → card closed after 450 ms
+  and the arc flickered; carried over from 2.1) and one gap (leaving via the More arc's padding gave no
+  transit grace) fixed in `77619ff` with three regression tests that fail without the fix
+  (`build/GaugePrototypeTests-W3-redcheck.xcresult`, 7 failures) and pass with it. Two risks passed to
+  4.1 (below).
   - Depends on: 2.1. External gates: none.
   - Owns: `Sources/Model/RingInteractionState.swift`, `RingPlacement.swift`,
     `RingHitResolver.swift`, `RingPresentation.swift` (snapshot parts and state mirroring only);
@@ -409,7 +426,18 @@ E1 → 5.1. No cycle; every prerequisite is a task in this plan.
     independent read-only review of the state-machine diff; findings fixed and affected suites
     rerun.
 
-- [ ] **3.2 — Owner-look fixes on the 2.1 build: card fit and wedge value overflow**
+- [x] **3.2 — Owner-look fixes on the 2.1 build: card fit and wedge value overflow** — done
+  2026-11-14 (`e73b7c7`; fallback follow-up `5f5001a`). A: `StatDetailView` with `scrollsBody` uses
+  `ViewThatFits(in: .vertical)` — plain card + Close (as measured, no `ScrollView`) first, scrolling body
+  only if genuinely taller; Strip path untouched. B: `StatsStore.ringReading(for:settings:)` replaces
+  `value`/`widestValue` with one compact token for Power (paired modes → system watts, or CPU+GPU sum;
+  worst case "888.8 W"), Temperature (status modes → thermal word; worst case **"Nominal"**, which the new
+  tests showed is wider than "Critical" in the heavy headline font) and Load (cores mode → 1-minute
+  figure). Other stats already bounded. `ringFallbackWidest(.temps)` set to "Nominal" at integration.
+  New suite `RingWedgeValueTests` (3). The Disk/Network mid-card gap is the always-present 32-point
+  warning slot in `transferContent`, shared with the Strip card → Backlog, not changed. Not changed: CPU
+  rim line crowding its text (layout, E1 row). Accessibility for paired modes now reads only the compact
+  value (needs a full-reading field in `RingReading`, 4.1).
   - Depends on: 2.1. External gates: none. Added 2026-11-14 from the owner's screenshots of the
     running 2.1 build (`/Users/sim/Desktop/QSPtemp`, 02:09; Medium, live data).
   - Owns: `Sources/Views/StatDetailView.swift`, `Sources/Views/RingGaugeWedgeView.swift`,
@@ -453,6 +481,15 @@ E1 → 5.1. No cycle; every prerequisite is a task in this plan.
     `AppDelegate.swift`, `Sources/Model/StatsStore.swift` (fixture seeding from part sets),
     `RingPresentation.swift` (fixtures), plus removal of the 3.1 compatibility accessors in the
     model files; targeted fixes to the ring test suites.
+  - Wave 3 carry-over (2026-11-14): remove the 3.1 shims listed under 3.1 and turn the band on
+    (`allowsOuterBand`), driving the controller with `resolveBranch` and `RingBranchCommand`. Size
+    the arc panel to include the 6-point gap the resolver counts as arc (`arcFrames` use the arc's
+    inner radius, `arcHit` the preset's outer radius) or the gap receives no events. Replace the
+    bounding-box arc → card travel region with one from the rendered arc where a wide sub-ring
+    (32 cores, near-full circle) would otherwise cover sibling wedges (review risk; within the 700 ms
+    bound today). Add a full-reading accessibility field to `RingReading` so paired Power/Temperature/
+    Load wedges speak the pair (3.2). Segment labels are measured as name + worst-case value on one line
+    at 12 points via `measurePart`; revisit with the native captions.
   - D-037 carry-over: More-arc entries use the same content ladder including icon only, which
     the 1.1 arc fit shows is the usual case; an arc that cannot fit icon-only entries uses the side
     list chosen at summon.
@@ -567,6 +604,12 @@ Expected count is 0 (`grep` then exits 1, which is the pass). Run the same `grep
       gear reach; More wedge reach at six o'clock; outward travel into a sub-ring and sideways
       into its card; segment captions on `dense`; Fans, Load and Uptime wedges; Power at 30 W and
       at one other ceiling; Reduce Motion and Increase Contrast.
+    - From 3.2 (owner's 2.1 screenshots): with "Show scroll bars: Always", real-data cards for Fans,
+      Battery, Memory, CPU, Load, Power show no scroller, no wrapped value, no clipped footnote, Close
+      visible; a genuinely too-tall card still scrolls with Close outside. Power on battery in "Charger
+      input + Whole system" shows one figure inside its wedge (pair in the card); Temperature in a
+      Status + sensor mode and Load in the cores mode show one token; CPU text versus its rim line.
+      Returning to the More wedge with a More entry's card open keeps both (3.1 review fix).
     - Interaction rows already passed (H1–H6, M1, E1a, D2, P1) get one confirming pass on the new
       structure, since the More target and the arcs changed their geometry.
   - Success: the owner records accept or requested corrections per row and a decision or "stays
@@ -616,6 +659,7 @@ in place.
 |---|---|---|---|---|
 | W1 / 1.1, 1.2, 1.3 | Parallel, three fresh developer agents (Sonnet), each in its own git worktree with its own generated project and derived data (adaptation: lets agents compile; coordinator re-validated on `main`) | Agents: 1.1 139/139 (incl. existing ring suites), 1.2 51/51, 1.3 B ok + 20/20. Integrated on `main`: B `build/GaugePrototype-W1-B-run01.log` exit 0; T-focus 14 suites `build/GaugePrototypeTests-W1-run02.xcresult` 211 tests, 0 failures (run01 was a shell argument error, no tests ran); `git diff --check` clean | `87dfaf7` (1.1), `f171627` (1.2), `baaa4e7` (1.3), `5d5a70f` (records); plan precondition `6558f59`; not pushed | Stop condition raised by 1.1 → 2.1 blocked on owner decision (Blocked tasks) |
 | W2 / 2.1 (replanned under D-037) | Serial (single coupled migration): one fresh developer agent in the main checkout, own derived data `build/GaugePrototype-2.1-agent*`; coordinator re-validated (adaptation: no worktree since nothing ran in parallel) | Agent: B exit 0, T-ring 229/229 (`build/GaugePrototypeTests-2.1-agent-run02.xcresult`; run01 had 2 own-test failures, fixed), compile-only Release `--ring-` count 0. Coordinator on `main`: B `build/GaugePrototype-W2-B-run01.log` exit 0; T-ring 15 suites `build/GaugePrototypeTests-W2-run01.xcresult` **229 tests, 0 failures** (+18 vs 211; replacements listed in 2.1); `git diff --check` clean | `ad22329` (2.1); replan/D-037 `64c9436`; not pushed | Fresh-build handoff done: old prototype PID 92303 quit normally, `GaugePrototype` Debug launched with `--ring-prototype` as PID 56912, path and SHA-256 `18544d9a…` verified. Wave 3 (3.1) ready, needs a new request |
+| W3 / 3.1, 3.2 (3.2 added from the owner's screenshots) | Parallel, two fresh developer agents in their own git worktrees from `origin/main` `3738529` (3.1 Opus — subtle state machine; 3.2 Sonnet), own derived data; coordinator cherry-picked onto `main`, applied the 3.2 → `RingPresentation` follow-up, ran an independent Opus read-only review of the 3.1 diff and fixed its findings | Agents: 3.1 T-ring 267/267 (run03) + B ok; 3.2 T-ring 232/232 (run03; run02 caught the "Nominal" width bug) + B ok. Coordinator on `main`: B `build/GaugePrototype-W3-B-run01.log` exit 0; T-ring 16 suites `build/GaugePrototypeTests-W3-run01.xcresult` 270/0; after review fixes `build/GaugePrototypeTests-W3-run02.xcresult` **273 tests, 0 failures** (+44 vs 229: 3.1 +38, 3.2 +3, review +3; none removed); red check without the fix 7 failures in the 3 new tests; final B `build/GaugePrototype-W3-B-run02.log` exit 0; `git diff --check` clean | `bbe1432` (3.1), `e73b7c7` (3.2), `5f5001a` (fallback), `77619ff` (review fixes); plan `6eec2c6`; not pushed | Fresh-build handoff: PID 56912 quit normally (~1 s), launched with `--ring-prototype` as PID 69117, path and SHA-256 `f06dec54…` verified. Band is off until 4.1, so the visible changes are 3.2's. Wave 4 (4.1) ready, needs a new request |
 
 Planning performed no source change, build, test run, app launch or product acceptance.
 

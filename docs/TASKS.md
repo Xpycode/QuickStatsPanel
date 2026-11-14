@@ -4,8 +4,9 @@
 
 ## Active plan
 
-[Gauge ring prototype](../IMPLEMENTATION_PLAN.md) — Waves 1–2 complete 2026-11-14 (4/7); fit rule
-resolved by D-037 (icon-only accepted at Medium/8). Wave 3 (3.1) ready. External gate E1 (owner review) closes the plan. Status and evidence live in the plan.
+[Gauge ring prototype](../IMPLEMENTATION_PLAN.md) — Waves 1–3 complete 2026-11-14 (6/8; 3.2 added
+from the owner's look at the 2.1 build); fit rule resolved by D-037. Wave 4 (4.1) ready. External gate
+E1 (owner review) closes the plan. Status and evidence live in the plan.
 
 Previous: [Native ring prototype](sessions/IMPLEMENTATION_PLAN-ring-prototype-DONE.md) complete
 2026-11-13; E1 closed with interaction accepted and look redirected (D-035).
@@ -29,6 +30,10 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 **This file is the backlog** — `PROJECT_STATE.md` is a digest and points here.
 
 ### Ring
+- [ ] **Disk/Network detail card: blank gap mid-card (Strip and Ring)** — owner screenshots 2026-11-14;
+      cause found by 3.2: `transferContent` always reserves a 32-point empty warning slot between
+      "Unsaved · Last saved …" and Used/Free. Shared with the Strip card, so left unchanged. Fix
+      candidate: reserve the slot only while a warning is shown (check D-008 jitter discipline first).
 - [ ] **Wedge inner-shape artifact — superseded by D-035 gauge drawing; verify gone in gauge step (plan E1 row C3).** Owner's native screenshot (`eight`
       fixture) shows a darker inner quadrilateral inside the amber Temperature/Memory wedges
       (fainter in others). Not fixed in 1.2 (out of its scope); bounded prototype correction
