@@ -20,6 +20,10 @@ struct StatDetailView: View {
     var showsUnavailableState = false
     /// Ring only: shows a Close row. The strip leaves this `nil` and is unchanged.
     var onClose: (() -> Void)?
+    /// Ring only, set when the card is shown in its reserved frame: wraps the body (not the
+    /// Close row) in a vertical `ScrollView`. Measurement leaves it false so `fittingSize`
+    /// reports natural height.
+    var scrollsBody = false
 
     /// Card graph geometry. Wide enough for roughly a minute of 2pt bars — the
     /// same buffer the 34pt strip slot shows only the tail of.
@@ -40,7 +44,7 @@ struct StatDetailView: View {
         // Tolerate the stat vanishing while open (e.g. battery unplugged) by
         // collapsing to an empty card rather than crashing on a stale lookup.
         let descriptor = showsUnavailableState
-            ? store.resolvedDescriptor(for: kind)
+            ? store.resolvedDescriptor(for: kind, reservingProcessRows: true)
             : store.visibleStats.first { $0.kind == kind }
         let card = Group {
             if let descriptor {
@@ -51,8 +55,15 @@ struct StatDetailView: View {
         }
         Group {
             if let onClose {
+                // Ring: only the card body scrolls; Close stays outside the scroll region so
+                // it is always visible. Scrolling applies only when the frame is shorter than
+                // the content; a card that fits looks identical to an unwrapped one.
                 VStack(alignment: .leading, spacing: 6) {
-                    card
+                    if scrollsBody {
+                        ScrollView(.vertical) { card.frame(maxWidth: .infinity, alignment: .leading) }
+                    } else {
+                        card
+                    }
                     closeRow(onClose, theme: theme)
                 }
             } else {
@@ -139,7 +150,7 @@ struct StatDetailView: View {
             }
 
             // iStat-Menus-style top-processes list (CPU / Memory tiles).
-            if let section = descriptor.processSection, !section.rows.isEmpty {
+            if let section = descriptor.processSection {
                 Divider().padding(.vertical, 2)
                 Text(section.title)
                     .font(theme.fonts.detailTitle)

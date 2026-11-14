@@ -67,7 +67,7 @@ struct StatDescriptor: Identifiable {
     /// Popover rows: (label, value).
     let detail: [(String, String)]
     /// Optional iStat-Menus-style "top processes" list shown beneath `detail`.
-    let processSection: ProcessSection?
+    var processSection: ProcessSection?
     /// Activity history for this stat, already scaled (D-025). `nil` for stats
     /// that keep no history — a graph of free disk space is a flat line.
     let graph: GraphData?
@@ -152,8 +152,13 @@ extension StatsStore {
     /// One stat's tinted descriptor by identity, or nil when it has no reading now.
     /// Same band/tint resolution as `visibleStats`, without the enabled/availability
     /// list filtering.
-    func resolvedDescriptor(for kind: StatKind) -> StatDescriptor? {
-        guard var descriptor = descriptor(for: kind, settings: AppSettings.shared) else { return nil }
+    ///
+    /// `reservingProcessRows` is Ring-only: Ring freezes each card's frame at summon, before the
+    /// top-process sampler has produced rows, so an empty list still reports its section with the
+    /// full row count. The Strip leaves it false and keeps nil-for-empty.
+    func resolvedDescriptor(for kind: StatKind, reservingProcessRows: Bool = false) -> StatDescriptor? {
+        guard var descriptor = descriptor(for: kind, settings: AppSettings.shared,
+                                          reservingProcessRows: reservingProcessRows) else { return nil }
         let resolved = tint(for: kind, percent: descriptor.loadPercent, reversed: kind == .battery)
         descriptor.band = resolved.band
         descriptor.tint = resolved.color
@@ -163,6 +168,16 @@ extension StatsStore {
     /// Live wedge reading for `kind`; unavailable stats keep their identity.
     func ringReading(for kind: StatKind) -> RingReading {
         resolvedDescriptor(for: kind).map(RingReading.init(descriptor:)) ?? .unavailable(kind)
+    }
+
+    /// Title of the stat's top-process section, or nil for stats that have none. Disk has no
+    /// per-process source, so it never gets a section.
+    static func processSectionTitle(for kind: StatKind) -> String? {
+        switch kind {
+        case .cpu: return "Top by CPU"
+        case .memory: return "Top by memory"
+        default: return nil
+        }
     }
 
     /// Top-N count shown in each tile's "top processes" popover section.
@@ -235,6 +250,18 @@ extension StatsStore {
                               processSection: descriptor.processSection, graph: descriptor.graph)
     }
 
+    /// Ring measurement variant: a stat with a top-process list reports its section with the full
+    /// reserved row count even while the list is empty. Strip callers use the plain overload.
+    func descriptor(for kind: StatKind, settings: AppSettings, reservingProcessRows: Bool) -> StatDescriptor? {
+        guard var descriptor = descriptor(for: kind, settings: settings) else { return nil }
+        if reservingProcessRows, descriptor.processSection == nil,
+           let title = Self.processSectionTitle(for: kind) {
+            descriptor.processSection = StatDescriptor.ProcessSection(
+                title: title, rows: [], reservedRows: Self.topProcessRows)
+        }
+        return descriptor
+    }
+
     /// Sensor names can vary between Macs; expose actual labels as stable row IDs.
     func detailRowOptions(for kind: StatKind) -> [String] {
         if kind == .fan {
@@ -273,7 +300,7 @@ extension StatsStore {
                     ? "888°\(settings.temperatureUnit.symbol)" : nil,
                 loadPercent: cpu.totalUsagePercent,
                 detail: cpuDetail,
-                processSection: section("Top by CPU",
+                processSection: section(Self.processSectionTitle(for: .cpu) ?? "",
                                         topProcesses.cpuRows(Self.topProcessRows)),
                 graph: GraphData(
                     upper: percentSeries(cpuHistory.elements.map(\.totalUsagePercent),
@@ -311,7 +338,7 @@ extension StatsStore {
                     ("Total", memory.totalFormatted),
                     ("Pressure", "\(Int(memory.pressurePercent.rounded()))%"),
                 ],
-                processSection: section("Top by memory",
+                processSection: section(Self.processSectionTitle(for: .memory) ?? "",
                                         topProcesses.memoryRows(Self.topProcessRows)),
                 graph: GraphData(upper: percentSeries(memoryUsage, label: "Used"),
                                  lower: nil))

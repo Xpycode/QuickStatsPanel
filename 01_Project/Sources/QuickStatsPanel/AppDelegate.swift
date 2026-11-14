@@ -313,20 +313,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                        describe: describe, detailSizes: sizes)
     }
 
-    private func ringDetailCard(for kind: StatKind) -> StatDetailView {
+    private func ringDetailCard(for kind: StatKind, scrollsBody: Bool = false) -> StatDetailView {
         StatDetailView(store: store, kind: kind, showsUnavailableState: true,
-                       onClose: { [weak self] in self?.ringPanel.closeDetail() })
+                       onClose: { [weak self] in self?.ringPanel.closeDetail() },
+                       scrollsBody: scrollsBody)
     }
 
     /// Open a stat's existing detail card at the frame the summon reserved for it.
     private func showRingDetail(_ kind: StatKind, frame: CGRect, scrolls _: Bool) {
         store.dismissTransferDetails()
-        // Every ring card scrolls on overflow instead of clipping: its frame is frozen at summon
-        // and sizes are measured before transfer history and process rows populate, so real
-        // content may be taller. A card that fits looks identical to an unwrapped one.
-        let card = ringDetailCard(for: kind)
+        // The frame is frozen at summon with process rows reserved, so the card normally fits.
+        // If real content is still taller, only the card body scrolls; Close stays outside the
+        // ScrollView (StatDetailView) and remains visible.
+        let card = ringDetailCard(for: kind, scrollsBody: true)
         detailPanel.show(kind: kind, frame: frame,
-                         content: ScrollView(.vertical) { card }.frame(width: frame.width, height: frame.height))
+                         content: card.frame(width: frame.width, height: frame.height))
         store.setTransferDetailVisible(kind)
     }
 
