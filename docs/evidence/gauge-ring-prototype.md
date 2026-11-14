@@ -322,5 +322,33 @@ they are decided by the sampling plan. Also record any sizing or visual correcti
 
 ## Owner results
 
-*Not yet run.* Record results here against the artifact hash above. If the artifact changes,
-note the new hash and which rows were rerun.
+Record results here against the artifact hash above. If the artifact changes, note the new
+hash and which rows were rerun.
+
+### Batch 1 — 2026-11-14 (artifact `25064385…`, partial)
+
+Screenshots only, sent without row IDs; the owner later named them as network and storage. Rows
+are therefore inferred from what is shown. Rows the owner did not judge stay **open**, not
+passed.
+
+| Row | Observed | Owner verdict |
+|---|---|---|
+| B6 / G6 | More arc: five icon-only gauge wedges (Uptime, Load, Temperature, Power, Fans). Uptime has no fill; the others fill | Not judged (open) |
+| C4 (Power card) | Scroll bar shown; footnote clipped at "Fill is measured against a fixed 30" (full: "…30 W ceiling."). **Defect F2**, see below | Fail (Claude's reading; confirm on rerun) |
+| B3 CPU `typical` | Caption "P8 19%" in the top strip. In-segment labels only on P1 and P2; the others are caption-only | **Correction:** either label every segment, or tell P-cores from E-cores by a different shade |
+| B1 / B3 Network | Hover moves the caption (Wi-Fi, Ethernet); each segment shows paired orange/teal (down/up) fills. The top of the arc looks narrower than the rest (unexplained, open) | Paired fills **don't read clearly**; numbers would be better |
+| B1 / B3 Storage | Hover moves the caption (Archive 35%, Backup 81%); "Scratch 12%" labelled in-segment | Not judged beyond Q9 (open) |
+| Q9 (caption placement) | CPU caption above the arc; Network and Storage below | **Accepted**: captions belong to their wedge |
+| CPU card (C1, fixture) | Large empty area under four fixture processes, which is the 10 reserved process rows (D-008). "38,0%" next to "26%" is the existing Strip format | Not judged |
+
+**New request (outside the prototype's settings):** text orientation should be a setting, as in
+MousePlus (`LabelOrientation`: upright / radial / tangential, auto-flipped to stay readable). This
+conflicts with the spec's horizontal-text rule (D-035), so it needs a decision before it's built.
+
+**F2 — Power card footnote clipped.** The card is measured once at summon
+(`AppDelegate.swift`, `NSHostingView(...).fittingSize`) with no width proposal, so the footnote
+(`StatDetailView.swift`, `.frame(maxWidth: 240)` + vertical `fixedSize`) measures as one line but
+wraps to two when shown. The card then overflows its frozen frame and falls through to the
+scrolling layout. Affects every card with a fill-basis note (Power, and Disk under G2). Fix: give
+the note a definite width so measurement and display agree; add a test. Deferred until the batch
+returns, so the artifact doesn't change mid-review.
