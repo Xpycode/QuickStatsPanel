@@ -482,12 +482,14 @@ extension StatsStore {
 
 extension StatsStore {
     /// Disposable store for ring fixture mode: its own temporary transfer-history
-    /// root, no samplers, readings seeded deterministically.
-    static func makeRingFixtureStore(unavailable: Set<StatKind>) -> StatsStore {
+    /// root, no samplers, readings seeded deterministically. `parts` is the `--ring-parts=` set
+    /// whose parent samples seed CPU, Disk, Network and Temperature.
+    static func makeRingFixtureStore(unavailable: Set<StatKind>,
+                                     parts: RingPartFixtureSet = RingPartFixtures.make(.typical)) -> StatsStore {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("QuickStatsPanel-ring-fixture-\(UUID().uuidString)", isDirectory: true)
         let store = StatsStore(transferHistoryRoot: root, transferHistoryAutomaticallySchedules: false)
-        store.seedRingFixture(unavailable: unavailable)
+        store.seedRingFixture(unavailable: unavailable, parts: parts)
         // The Disk and Network cards stay on "Loading..." until the transfer-history
         // controller has loaded once. Load the (empty) disposable root once; automatic
         // scheduling is off and no sampler runs, so nothing is collected, saved on a
@@ -497,13 +499,15 @@ extension StatsStore {
     }
 
     /// Fixed readings, histories and process lists for the detail cards. Kinds in
-    /// `unavailable` keep their empty sample so they resolve as unavailable.
-    func seedRingFixture(unavailable: Set<StatKind>) {
-        cpu = RingFixtureSamples.cpu
+    /// `unavailable` keep their empty sample so they resolve as unavailable. CPU, Disk,
+    /// Network and Temperature come from the part set, so card, wedge and sub-ring agree.
+    func seedRingFixture(unavailable: Set<StatKind>,
+                         parts: RingPartFixtureSet = RingPartFixtures.make(.typical)) {
+        cpu = parts.cpu
         memory = RingFixtureSamples.memory
-        disk = RingFixtureSamples.disk
-        network = RingFixtureSamples.network
-        temps = RingFixtureSamples.temperature
+        disk = parts.disk
+        network = parts.network
+        temps = parts.temperature
         loadAverage = RingFixtureSamples.load
         uptime = RingFixtureSamples.uptime
         if !unavailable.contains(.battery) { battery = RingFixtureSamples.battery }

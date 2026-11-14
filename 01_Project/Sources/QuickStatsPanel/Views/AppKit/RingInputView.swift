@@ -9,7 +9,8 @@ final class PassthroughHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
-/// One accessibility element per wedge, the More wedge, the gear or a list row.
+/// One accessibility element per wedge, the More wedge, the gear, a list row, a More-arc
+/// entry or (read-only, without Press) a sub-ring segment.
 final class RingAccessibilityElement: NSAccessibilityElement {
     var onPress: (@MainActor @Sendable () -> Void)?
 
@@ -77,6 +78,8 @@ final class RingInputView: RingForwardingView {
     var describe: (RingTarget) -> Description = { _ in Description(name: "", value: "", isAvailable: true) }
     /// Accessibility Press: follows the same rules as a click.
     var onPress: ((RingTarget) -> Void)?
+    /// Read-only segment elements of a favourite's open sub-ring: the expanded wedge's children.
+    var segmentElements: (StatKind) -> [RingAccessibilityElement] = { _ in [] }
 
     init(snapshot: RingSnapshot) {
         self.snapshot = snapshot
@@ -107,6 +110,11 @@ final class RingInputView: RingForwardingView {
             element.setAccessibilityParent(self)
             element.setAccessibilityFrameInParentSpace(frame)
             element.onPress = { [weak self] in self?.onPress?(target) }
+            if case .wedge(let kind) = target, info.isExpanded {
+                let segments = segmentElements(kind)
+                segments.forEach { $0.setAccessibilityParent(element) }
+                if !segments.isEmpty { element.setAccessibilityChildren(segments) }
+            }
             return element
         }
     }

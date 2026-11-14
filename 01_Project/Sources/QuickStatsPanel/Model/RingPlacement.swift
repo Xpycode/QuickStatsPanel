@@ -108,8 +108,15 @@ struct RingPlan: Equatable, Sendable {
     /// `.outerBand` only: the reserved footprint with band, concentric with the base.
     var bandFrame: CGRect? = nil
     /// `.outerBand` only: the frame of each arc that can open this summon, snapped outward to
-    /// the pixel grid. An owner without a frame opens no arc (its card still opens).
+    /// the pixel grid. An owner without a frame opens no arc (its card still opens). The frame
+    /// is the arc's panel: its surface from the ring's outer edge (the gap the resolver counts
+    /// as arc included) plus a sub-ring's reserved caption slot.
     var arcFrames: [RingArcOwner: CGRect] = [:]
+    /// `.outerBand` only: the outline of each arc's surface in screen points, for travel
+    /// routes that follow the rendered arc instead of its frame.
+    var arcOutlines: [RingArcOwner: [CGPoint]] = [:]
+    /// `.outerBand` only: the favourites ring in screen points; routes from an arc leave it out.
+    var ringDisc: RingDisc? = nil
 
     /// The child surface `owner` opens: its arc, or the side list for More.
     func surfaceFrame(of owner: RingArcOwner) -> CGRect? {
@@ -160,8 +167,10 @@ enum RingPlacement {
         /// Arcs laid out once for this summon (`RingSnapshot.arcs`), in the layout's ring space.
         /// With none, the band is never reserved.
         var arcs: [RingArcOwner: RingArcLayout] = [:]
-        /// Whether `.outerBand` may be chosen. Off until the native arc panels exist (4.1).
-        var allowsOuterBand = false
+        /// Caption slot reserved per sub-ring (`RingSnapshot.captionSlots`), in ring space.
+        var captionSlots: [RingArcOwner: CGRect] = [:]
+        /// Whether `.outerBand` may be chosen. Turning it off exercises the side-list geometry alone.
+        var allowsOuterBand = true
     }
 
     /// Outer band when it is allowed, some arc exists and the ring, band and largest card fit;
@@ -341,12 +350,18 @@ enum RingPlacement {
 
         var nodes = baseNodeFrames(layout, baseFrame: baseFrame)
         var arcFrames: [RingArcOwner: CGRect] = [:]
+        var arcOutlines: [RingArcOwner: [CGPoint]] = [:]
+        var ringDisc: RingDisc?
         if band {
+            func screenPoint(_ p: CGPoint) -> CGPoint { CGPoint(x: baseFrame.minX + p.x, y: baseFrame.maxY - p.y) }
             for (owner, arc) in input.arcs where arc.span > 0 && nodes[owner.node] != nil {
-                let surface = RingSector(center: arc.center, innerRadius: arc.innerRadius, outerRadius: arc.outerRadius,
-                                         centerAngle: arc.parentMidAngle, halfSpan: arc.span / 2)
-                arcFrames[owner] = snapOutward(screenFrame(surface.boundingFrame, in: baseFrame), scale: input.scale)
+                let surface = arc.surface
+                var local = surface.boundingFrame
+                if let caption = input.captionSlots[owner] { local = local.union(caption) }
+                arcFrames[owner] = snapOutward(screenFrame(local, in: baseFrame), scale: input.scale)
+                arcOutlines[owner] = surface.outline.map(screenPoint)
             }
+            ringDisc = RingDisc(center: screenPoint(layout.center), radius: layout.preset.outerRadius)
         }
         if let moreArc, arcFrames[.more] != nil {
             for segment in moreArc.segments where input.moreKinds.indices.contains(segment.index) {
@@ -375,7 +390,8 @@ enum RingPlacement {
         }
         return RingPlan(mode: band ? .outerBand : .sideList, baseFrame: baseFrame, moreSurface: listFrame,
                         nodeFrames: nodes, detailFrames: details, scrollingDetails: scrolling, side: chosenSide,
-                        isClamped: clamped, bandFrame: band ? footprintFrame : nil, arcFrames: arcFrames)
+                        isClamped: clamped, bandFrame: band ? footprintFrame : nil, arcFrames: arcFrames,
+                        arcOutlines: arcOutlines, ringDisc: ringDisc)
     }
 
     // MARK: Whole list
@@ -431,14 +447,14 @@ enum RingPlacement {
 }
 
 extension RingPlacement.Input {
-    /// Convenience for the snapshot's own favourites, More entries, enabled stats and arcs.
-    /// `allowsOuterBand` defaults to off while the panel controller has no arc surface (4.1).
+    /// Convenience for the snapshot's own favourites, More entries, enabled stats, arcs and
+    /// caption slots.
     init(snapshot: RingSnapshot, visible: CGRect, preferredBase: CGRect, detailSizes: [StatKind: CGSize],
-         scale: CGFloat = 1, canShift: Bool = true, allowWholeList: Bool = true, allowsOuterBand: Bool = false) {
+         scale: CGFloat = 1, canShift: Bool = true, allowWholeList: Bool = true, allowsOuterBand: Bool = true) {
         self.init(visible: visible, preferredBase: preferredBase, layout: snapshot.layout,
                   moreKinds: snapshot.moreKinds,
                   enabledKinds: snapshot.enabledKinds, detailSizes: detailSizes, scale: scale,
                   canShift: canShift, allowWholeList: allowWholeList,
-                  arcs: snapshot.arcs, allowsOuterBand: allowsOuterBand)
+                  arcs: snapshot.arcs, captionSlots: snapshot.captionSlots, allowsOuterBand: allowsOuterBand)
     }
 }

@@ -9,18 +9,20 @@ final class RingHitResolverTests: XCTestCase {
         RingReading(value: "42%", widestValue: kind.ringFallbackWidest)
     }
 
-    private func resolver(_ kinds: [StatKind], favourites: [StatKind]? = nil, moreOpen: Bool = false,
+    private func resolver(_ kinds: [StatKind], favourites: [StatKind]? = nil, openArc: RingArcOwner? = nil,
                           preset: RingSizePreset = .medium) -> (RingHitResolver, RingSnapshot) {
         let s = RingSnapshot.make(enabledKinds: kinds, favourites: favourites, preset: preset, reading: reading)
         let sizes = Dictionary(uniqueKeysWithValues: kinds.map { ($0, CGSize(width: 300, height: 300)) })
         let visible = CGRect(x: 0, y: 0, width: 3000, height: 2000)
-        let plan = RingPlacement.resolve(.init(snapshot: s, visible: visible, preferredBase: base, detailSizes: sizes))
+        // The side-list geometry alone: the band is exercised by `bandResolver`.
+        let plan = RingPlacement.resolve(.init(snapshot: s, visible: visible, preferredBase: base, detailSizes: sizes,
+                                               allowsOuterBand: false))
         var list: RingListLayout?
         if let surface = plan.moreSurface {
             list = RingListLayout(size: surface.size, rows: s.moreKinds.map { .moreItem($0) }, hasChrome: false)
         }
         return (RingHitResolver(plan: plan, baseFrame: plan.baseFrame, snapshot: s, openDetailKind: nil,
-                                openArc: moreOpen ? .more : nil, sideList: list, wholeList: nil), s)
+                                openArc: openArc, sideList: list, wholeList: nil), s)
     }
 
     private func screen(_ r: RingHitResolver, degrees: Double, radius: CGFloat) -> CGPoint {
@@ -75,7 +77,7 @@ final class RingHitResolverTests: XCTestCase {
 
     func testSideListRowsAndTheirGapsAreInsideTheOpenBranchOnly() throws {
         let all = Array(StatKind.allCases)
-        let (open, s) = resolver(all, favourites: Array(all.prefix(6)), moreOpen: true)
+        let (open, s) = resolver(all, favourites: Array(all.prefix(6)), openArc: .more)
         XCTAssertEqual(open.plan.mode, .sideList)
         let surface = try XCTUnwrap(open.plan.moreSurface)
         let first = try XCTUnwrap(s.moreKinds.first)
@@ -128,7 +130,6 @@ final class RingHitResolverTests: XCTestCase {
                 let p = screen(open, degrees: segment.sector.centerAngle * 180 / .pi, radius: segment.sector.midRadius)
                 XCTAssertEqual(open.resolveBranch(p).hit, .segment(RingSegmentRef(stat: .temps, index: segment.index)),
                                "\(preset) segment \(segment.index)")
-                XCTAssertEqual(open.resolve(p).hit, .inert, "the 2.1 vocabulary reads a segment as inert")
             }
             let mid = arc.parentMidAngle * 180 / .pi
             let gap = screen(open, degrees: mid, radius: preset.outerRadius + RingSizePreset.bandGap / 2)
@@ -161,6 +162,5 @@ final class RingHitResolverTests: XCTestCase {
         }
         let gap = screen(r, degrees: 180, radius: r.snapshot.preset.outerRadius + 3)
         XCTAssertEqual(r.resolveBranch(gap).hit, .arc(.more))
-        XCTAssertEqual(r.resolve(gap).hit, .moreSurface)
     }
 }

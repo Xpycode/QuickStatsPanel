@@ -1020,24 +1020,20 @@ final class RingInteractionTests: XCTestCase {
         XCTAssertEqual(state.expansion, .collapsed)
     }
 
-    // MARK: Compatibility wrapper (removed by 4.1)
+    // MARK: Branch commands the panel controller carries out
 
-    func testCompatibilityWrapperKeepsThe21ControllerVocabulary() {
-        let legacy = RingInteractionState(plan: bandPlan, clock: clock)
-        legacy.summon(plan: bandPlan, pointer: summonPoint)
-        XCTAssertEqual(legacy.click(.wedge(.cpu)), [.showDetail(.cpu, viaMore: false)],
-                       "sub-ring commands have no 2.1 surface")
-        XCTAssertNil(legacy.expansion.more)
-        XCTAssertEqual(legacy.click(.more), [.hideDetail, .showMore])
-        XCTAssertEqual(legacy.expansion.more, .held)
-        XCTAssertEqual(legacy.click(.moreItem(.gpu)), [.showDetail(.gpu, viaMore: true)])
-        XCTAssertEqual(legacy.escape(), [.hideDetail])
-        XCTAssertEqual(legacy.escape(), [.hideMore])
-        XCTAssertEqual(legacy.pointerMoved(to: CGPoint(x: 50, y: 160), hit: .node(.wedge(.memory))), [])
-        XCTAssertNotNil(legacy.nextDeadline, "legacy hits drive the same dwell")
-        XCTAssertEqual(RingHit(.arc(.more)), .moreSurface)
-        XCTAssertEqual(RingHit(.arc(.stat(.cpu))), .inert)
-        XCTAssertEqual(RingHit(.segment(.init(stat: .cpu, index: 0))), .inert)
-        XCTAssertEqual(RingHit.moreSurface.branchHit, .arc(.more))
+    /// The controller drives the state directly: every arc surface it shows or hides is named
+    /// by its owner, so sub-ring and More arcs need no translation layer.
+    func testBranchCommandsNameEveryArcSurfaceByItsOwner() {
+        let state = makeState(plan(arcs: [.stat(.cpu): cpuArcFrame, .more: moreArcFrame]))
+        XCTAssertEqual(state.click(.wedge(.cpu)), cpuBranchOpened, "the sub-ring opens with its card")
+        XCTAssertEqual(state.click(.more), [.hideDetail, .hideArc(.stat(.cpu)), .showArc(.more)])
+        XCTAssertEqual(state.expansion.arc, .init(owner: .more, hold: .held))
+        XCTAssertEqual(state.click(.moreItem(.gpu)), [.showDetail(.gpu, owner: .more)])
+        XCTAssertEqual(state.escape(), [.hideDetail])
+        XCTAssertEqual(state.escape(), [.hideArc(.more)])
+        XCTAssertEqual(state.pointerMoved(to: CGPoint(x: 50, y: 160), hit: .node(.wedge(.memory))), [])
+        XCTAssertNotNil(state.nextDeadline, "branch hits drive the dwell directly")
+        XCTAssertEqual(state.escape(), [.hideHUD])
     }
 }

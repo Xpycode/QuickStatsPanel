@@ -72,9 +72,10 @@ struct RingHitResolver {
             }
         }
 
-        if let owner = openArc, plan.arcFrames[owner] != nil, let arc = snapshot.arcs[owner],
-           let hit = arcHit(owner: owner, arc: arc, at: point) {
-            return (hit, nil)
+        if let owner = openArc, plan.arcFrames[owner] != nil, let arc = snapshot.arcs[owner] {
+            if let hit = arcHit(owner: owner, arc: arc, at: point) { return (hit, nil) }
+            // A sub-ring's caption slot is part of its child surface: inside, never a click-away.
+            if snapshot.captionSlots[owner]?.contains(point) == true { return (.arc(owner), nil) }
         }
 
         return (.none, nil)
@@ -82,11 +83,7 @@ struct RingHitResolver {
 
     /// `point` is in the base panel's ring space, which is also the arc's.
     private func arcHit(owner: RingArcOwner, arc: RingArcLayout, at point: CGPoint) -> RingBranchHit? {
-        guard arc.span > 0 else { return nil }
-        let surface = RingSector(center: arc.center, innerRadius: snapshot.preset.outerRadius,
-                                 outerRadius: arc.outerRadius, centerAngle: arc.parentMidAngle,
-                                 halfSpan: arc.span / 2)
-        guard surface.contains(point) else { return nil }
+        guard arc.span > 0, arc.surface.contains(point) else { return nil }
         if let index = arc.entry(at: point) {
             switch owner {
             case .more:
@@ -96,20 +93,5 @@ struct RingHitResolver {
             }
         }
         return .arc(owner)
-    }
-}
-
-// MARK: - Compatibility for RingPanelController (removed by 4.1)
-
-extension RingHitResolver {
-    init(plan: RingPlan, baseFrame: CGRect, snapshot: RingSnapshot, openDetailKind: StatKind?,
-         moreOpen: Bool, sideList: RingListLayout?, wholeList: RingListLayout?) {
-        self.init(plan: plan, baseFrame: baseFrame, snapshot: snapshot, openDetailKind: openDetailKind,
-                  openArc: moreOpen ? .more : nil, sideList: sideList, wholeList: wholeList)
-    }
-
-    func resolve(_ p: CGPoint) -> (hit: RingHit, special: RingSpecial?) {
-        let resolved = resolveBranch(p)
-        return (RingHit(resolved.hit), resolved.special)
     }
 }

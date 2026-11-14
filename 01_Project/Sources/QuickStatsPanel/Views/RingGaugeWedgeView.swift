@@ -76,8 +76,6 @@ struct RingGaugeWedgeView: View {
     let hovered: Bool
     let selected: Bool
 
-    private static let rimThickness: CGFloat = 3
-
     var body: some View {
         let theme = context.theme
         let gauge = live.gauge
@@ -86,7 +84,7 @@ struct RingGaugeWedgeView: View {
             shape(sector).fill(theme.colors.background)
             shape(sector).fill(theme.colors.primaryText.opacity(RingPalette.trackTint))
             if let gauge, gauge.isAvailable {
-                gaugeLayers(gauge)
+                RingGaugeFill(kind: kind, sector: sector, gauge: gauge, context: context)
             }
             shape(sector).fill(theme.colors.primaryText.opacity(hovered ? 0.14 : 0))
             content(available: available)
@@ -103,37 +101,147 @@ struct RingGaugeWedgeView: View {
                       inner: sector.innerRadius, outer: sector.outerRadius)
     }
 
-    // MARK: Gauge layers
+    // MARK: Marks
 
-    @ViewBuilder
-    private func gaugeLayers(_ gauge: RingGauge) -> some View {
+    private func batteryMark(_ gauge: RingGauge) -> some View {
+        let theme = context.theme
+        let point = RingSector.point(center: sector.center, angle: sector.centerAngle, radius: sector.outerRadius - 10)
+        let mark = gauge.marks.first
+        let symbol: String
+        var color = theme.colors.primaryText
+        switch mark {
+        case .chargingBolt?: symbol = "bolt.fill"
+        case .pluggedNotCharging?:
+            symbol = "powerplug"
+            if !context.isMono { color = theme.colors.busy }
+        case .pluggedFull?: symbol = "powerplug.fill"
+        default: return AnyView(EmptyView())
+        }
+        return AnyView(
+            Image(systemName: symbol)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(color)
+                .position(x: point.x, y: point.y))
+    }
+
+    // MARK: Content
+
+    private func content(available: Bool) -> some View {
+        let theme = context.theme
+        let primary = available ? theme.colors.primaryText : theme.colors.secondaryText
+        return Group {
+            switch rung {
+            case .icon:
+                icon(color: primary)
+            case .iconValue:
+                VStack(spacing: RingTypography.lineSpacing) {
+                    icon(color: primary)
+                    valueText(available: available)
+                }
+            case .labelValue:
+                VStack(spacing: RingTypography.lineSpacing) {
+                    labelText
+                    valueText(available: available)
+                }
+            case .labelValueSecondary:
+                VStack(spacing: RingTypography.lineSpacing) {
+                    labelText
+                    valueText(available: available)
+                    if let secondary = live.secondary {
+                        Text(secondary)
+                            .font(.system(size: RingTypography.secondarySize, weight: .regular).monospacedDigit())
+                            .foregroundStyle(theme.colors.secondaryText)
+                    }
+                }
+            }
+        }
+        .lineLimit(1)
+        .fixedSize()
+        .frame(width: textFrame.width, height: textFrame.height)
+        .position(x: textFrame.midX, y: textFrame.midY)
+    }
+
+    private var labelText: some View {
+        Text(kind.displayName)
+            .font(.system(size: RingTypography.labelSize, weight: .medium))
+            .foregroundStyle(context.theme.colors.secondaryText)
+    }
+
+    private func valueText(available: Bool) -> some View {
+        Text(live.value)
+            .font(.system(size: RingTypography.valueSize, weight: context.theme.weight(for: live.band)).monospacedDigit())
+            .foregroundStyle(available ? context.theme.colors.primaryText : context.theme.colors.secondaryText)
+    }
+
+    private func icon(color: Color) -> some View {
+        Image(systemName: kind.settingsSymbol)
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(color)
+            .frame(width: RingTypography.iconSide, height: RingTypography.iconSide)
+    }
+
+    // MARK: Outline
+
+    /// A separate outline: heavier when this wedge owns the open branch. An unavailable wedge is
+    /// dashed, so the state does not rest on dimming or hue alone.
+    private func outline(available: Bool) -> some View {
+        let theme = context.theme
+        return shape(sector)
+            .stroke(selected ? theme.colors.primaryText : theme.colors.divider,
+                    style: StrokeStyle(lineWidth: selected ? 2 : 1, dash: available ? [] : [4, 3]))
+    }
+}
+
+/// The fill of one gauge sector: thermal tint, stacked, split or heat fill, reference arcs, Disk
+/// rim, peak ticks and, under Increase Contrast or Differentiate Without Colour, the fill edge
+/// as a line. Shared by favourite wedges, More-arc entries and sub-ring segments, so every
+/// level of the ring draws a fraction the same way.
+struct RingGaugeFill: View {
+    let kind: StatKind
+    let sector: RingSector
+    let gauge: RingGauge
+    let context: RingDrawingContext
+    /// Sub-ring segments are too shallow for the dotted quarter arcs.
+    var showsReferenceArcs = true
+
+    private static let rimThickness: CGFloat = 3
+
+    private func shape(_ sector: RingSector) -> some Shape {
+        RingBandShape(center: sector.center, centerAngle: sector.centerAngle, halfSpan: sector.halfSpan,
+                      inner: sector.innerRadius, outer: sector.outerRadius)
+    }
+
+    var body: some View {
         let theme = context.theme
         let scale = context.fillScale
         let inner = sector.innerRadius, outer = sector.outerRadius
-
-        // Thermal state tints the wedge from Fair upward.
-        if case .thermalState(let state)? = gauge.badge, state.tintsWedge {
-            shape(sector).fill(theme.color(for: state >= .serious ? .hot : .busy).opacity(0.18))
-        }
-
         ZStack(alignment: .topLeading) {
-            if let halves = gauge.halves {
-                halfFill(sector.half(.left), fraction: halves.left, color: RingPalette.hue(for: kind))
-                halfFill(sector.half(.right), fraction: halves.right, color: RingPalette.networkUpload)
-            } else {
-                stackFill(gauge, scale: scale, inner: inner, outer: outer)
+            // Thermal state tints the wedge from Fair upward.
+            if case .thermalState(let state)? = gauge.badge, state.tintsWedge {
+                shape(sector).fill(theme.color(for: state >= .serious ? .hot : .busy).opacity(0.18))
             }
-        }
-        .animation(context.ease, value: gauge)
 
-        referenceArcs(gauge, scale: scale)
-        if let rim = gauge.rim {
-            shape(sector.rim(thickness: Self.rimThickness))
-                .fill(Color(context.isMono ? RingPalette.mono : RingPalette.diskRim).opacity(0.2 + 0.8 * rim))
-        }
-        peakTicks(gauge, scale: scale)
-        if context.explicitEdge {
-            edgeLines(gauge, scale: scale)
+            ZStack(alignment: .topLeading) {
+                if let halves = gauge.halves {
+                    halfFill(sector.half(.left), fraction: halves.left, color: RingPalette.hue(for: kind))
+                    halfFill(sector.half(.right), fraction: halves.right, color: RingPalette.networkUpload)
+                } else {
+                    stackFill(gauge, scale: scale, inner: inner, outer: outer)
+                }
+            }
+            .animation(context.ease, value: gauge)
+
+            if showsReferenceArcs {
+                referenceArcs(gauge, scale: scale)
+            }
+            if let rim = gauge.rim {
+                shape(sector.rim(thickness: Self.rimThickness))
+                    .fill(Color(context.isMono ? RingPalette.mono : RingPalette.diskRim).opacity(0.2 + 0.8 * rim))
+            }
+            peakTicks(gauge, scale: scale)
+            if context.explicitEdge {
+                edgeLines(gauge, scale: scale)
+            }
         }
     }
 
@@ -228,96 +336,6 @@ struct RingGaugeWedgeView: View {
                 edge(sector, gauge.totalFraction)
             }
         }
-    }
-
-    // MARK: Marks
-
-    private func batteryMark(_ gauge: RingGauge) -> some View {
-        let theme = context.theme
-        let point = RingSector.point(center: sector.center, angle: sector.centerAngle, radius: sector.outerRadius - 10)
-        let mark = gauge.marks.first
-        let symbol: String
-        var color = theme.colors.primaryText
-        switch mark {
-        case .chargingBolt?: symbol = "bolt.fill"
-        case .pluggedNotCharging?:
-            symbol = "powerplug"
-            if !context.isMono { color = theme.colors.busy }
-        case .pluggedFull?: symbol = "powerplug.fill"
-        default: return AnyView(EmptyView())
-        }
-        return AnyView(
-            Image(systemName: symbol)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(color)
-                .position(x: point.x, y: point.y))
-    }
-
-    // MARK: Content
-
-    private func content(available: Bool) -> some View {
-        let theme = context.theme
-        let primary = available ? theme.colors.primaryText : theme.colors.secondaryText
-        return Group {
-            switch rung {
-            case .icon:
-                icon(color: primary)
-            case .iconValue:
-                VStack(spacing: RingTypography.lineSpacing) {
-                    icon(color: primary)
-                    valueText(available: available)
-                }
-            case .labelValue:
-                VStack(spacing: RingTypography.lineSpacing) {
-                    labelText
-                    valueText(available: available)
-                }
-            case .labelValueSecondary:
-                VStack(spacing: RingTypography.lineSpacing) {
-                    labelText
-                    valueText(available: available)
-                    if let secondary = live.secondary {
-                        Text(secondary)
-                            .font(.system(size: RingTypography.secondarySize, weight: .regular).monospacedDigit())
-                            .foregroundStyle(theme.colors.secondaryText)
-                    }
-                }
-            }
-        }
-        .lineLimit(1)
-        .fixedSize()
-        .frame(width: textFrame.width, height: textFrame.height)
-        .position(x: textFrame.midX, y: textFrame.midY)
-    }
-
-    private var labelText: some View {
-        Text(kind.displayName)
-            .font(.system(size: RingTypography.labelSize, weight: .medium))
-            .foregroundStyle(context.theme.colors.secondaryText)
-    }
-
-    private func valueText(available: Bool) -> some View {
-        Text(live.value)
-            .font(.system(size: RingTypography.valueSize, weight: context.theme.weight(for: live.band)).monospacedDigit())
-            .foregroundStyle(available ? context.theme.colors.primaryText : context.theme.colors.secondaryText)
-    }
-
-    private func icon(color: Color) -> some View {
-        Image(systemName: kind.settingsSymbol)
-            .font(.system(size: 14, weight: .medium))
-            .foregroundStyle(color)
-            .frame(width: RingTypography.iconSide, height: RingTypography.iconSide)
-    }
-
-    // MARK: Outline
-
-    /// A separate outline: heavier when this wedge owns the open branch. An unavailable wedge is
-    /// dashed, so the state does not rest on dimming or hue alone.
-    private func outline(available: Bool) -> some View {
-        let theme = context.theme
-        return shape(sector)
-            .stroke(selected ? theme.colors.primaryText : theme.colors.divider,
-                    style: StrokeStyle(lineWidth: selected ? 2 : 1, dash: available ? [] : [4, 3]))
     }
 }
 #endif

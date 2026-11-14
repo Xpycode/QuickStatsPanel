@@ -17,10 +17,13 @@ struct RingReading: Equatable, Sendable {
     /// Fill content of the wedge. `nil` draws the plain track (a reading built without sample
     /// data); an unavailable stat carries `RingGauge.unavailable`.
     var gauge: RingGauge?
+    /// The configured reading in full, when the wedge draws a compact form of it (a paired
+    /// Power, Temperature or Load headline): accessibility speaks this, not the compact value.
+    var fullReading: String?
 
     init(value: String, secondary: String? = nil, widestValue: String,
          widestSecondary: String? = nil, isAvailable: Bool = true, band: Band = .calm,
-         gauge: RingGauge? = nil) {
+         gauge: RingGauge? = nil, fullReading: String? = nil) {
         self.value = value
         self.secondary = secondary
         self.widestValue = widestValue
@@ -28,13 +31,21 @@ struct RingReading: Equatable, Sendable {
         self.isAvailable = isAvailable
         self.band = band
         self.gauge = gauge
+        self.fullReading = fullReading
     }
 
+    /// Keeps the descriptor's own headline and secondary as the full reading, so replacing
+    /// `value` with a compact wedge form afterwards never shortens what accessibility hears.
     init(descriptor: StatDescriptor) {
         self.init(value: descriptor.value, secondary: descriptor.secondaryValue,
                   widestValue: descriptor.widestValue,
                   widestSecondary: descriptor.widestSecondaryValue,
-                  isAvailable: true, band: descriptor.band)
+                  isAvailable: true, band: descriptor.band,
+                  fullReading: Self.joined(descriptor.value, descriptor.secondaryValue))
+    }
+
+    private static func joined(_ value: String, _ secondary: String?) -> String {
+        [value, secondary].compactMap { $0 }.joined(separator: ", ")
     }
 
     /// An enabled stat with no current reading keeps its wedge. The dash is not a
@@ -48,7 +59,7 @@ struct RingReading: Equatable, Sendable {
     /// The full reading as one string: what accessibility announces and what a wedge that
     /// shows only its icon still makes available.
     var accessibilityText: String {
-        isAvailable ? [value, secondary].compactMap { $0 }.joined(separator: ", ") : "Unavailable"
+        isAvailable ? (fullReading ?? Self.joined(value, secondary)) : "Unavailable"
     }
 }
 
@@ -160,6 +171,11 @@ enum RingTypography {
             ? part.valueText : stat.ringPartWidestValue
         return CGSize(width: width("\(part.name) \(value)", secondaryFont), height: height(secondaryFont))
     }
+
+    /// One hover caption line (`RingCaption.text`) in the 12-point secondary font.
+    static func captionSize(_ text: String) -> CGSize {
+        CGSize(width: width(text, secondaryFont), height: height(secondaryFont))
+    }
 }
 
 // MARK: - Snapshot
@@ -195,6 +211,9 @@ struct RingSnapshot: Sendable {
     let arcs: [RingArcOwner: RingArcLayout]
     /// Content rung shared by every More-arc entry; `nil` when no More arc fits.
     let moreArcRung: RingContentRung?
+    /// Hover-caption slot of each sub-ring, in ring space, reserved at summon from its widest
+    /// caption. A sub-ring whose caption cannot fit has no arc.
+    let captionSlots: [RingArcOwner: CGRect]
 
     /// Footprint of the favourites ring alone; the base panel's size.
     var size: CGSize { preset.footprintRingOnly }
@@ -208,6 +227,7 @@ struct RingSnapshot: Sendable {
     ///   - parts: the part list of a stat at summon; `nil` (the default) means no parts, so
     ///     no sub-ring. Only CPU, Disk, Network and Temperature favourites use it.
     ///   - measurePart: measured label of a sub-ring segment.
+    ///   - measureCaption: measured hover caption line of a sub-ring segment.
     static func make(
         enabledKinds: [StatKind],
         favourites explicit: [StatKind]? = nil,
@@ -221,7 +241,8 @@ struct RingSnapshot: Sendable {
         parts: (StatKind) -> RingPartList? = { _ in nil },
         measurePart: (RingPart, StatKind) -> CGSize = { part, stat in
             RingTypography.partLabelSize(part, stat: stat)
-        }
+        },
+        measureCaption: (String) -> CGSize = { RingTypography.captionSize($0) }
     ) -> RingSnapshot {
         var favouriteKinds: [StatKind] = []
         for kind in explicit ?? enabledKinds where enabledKinds.contains(kind) && !favouriteKinds.contains(kind) {
@@ -247,11 +268,21 @@ struct RingSnapshot: Sendable {
             if let list = parts(favourite.kind) { partLists[favourite.kind] = list }
         }
         var arcs = subRingArcs(layout: layout, parts: partLists, measurePart: measurePart)
+        var captions: [RingArcOwner: CGRect] = [:]
+        for (owner, arc) in arcs {
+            guard case .stat(let kind) = owner, let list = partLists[kind] else { continue }
+            let size = RingCaption.slotSize(lines: list.parts.map { measureCaption(RingCaption.text(for: $0, stat: kind)) })
+            if let slot = RingCaption.slot(size: size, arc: arc) {
+                captions[owner] = slot
+            } else {
+                arcs[owner] = nil   // no room for its caption: the card opens alone
+            }
+        }
         let more = moreArc(layout: layout, entries: moreEntries, cap: cap, measure: measure)
         if let more { arcs[.more] = more.arc }
         return RingSnapshot(generation: UUID(), enabledKinds: enabledKinds, preset: preset, fillScale: fillScale,
                             favourites: entries, moreEntries: moreEntries, layout: layout, emptyMessage: message,
-                            parts: partLists, arcs: arcs, moreArcRung: more?.rung)
+                            parts: partLists, arcs: arcs, moreArcRung: more?.rung, captionSlots: captions)
     }
 
     // MARK: Arcs
@@ -428,8 +459,7 @@ enum RingFixtureSamples {
     static let fan = FanSample(hasFans: true, fans: [FanSample.Fan(current: 1_800, min: 1_200, max: 5_800)])
     static let power = PowerSample(isAvailable: true, cpuWatts: 4.2, gpuWatts: 1.1, aneWatts: 0, dramWatts: 0.6,
                                    loadPercent: 40, systemWatts: 12.5, dcInWatts: 0)
-    /// The card's sample has no sensor rows; the gauge needs a valid sensor to draw a fill.
-    static let temperature = TemperatureSample(thermalState: .fair, sensors: [])
+    /// Temperature gauge without a part set; the store is seeded from the part set's sensors.
     static let gaugeTemperature = TemperatureSample(
         thermalState: .fair,
         sensors: [TempReading(label: "CPU", celsius: 64), TempReading(label: "GPU", celsius: 58),
@@ -438,7 +468,29 @@ enum RingFixtureSamples {
     static let uptime = UptimeSample(seconds: 3 * 86_400 + 4 * 3_600)
 
     /// Gauge for a stat from the fixed samples, with a recent peak where the spec draws one.
-    static func gauge(for kind: StatKind, powerCeilingWatts: Double) -> RingGauge {
+    /// With a part set, CPU, Disk, Network and Temperature map that set's parent samples, so
+    /// the wedge agrees with its sub-ring by construction (AC-34); a fixed peak never sits
+    /// below the fill.
+    static func gauge(for kind: StatKind, powerCeilingWatts: Double, parts: RingPartFixtureSet? = nil) -> RingGauge {
+        if let parts {
+            switch kind {
+            case .cpu:
+                return RingGaugeMapper.cpu(parts.cpu, peak: max(0.61, parts.cpu.totalUsagePercent / 100))
+            case .disk:
+                return RingGaugeMapper.disk(parts.disk)
+            case .network:
+                return RingGaugeMapper.network(
+                    parts.network,
+                    downPeak: max(0.62, RingRateScale.fraction(bytesPerSecond: parts.network.downBytesPerSec)),
+                    upPeak: max(0.4, RingRateScale.fraction(bytesPerSecond: parts.network.upBytesPerSec)))
+            case .temps:
+                let hottest = parts.temperature.sensors.map(\.celsius).filter(RingGaugeMapper.isValidTemperature).max()
+                let fill = hottest.map(RingGaugeMapper.temperatureFraction(celsius:)) ?? 0
+                return RingGaugeMapper.temperature(parts.temperature, peak: max(0.6, fill))
+            default:
+                break
+            }
+        }
         switch kind {
         case .cpu: return RingGaugeMapper.cpu(cpu, peak: 0.61)
         case .memory: return RingGaugeMapper.memory(memory)
@@ -467,11 +519,26 @@ struct RingFixture: Sendable {
     /// Stats left without a seeded sample, so their detail shows the unavailable state.
     let unavailableKinds: Set<StatKind>
 
+    /// - Parameters:
+    ///   - parts: the `--ring-parts=` set. CPU, Disk, Network and Temperature then take their
+    ///     gauge from its parent samples and, unless this fixture sets their text, their text
+    ///     from `partText`.
+    ///   - partText: the reading of a store seeded from `parts` (`StatsStore.seedRingFixture`),
+    ///     so wedge text and detail card show the same parent values.
     func reading(for kind: StatKind,
-                 powerCeilingWatts: Double = RingGaugeMapper.defaultPowerCeilingWatts) -> RingReading {
+                 powerCeilingWatts: Double = RingGaugeMapper.defaultPowerCeilingWatts,
+                 parts: RingPartFixtureSet? = nil,
+                 partText: ((StatKind) -> RingReading)? = nil) -> RingReading {
         if unavailableKinds.contains(kind) { return .unavailable(kind) }
-        guard var reading = readings[kind] ?? Self.typical[kind] else { return .unavailable(kind) }
-        reading.gauge = RingFixtureSamples.gauge(for: kind, powerCeilingWatts: powerCeilingWatts)
+        var reading: RingReading
+        if parts != nil, kind.opensSubRing, readings[kind] == nil, let derived = partText?(kind) {
+            reading = derived
+        } else if let fixed = readings[kind] ?? Self.typical[kind] {
+            reading = fixed
+        } else {
+            return .unavailable(kind)
+        }
+        reading.gauge = RingFixtureSamples.gauge(for: kind, powerCeilingWatts: powerCeilingWatts, parts: parts)
         return reading
     }
 
@@ -539,6 +606,18 @@ struct RingFixture: Sendable {
                                unavailableKinds: [.battery, .gpu, .power])
         default:
             return nil
+        }
+    }
+}
+extension RingPartFixtureSet {
+    /// The part list a favourite's sub-ring shows; `nil` for stats without parts.
+    func list(for kind: StatKind) -> RingPartList? {
+        switch kind {
+        case .cpu: return cpuParts
+        case .disk: return diskParts
+        case .network: return networkParts
+        case .temps: return temperatureParts
+        default: return nil
         }
     }
 }

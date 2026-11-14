@@ -25,10 +25,11 @@ struct RingPrototypeLaunch: Sendable {
     }
 }
 
-/// Shows the ring, its side More list and (through callbacks) the detail card as separate
+/// Shows the ring, its one open outer-band arc (the More arc or a favourite's sub-ring), the
+/// side More list where no More arc fits, and (through callbacks) the detail card as separate
 /// borderless, non-activating `NSPanel`s sized to visible content, never one large
 /// transparent window. Everything about where surfaces go comes from the summon's frozen
-/// `RingPlan`; everything about when they open comes from `RingInteractionState`. This
+/// `RingPlan`; everything about when they open comes from `RingBranchState`. This
 /// controller only resolves pointer and clicks against the plan and carries out commands.
 /// Visibility is reported through `onVisibilityChanged`, the same signal
 /// `PanelWindowController` emits, so the owner drives identical effects.
@@ -47,10 +48,15 @@ final class RingPanelController {
     let state = RingPresentationState()
     private(set) var snapshot: RingSnapshot?
     private(set) var plan: RingPlan?
-    private(set) var interaction: RingInteractionState?
+    private(set) var interaction: RingBranchState?
 
     private var basePanel: NSPanel?
     private var morePanel: NSPanel?
+    /// The open outer-band arc's panel, sized to the arc's frame (gap and caption slot included).
+    private var arcPanel: NSPanel?
+    private var arcPanelOwner: RingArcOwner?
+    /// Bumped on every show and hide; asynchronous deliveries from an earlier summon are dropped.
+    private var summonGeneration: UInt64 = 0
     private var sideListLayout: RingListLayout?
     private var wholeListLayout: RingListLayout?
     private var placementInput: RingPlacement.Input?
@@ -109,9 +115,10 @@ final class RingPanelController {
         let input = RingPlacement.Input(
             snapshot: snapshot, visible: visible,
             preferredBase: NSRect(origin: preferredOrigin(forSize: size, anchor: anchor, cursor: cursor, visible: visible), size: size),
-            detailSizes: detailSizes, scale: host?.backingScaleFactor ?? 1)
+            detailSizes: detailSizes, scale: host?.backingScaleFactor ?? 1, allowsOuterBand: true)
         let plan = RingPlacement.resolve(input)
 
+        summonGeneration &+= 1
         self.snapshot = snapshot
         self.plan = plan
         self.placementInput = input
@@ -130,6 +137,7 @@ final class RingPanelController {
                 return description
             }
             inputView.onPress = { [weak self] target in self?.press(target) }
+            inputView.segmentElements = { [weak self] kind in self?.segmentElements(kind) ?? [] }
             wire(inputView)
             let hosting = PassthroughHostingView(rootView: RingView(snapshot: snapshot, state: state, reading: reading))
             hosting.frame = NSRect(origin: .zero, size: size)
@@ -140,7 +148,7 @@ final class RingPanelController {
         panel.setFrame(plan.baseFrame, display: true)
         basePanel = panel
 
-        let interaction = RingInteractionState(plan: plan, clock: clock)
+        let interaction = RingBranchState(plan: plan, clock: clock)
         interaction.summon(plan: plan, pointer: cursor)
         self.interaction = interaction
         state.beginSummon(pointer: cursor)
@@ -154,10 +162,12 @@ final class RingPanelController {
     func hide() {
         // Redundant hides (click-away after Escape) must not emit a second `false`.
         guard basePanel != nil else { return }
+        summonGeneration &+= 1
         timerItem?.cancel()
         timerItem = nil
         removeObservation()
         interaction?.hide()
+        closeArcPanel()
         hideMoreSurface()
         basePanel?.orderOut(nil)
         basePanel = nil
@@ -175,7 +185,7 @@ final class RingPanelController {
 
     // MARK: Inputs from the owner
 
-    /// Escape in Ring, including while pinned: detail, then More, then the HUD.
+    /// Escape in Ring, including while pinned: detail (with its sub-ring), then More, then the HUD.
     func handleEscape() {
         guard let interaction else { return }
         apply(interaction.escape())
@@ -209,11 +219,11 @@ final class RingPanelController {
 
     // MARK: Command application
 
-    private func apply(_ commands: [RingCommand]) {
+    private func apply(_ commands: [RingBranchCommand]) {
         for command in commands {
             switch command {
-            case .showMore: showMoreSurface()
-            case .hideMore: hideMoreSurface()
+            case .showArc(let owner): showArcSurface(owner)
+            case .hideArc(let owner): hideArcSurface(owner)
             case .showDetail(let kind, _):
                 if let plan, let frame = plan.detailFrames[kind] {
                     onShowDetail?(kind, frame, plan.scrollingDetails.contains(kind))
@@ -224,7 +234,8 @@ final class RingPanelController {
             }
         }
         if let interaction {
-            state.syncExpansion(interaction.expansion, hovered: interaction.hovered)
+            state.syncExpansion(interaction.expansion, hovered: interaction.hovered,
+                                hoveredSegment: interaction.hoveredSegment)
         }
         reschedule()
     }
@@ -234,8 +245,12 @@ final class RingPanelController {
         timerItem = nil
         guard let interaction, let deadline = interaction.nextDeadline else { return }
         let token = interaction.timerToken
+        let generation = summonGeneration
         let item = DispatchWorkItem { [weak self] in
-            MainActor.assumeIsolated { self?.timerFired(token) }
+            MainActor.assumeIsolated {
+                guard let self, self.summonGeneration == generation else { return }
+                self.timerFired(token)
+            }
         }
         timerItem = item
         DispatchQueue.main.asyncAfter(deadline: .now() + max(0, deadline - clock.now()), execute: item)
@@ -249,12 +264,12 @@ final class RingPanelController {
 
     // MARK: Resolving points against the plan
 
-    private func resolve(_ p: CGPoint) -> (hit: RingHit, special: RingSpecial?) {
+    private func resolveBranch(_ p: CGPoint) -> (hit: RingBranchHit, special: RingSpecial?) {
         guard let plan, let snapshot, let interaction, let basePanel else { return (.none, nil) }
         return RingHitResolver(plan: plan, baseFrame: basePanel.frame, snapshot: snapshot,
                                openDetailKind: interaction.expansion.detail?.kind,
-                               moreOpen: interaction.expansion.more != nil,
-                               sideList: sideListLayout, wholeList: wholeListLayout).resolve(p)
+                               openArc: interaction.expansion.arc?.owner,
+                               sideList: sideListLayout, wholeList: wholeListLayout).resolveBranch(p)
     }
 
     // MARK: Mouse
@@ -268,7 +283,7 @@ final class RingPanelController {
 
     private func mouseDown(at point: CGPoint, event: NSEvent) {
         pressed = nil
-        let resolved = resolve(point)
+        let resolved = resolveBranch(point)
         if resolved.special == .drag {
             beginDrag(event)
             return
@@ -276,15 +291,18 @@ final class RingPanelController {
         if resolved.special == .settings { pressed = .settings; return }
         switch resolved.hit {
         case .node(let node): pressed = .node(node)
+        case .arc, .segment:
+            // Interacting with a previewed sub-ring holds its branch, card included.
+            if let interaction { apply(interaction.arcInteracted()) }
         case .none: onOutsideClick?()
-        case .detail, .moreSurface, .inert: break
+        case .detail, .inert: break
         }
     }
 
     private func mouseUp(at point: CGPoint) {
         defer { pressed = nil }
         guard let pressed, let interaction else { return }
-        let resolved = resolve(point)
+        let resolved = resolveBranch(point)
         switch pressed {
         case .settings:
             guard resolved.special == .settings else { return }
@@ -301,7 +319,7 @@ final class RingPanelController {
             layout.scroll(by: delta)
             wholeListLayout = layout
             state.listOffset = layout.offset
-        } else if plan.mode == .sideList, var layout = sideListLayout, plan.moreSurface?.contains(point) == true {
+        } else if var layout = sideListLayout, plan.moreSurface?.contains(point) == true {
             layout.scroll(by: delta)
             sideListLayout = layout
             state.listOffset = layout.offset
@@ -333,6 +351,11 @@ final class RingPanelController {
             next.allowWholeList = false
         }
         let replanned = RingPlacement.resolve(next)
+        // The plan may snap the base to whole backing pixels; move the panel to match, so arcs
+        // (drawn from the plan) and hits (resolved from the panel frame) share one base.
+        if basePanel.frame != replanned.baseFrame {
+            basePanel.setFrame(replanned.baseFrame, display: true)
+        }
         plan = replanned
         placementInput = next
         interaction.dragEnded(plan: replanned, pointer: NSEvent.mouseLocation)
@@ -340,13 +363,68 @@ final class RingPanelController {
         reschedule()
     }
 
-    // MARK: More surface
+    // MARK: Arc surfaces
 
-    /// The More wedge opens the side list above the detail card (the declared fallback until
-    /// the outer band exists); the whole-list plan has no separate More surface.
+    /// The child surface `owner` opens: its arc panel when the plan reserved an arc frame,
+    /// otherwise, for More, the side list chosen at summon.
+    private func showArcSurface(_ owner: RingArcOwner) {
+        guard let plan else { return }
+        if let frame = plan.arcFrames[owner] {
+            showArcPanel(owner, frame: frame)
+        } else if owner == .more {
+            showMoreSurface()
+        }
+    }
+
+    private func hideArcSurface(_ owner: RingArcOwner) {
+        if arcPanelOwner == owner { closeArcPanel() }
+        if owner == .more { hideMoreSurface() }
+    }
+
+    /// One non-activating panel sized to the arc's frame. It replaces any other arc panel, so
+    /// at most one exists; the ring is re-ordered above it, so the ring always draws on top of
+    /// the arc panel's transparent corners.
+    private func showArcPanel(_ owner: RingArcOwner, frame: CGRect) {
+        closeArcPanel()
+        guard let plan, let snapshot, let basePanel, let reading = readingProvider,
+              snapshot.arcs[owner] != nil else { return }
+        let geometry = RingArcPanelGeometry(panel: frame, base: plan.baseFrame)
+        let label: String
+        switch owner {
+        case .more: label = "More stats"
+        case .stat(let kind): label = "\(kind.displayName) parts"
+        }
+        let input = RingSurfaceInputView(size: frame.size, label: label)
+        // More-arc entries are pressable here; sub-ring segments are children of their wedge.
+        if owner == .more {
+            input.accessibilityElementsProvider = { [weak self] in self?.moreArcAccessibility() ?? [] }
+        }
+        wire(input)
+        let hosting = PassthroughHostingView(rootView: RingArcView(snapshot: snapshot, owner: owner, geometry: geometry,
+                                                                   state: state, reading: reading))
+        hosting.frame = NSRect(origin: .zero, size: frame.size)
+        input.addSubview(hosting)
+        let panel = makePanel(size: frame.size)
+        panel.contentView = input
+        panel.isMovable = false
+        panel.setFrame(frame, display: true)
+        arcPanel = panel
+        arcPanelOwner = owner
+        panel.orderFrontRegardless()
+        basePanel.orderFrontRegardless()
+    }
+
+    private func closeArcPanel() {
+        arcPanel?.orderOut(nil)
+        arcPanel = nil
+        arcPanelOwner = nil
+    }
+
+    /// The side More list above the detail card, used when no More arc fits this summon; the
+    /// whole-list plan has no separate More surface.
     private func showMoreSurface() {
         guard morePanel == nil, let plan, let snapshot, let surface = plan.moreSurface,
-              plan.mode == .sideList, let reading = readingProvider else { return }
+              plan.mode != .wholeList, let reading = readingProvider else { return }
         let layout = RingListLayout(size: surface.size, rows: snapshot.moreKinds.map { .moreItem($0) }, hasChrome: false)
         sideListLayout = layout
         state.listOffset = 0
@@ -361,6 +439,39 @@ final class RingPanelController {
         morePanel = nil
         sideListLayout = nil
         state.listOffset = 0
+    }
+
+    /// Pressable elements for the More arc's entries, in the arc panel's own space.
+    private func moreArcAccessibility() -> [RingAccessibilityElement] {
+        guard let plan, let snapshot, let arc = snapshot.arcs[.more], let frame = plan.arcFrames[.more],
+              let reading = readingProvider else { return [] }
+        let geometry = RingArcPanelGeometry(panel: frame, base: plan.baseFrame)
+        return arc.segments.compactMap { segment in
+            guard snapshot.moreKinds.indices.contains(segment.index) else { return nil }
+            let kind = snapshot.moreKinds[segment.index]
+            return makeElement(kind: kind, node: .moreItem(kind), frame: geometry.local(segment.sector.boundingFrame),
+                               reading: reading)
+        }
+    }
+
+    /// Read-only children of an expanded favourite whose sub-ring is open: name, value and range
+    /// per segment, at the segment's screen frame. Nothing to press, no further level.
+    private func segmentElements(_ kind: StatKind) -> [RingAccessibilityElement] {
+        let owner = RingArcOwner.stat(kind)
+        guard let plan, let snapshot, interaction?.expansion.arc?.owner == owner, plan.arcFrames[owner] != nil,
+              let arc = snapshot.arcs[owner], let parts = snapshot.parts[kind]?.parts else { return [] }
+        return arc.segments.compactMap { segment in
+            guard parts.indices.contains(segment.index) else { return nil }
+            let info = parts[segment.index].accessibility(stat: kind)
+            let element = RingAccessibilityElement()
+            element.setAccessibilityRole(.staticText)
+            element.setAccessibilityLabel(info.label)
+            element.setAccessibilityValue(info.value)
+            element.setAccessibilityHelp("Range: \(info.range)")
+            element.setAccessibilityEnabled(true)
+            element.setAccessibilityFrame(RingPlacement.screenFrame(segment.sector.boundingFrame, in: plan.baseFrame))
+            return element
+        }
     }
 
     private func makeElement(kind: StatKind, node: RingNode, frame: CGRect,
@@ -464,8 +575,12 @@ final class RingPanelController {
         deliveries = [:]
         lastMonitorEvent = .distantPast
         lastPolledPoint = NSEvent.mouseLocation
+        let generation = summonGeneration
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] _ in
-            Task { @MainActor in self?.pointerMoved(via: .global) }
+            Task { @MainActor in
+                guard let self, self.summonGeneration == generation else { return }
+                self.pointerMoved(via: .global)
+            }
         }
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
             MainActor.assumeIsolated { self?.pointerMoved(via: .local) }
@@ -535,7 +650,7 @@ final class RingPanelController {
         if plan.mode != .wholeList {
             state.updatePointer(screenPoint: point, ringFrame: basePanel.frame, snapshot: snapshot)
         }
-        apply(interaction.pointerMoved(to: point, hit: resolve(point).hit))
+        apply(interaction.pointerMoved(to: point, hit: resolveBranch(point).hit))
     }
 
     // MARK: Placement

@@ -67,8 +67,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     override init() {
         #if DEBUG
-        if let fixture = RingPrototypeLaunch.current?.fixture {
-            store = StatsStore.makeRingFixtureStore(unavailable: fixture.unavailableKinds)
+        if let launch = RingPrototypeLaunch.current, let fixture = launch.fixture {
+            store = StatsStore.makeRingFixtureStore(unavailable: fixture.unavailableKinds,
+                                                    parts: RingPartFixtures.make(launch.options.parts))
         } else {
             store = StatsStore()
         }
@@ -284,14 +285,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let options = ringLaunch?.options ?? RingPrototypeOptions()
         let store = self.store
         store.ringPowerCeilingWatts = options.powerCeilingWatts
+        // Sub-ring parts exist only in fixture mode (`--ring-parts=`); the fixture store was seeded
+        // from the same set, so CPU, Disk, Network and Temperature agree with their parts.
+        let partSet = fixture != nil ? RingPartFixtures.make(options.parts) : nil
         let reading: (StatKind) -> RingReading = { kind in
-            fixture?.reading(for: kind, powerCeilingWatts: options.powerCeilingWatts) ?? store.ringReading(for: kind)
+            fixture?.reading(for: kind, powerCeilingWatts: options.powerCeilingWatts, parts: partSet,
+                             partText: { store.ringReading(for: $0) }) ?? store.ringReading(for: kind)
         }
         // The first N enabled stats are favourites; the rest are reached through the More wedge.
         let enabled = fixture?.enabledKinds ?? store.enabledStatKinds
         let snapshot = RingSnapshot.make(enabledKinds: enabled, favourites: Array(enabled.prefix(options.favourites)),
                                          preset: options.size, cap: options.text, fillScale: options.fill,
-                                         reading: reading)
+                                         reading: reading, parts: { partSet?.list(for: $0) })
         let describe: (RingTarget) -> RingInputView.Description = { target in
             switch target {
             case .wedge(let kind):

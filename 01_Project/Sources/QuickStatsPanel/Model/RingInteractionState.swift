@@ -121,20 +121,34 @@ enum RingBranchCommand: Equatable, Sendable {
 /// Convex route between a parent target and its child surface, built from the actual
 /// frames and widened by the route tolerance. It only preserves state: it is never a
 /// clickable surface.
+///
+/// A route that starts on a rendered arc uses the arc's own outline rather than its bounding
+/// box and leaves out the favourites ring, so a wide sub-ring (32 cores, nearly a full
+/// circle) never turns the sibling wedges into travel space.
 struct RingTravelRegion: Equatable, Sendable {
     let polygon: [CGPoint]
+    /// Space the route never covers, even inside the polygon.
+    let excluded: RingDisc?
 
     init(from parent: CGRect, to child: CGRect, tolerance: CGFloat = RingBranchState.routeTolerance) {
-        let a = parent.insetBy(dx: -tolerance, dy: -tolerance)
-        let b = child.insetBy(dx: -tolerance, dy: -tolerance)
-        let corners = [a, b].flatMap { r in
-            [CGPoint(x: r.minX, y: r.minY), CGPoint(x: r.maxX, y: r.minY),
-             CGPoint(x: r.maxX, y: r.maxY), CGPoint(x: r.minX, y: r.maxY)]
+        self.init(points: [], rects: [parent, child], excluding: nil, tolerance: tolerance)
+    }
+
+    /// Hull of `points` and `rects`, each widened by `tolerance`, minus `excluded`.
+    init(points: [CGPoint], rects: [CGRect], excluding excluded: RingDisc?,
+         tolerance: CGFloat = RingBranchState.routeTolerance) {
+        let widened = points.map { CGRect(x: $0.x, y: $0.y, width: 0, height: 0) } + rects
+        let corners = widened.flatMap { rect -> [CGPoint] in
+            let r = rect.insetBy(dx: -tolerance, dy: -tolerance)
+            return [CGPoint(x: r.minX, y: r.minY), CGPoint(x: r.maxX, y: r.minY),
+                    CGPoint(x: r.maxX, y: r.maxY), CGPoint(x: r.minX, y: r.maxY)]
         }
         polygon = Self.convexHull(corners)
+        self.excluded = excluded
     }
 
     func contains(_ p: CGPoint) -> Bool {
+        if let excluded, excluded.contains(p) { return false }
         guard polygon.count >= 3 else { return false }
         for i in polygon.indices {
             let a = polygon[i], b = polygon[(i + 1) % polygon.count]
@@ -594,21 +608,29 @@ final class RingBranchState {
     }
 
     /// Routes from the actual frames: parent target to card, and a favourite's sub-ring to
-    /// its card; without a card, parent target to its arc or list.
+    /// its card; without a card, parent target to its arc or list. A rendered arc contributes
+    /// its outline and the route leaves out the favourites ring; a plan without outlines
+    /// (or the side list) falls back to frames.
     private func travelRegions() -> [RingTravelRegion] {
         var regions: [RingTravelRegion] = []
         if let detail = expansion.detail, let card = plan.detailFrames[detail.kind] {
             if let parent = plan.nodeFrames[detail.parent] {
                 regions.append(RingTravelRegion(from: parent, to: card))
             }
-            if detail.owner != .more, expansion.arc?.owner == detail.owner,
-               let arc = plan.arcFrames[detail.owner] {
-                regions.append(RingTravelRegion(from: arc, to: card))
+            if detail.owner != .more, expansion.arc?.owner == detail.owner {
+                if let outline = plan.arcOutlines[detail.owner] {
+                    regions.append(RingTravelRegion(points: outline, rects: [card], excluding: plan.ringDisc))
+                } else if let arc = plan.arcFrames[detail.owner] {
+                    regions.append(RingTravelRegion(from: arc, to: card))
+                }
             }
         }
-        if regions.isEmpty, let arc = expansion.arc, let parent = plan.nodeFrames[arc.owner.node],
-           let surface = plan.surfaceFrame(of: arc.owner) {
-            regions.append(RingTravelRegion(from: parent, to: surface))
+        if regions.isEmpty, let arc = expansion.arc, let parent = plan.nodeFrames[arc.owner.node] {
+            if let outline = plan.arcOutlines[arc.owner] {
+                regions.append(RingTravelRegion(points: outline, rects: [parent], excluding: plan.ringDisc))
+            } else if let surface = plan.surfaceFrame(of: arc.owner) {
+                regions.append(RingTravelRegion(from: parent, to: surface))
+            }
         }
         return regions
     }
@@ -675,109 +697,4 @@ final class RingBranchState {
         branchGeneration &+= 1
         timerToken &+= 1
     }
-}
-
-// MARK: - Compatibility for RingPanelController (removed by 4.1)
-
-/// Hit vocabulary of the 2.1 controller. `.moreSurface` is the More child surface; sub-ring
-/// hits have no equivalent and read as inert.
-enum RingHit: Equatable, Sendable {
-    case node(RingNode)
-    case detail
-    case moreSurface
-    case inert
-    case none
-
-    var node: RingNode? {
-        if case .node(let node) = self { return node }
-        return nil
-    }
-
-    init(_ hit: RingBranchHit) {
-        switch hit {
-        case .node(let node): self = .node(node)
-        case .detail: self = .detail
-        case .arc(.more): self = .moreSurface
-        case .arc(.stat), .segment: self = .inert
-        case .inert: self = .inert
-        case .none: self = .none
-        }
-    }
-
-    var branchHit: RingBranchHit {
-        switch self {
-        case .node(let node): return .node(node)
-        case .detail: return .detail
-        case .moreSurface: return .arc(.more)
-        case .inert: return .inert
-        case .none: return .none
-        }
-    }
-}
-
-/// Command vocabulary of the 2.1 controller. Sub-ring arcs have no native surface before
-/// 4.1, so their show/hide commands are dropped.
-enum RingCommand: Equatable, Sendable {
-    case showMore
-    case hideMore
-    case showDetail(StatKind, viaMore: Bool)
-    case hideDetail
-    case hideHUD
-    case openSettings
-
-    static func legacy(_ commands: [RingBranchCommand]) -> [RingCommand] {
-        commands.compactMap { command in
-            switch command {
-            case .showArc(.more): return .showMore
-            case .hideArc(.more): return .hideMore
-            case .showArc(.stat), .hideArc(.stat): return nil
-            case .showDetail(let kind, let owner): return .showDetail(kind, viaMore: owner == .more)
-            case .hideDetail: return .hideDetail
-            case .hideHUD: return .hideHUD
-            case .openSettings: return .openSettings
-            }
-        }
-    }
-}
-
-extension RingExpansion {
-    /// Hold of the More branch, as the 2.1 controller reads it.
-    var more: RingHold? { arc?.owner == .more ? arc?.hold : nil }
-}
-
-/// The 2.1 controller's interface over `RingBranchState`: same inputs, legacy hits and
-/// commands.
-final class RingInteractionState {
-    let branch: RingBranchState
-
-    init(plan: RingPlan, clock: any RingClock = SystemRingClock()) {
-        branch = RingBranchState(plan: plan, clock: clock)
-    }
-
-    var plan: RingPlan { branch.plan }
-    var expansion: RingExpansion { branch.expansion }
-    var hovered: RingNode? { branch.hovered }
-    var generation: UInt64 { branch.generation }
-    var branchGeneration: UInt64 { branch.branchGeneration }
-    var timerToken: UInt64 { branch.timerToken }
-    var isArmed: Bool { branch.isArmed }
-    var nextDeadline: TimeInterval? { branch.nextDeadline }
-
-    func isExpanded(_ node: RingNode) -> Bool { branch.isExpanded(node) }
-    func summon(plan: RingPlan, pointer: CGPoint) { branch.summon(plan: plan, pointer: pointer) }
-    func dragEnded(plan: RingPlan, pointer: CGPoint) { branch.dragEnded(plan: plan, pointer: pointer) }
-
-    @discardableResult func hide() -> [RingCommand] { RingCommand.legacy(branch.hide()) }
-    @discardableResult func dragBegan() -> [RingCommand] { RingCommand.legacy(branch.dragBegan()) }
-    @discardableResult func settingsRequested() -> [RingCommand] { RingCommand.legacy(branch.settingsRequested()) }
-    @discardableResult func displayChanged() -> [RingCommand] { RingCommand.legacy(branch.displayChanged()) }
-    @discardableResult func pointerMoved(to point: CGPoint, hit: RingHit) -> [RingCommand] {
-        RingCommand.legacy(branch.pointerMoved(to: point, hit: hit.branchHit))
-    }
-    @discardableResult func click(_ node: RingNode) -> [RingCommand] { RingCommand.legacy(branch.click(node)) }
-    @discardableResult func settingsClicked() -> [RingCommand] { RingCommand.legacy(branch.settingsClicked()) }
-    @discardableResult func detailInteracted() -> [RingCommand] { RingCommand.legacy(branch.detailInteracted()) }
-    @discardableResult func closeDetail() -> [RingCommand] { RingCommand.legacy(branch.closeDetail()) }
-    @discardableResult func escape() -> [RingCommand] { RingCommand.legacy(branch.escape()) }
-    @discardableResult func fire(token: UInt64) -> [RingCommand] { RingCommand.legacy(branch.fire(token: token)) }
 }

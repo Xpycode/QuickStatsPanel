@@ -32,10 +32,11 @@ final class RingPlacementTests: XCTestCase {
                       detail: [StatKind: CGSize]? = nil, scale: CGFloat = 1,
                       canShift: Bool = true, allowWholeList: Bool = true) -> RingPlan {
         let center = p ?? CGPoint(x: visible.midX, y: visible.midY)
+        // Ring-only geometry (side list, whole list): the band is exercised by `bandPlan`.
         return RingPlacement.resolve(.init(snapshot: s, visible: visible,
                                            preferredBase: preferred(centeredAt: center, side: s.size.width),
                                            detailSizes: detail ?? details(s.enabledKinds), scale: scale,
-                                           canShift: canShift, allowWholeList: allowWholeList))
+                                           canShift: canShift, allowWholeList: allowWholeList, allowsOuterBand: false))
     }
 
     private func assertInside(_ plan: RingPlan, _ visible: CGRect, _ message: String = "",
@@ -544,10 +545,14 @@ final class RingPlacementTests: XCTestCase {
                        "the ring plus 380 points cannot fit either")
     }
 
-    func testConvenienceInputKeepsTheBandOffUntilTheNativeArcsExist() {
+    func testConvenienceInputChoosesTheBandByDefaultAndCanTurnItOff() {
         let s = bandSnapshot(all, favourites: eight)
         XCTAssertFalse(s.arcs.isEmpty)
-        XCTAssertEqual(plan(s, visible: vLarge).mode, .sideList)
+        let preferred = preferred(centeredAt: CGPoint(x: vLarge.midX, y: vLarge.midY))
+        let byDefault = RingPlacement.resolve(.init(snapshot: s, visible: vLarge, preferredBase: preferred,
+                                                    detailSizes: details(s.enabledKinds)))
+        XCTAssertEqual(byDefault.mode, .outerBand, "the native arcs exist: the band is on")
+        XCTAssertEqual(plan(s, visible: vLarge).mode, .sideList, "explicitly off: the side list")
         XCTAssertEqual(bandPlan(s, visible: vLarge).mode, .outerBand)
         XCTAssertEqual(bandPlan(snapshot(eight), visible: vLarge).mode, .sideList, "no arcs: no band reserved")
     }

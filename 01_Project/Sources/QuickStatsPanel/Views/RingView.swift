@@ -21,6 +21,13 @@ struct RingView: View {
         let context = RingDrawingContext(theme: theme, fillScale: snapshot.fillScale, reduceMotion: reduceMotion,
                                          explicitEdge: differentiateWithoutColor || contrast == .increased)
         ZStack(alignment: .topLeading) {
+            // The resolver counts the whole disc inside the outer radius as inside (separator
+            // gaps and the band around the hub are inert), so it carries the arc panel's hit fill;
+            // fully transparent pixels would pass a click to the app below and hide the HUD.
+            Circle()
+                .fill(RingArcView.hitFill)
+                .frame(width: layout.preset.outerRadius * 2, height: layout.preset.outerRadius * 2)
+                .position(x: layout.center.x, y: layout.center.y)
             ForEach(layout.favourites, id: \.order) { favourite in
                 RingGaugeWedgeView(kind: favourite.kind, sector: favourite.sector, rung: favourite.rung,
                                    textFrame: favourite.textFrame, live: reading(favourite.kind),

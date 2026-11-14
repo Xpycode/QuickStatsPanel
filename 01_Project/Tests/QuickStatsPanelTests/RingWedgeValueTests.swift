@@ -141,4 +141,42 @@ final class RingWedgeValueTests: XCTestCase {
             XCTAssertEqual(store.ringReading(for: .power, settings: settings).value, "0.4 W")
         }
     }
+
+    /// The wedge draws one compact figure, but accessibility always speaks the configured
+    /// reading in full: Power, Temperature and Load pairs are read as the card shows them.
+    @MainActor
+    func testAccessibilitySpeaksTheFullReadingWhateverTheWedgeDraws() throws {
+        try withSettings { settings in
+            var compacted = 0
+            for (name, store) in fixtures() {
+                forEachVariant(settings) {
+                    for kind in StatKind.allCases {
+                        let reading = store.ringReading(for: kind, settings: settings)
+                        guard reading.isAvailable,
+                              let descriptor = store.resolvedDescriptor(for: kind, settings: settings) else {
+                            XCTAssertEqual(reading.accessibilityText, "Unavailable", "\(name) \(kind)")
+                            continue
+                        }
+                        let full = [descriptor.value, descriptor.secondaryValue].compactMap { $0 }.joined(separator: ", ")
+                        XCTAssertEqual(reading.accessibilityText, full, "\(name) \(kind)")
+                        if reading.value != descriptor.value { compacted += 1 }
+                    }
+                }
+            }
+            XCTAssertGreaterThan(compacted, 0, "some wedge forms are compact, so the field matters")
+        }
+    }
+
+    @MainActor
+    func testPairedPowerIsSpokenAsThePair() throws {
+        try withSettings { settings in
+            let store = StatsStore()
+            store.power = PowerSample(isAvailable: true, cpuWatts: 0.3, gpuWatts: 0.1, aneWatts: 0, dramWatts: 0.2,
+                                      loadPercent: 5, systemWatts: 35.1, dcInWatts: 0.0)
+            settings.powerDisplayMode = .dcInAndSystem
+            let reading = store.ringReading(for: .power, settings: settings)
+            XCTAssertEqual(reading.value, "35.1 W")
+            XCTAssertEqual(reading.accessibilityText, "In 0.0 W \u{00B7} System 35.1 W")
+        }
+    }
 }
