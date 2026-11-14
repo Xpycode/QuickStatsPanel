@@ -555,17 +555,16 @@ final class RingBranchState {
         expansion.detailOwner ?? expansion.arc?.owner.node
     }
 
-    /// Where leaving starts the transit grace: the owner, or a favourite's open sub-ring on
-    /// the way to its card.
+    /// Where leaving starts the transit grace: the owner, or the open arc on the way to a card
+    /// it owns (a favourite's sub-ring, or the More arc's padding and separators around the
+    /// entry whose card is open). Transit only holds inside the travel regions.
     private func isRouteSource(_ hit: RingBranchHit?) -> Bool {
         guard let hit else { return false }
         if hit.node != nil { return hit.node == currentOwner }
-        guard let detail = expansion.detail, detail.owner != .more, expansion.arc?.owner == detail.owner else {
-            return false
-        }
+        guard let detail = expansion.detail, expansion.arc?.owner == detail.owner else { return false }
         switch hit {
         case .arc(let owner): return owner == detail.owner
-        case .segment(let segment): return RingArcOwner.stat(segment.stat) == detail.owner
+        case .segment(let segment): return detail.owner != .more && RingArcOwner.stat(segment.stat) == detail.owner
         default: return false
         }
     }
@@ -583,6 +582,9 @@ final class RingBranchState {
     private func isInside(_ hit: RingBranchHit, point: CGPoint, transitActive: Bool) -> Bool {
         if isChildHit(hit) { return true }
         if let owner = currentOwner, hit.node == owner { return true }
+        // The arc's parent wedge stays inside while a child card is open: for a More child the
+        // owner is the entry, but the More wedge is still the arc's parent (review finding, W3).
+        if let arcOwner = expansion.arc?.owner, hit.node == arcOwner.node { return true }
         return transitActive
     }
 

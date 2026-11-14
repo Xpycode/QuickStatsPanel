@@ -453,6 +453,46 @@ final class RingInteractionTests: XCTestCase {
         XCTAssertEqual(state.expansion.arc, .init(owner: .more, hold: .held))
     }
 
+    func testReturningToTheMoreWedgeKeepsAPreviewChildAndTheArc() {
+        let state = makeState()
+        move(state, to: .node(.more), at: CGPoint(x: 50, y: 240))
+        _ = advance(state, by: 0.35)
+        move(state, to: .node(.moreItem(.gpu)), at: CGPoint(x: 550, y: 20))
+        XCTAssertEqual(advance(state, by: 0.35), [.showDetail(.gpu, owner: .more)])
+        move(state, to: .arc(.more), at: CGPoint(x: 490, y: 200))
+        move(state, to: .node(.more), at: CGPoint(x: 50, y: 240))
+        XCTAssertEqual(advance(state, by: 0.449), [])
+        XCTAssertEqual(advance(state, by: 5), [], "resting on the arc's parent wedge closes nothing and reopens nothing")
+        XCTAssertEqual(state.expansion, RingExpansion(arc: .init(owner: .more, hold: .preview),
+                                                      detail: .init(kind: .gpu, owner: .more, hold: .preview)))
+    }
+
+    func testReturningToAHeldMoreWedgeKeepsItsPreviewChild() {
+        let state = makeState()
+        state.click(.more)
+        move(state, to: .node(.moreItem(.gpu)), at: CGPoint(x: 550, y: 20))
+        XCTAssertEqual(advance(state, by: 0.35), [.showDetail(.gpu, owner: .more)])
+        move(state, to: .node(.more), at: CGPoint(x: 50, y: 240))
+        XCTAssertEqual(advance(state, by: 5), [])
+        XCTAssertEqual(state.expansion.detail, .init(kind: .gpu, owner: .more, hold: .preview))
+        XCTAssertEqual(state.expansion.arc, .init(owner: .more, hold: .held))
+    }
+
+    func testLeavingTheMoreArcPaddingTowardsTheChildCardGetsTheTransitGrace() {
+        let state = makeState()
+        move(state, to: .node(.more), at: CGPoint(x: 50, y: 240))
+        _ = advance(state, by: 0.35)
+        move(state, to: .node(.moreItem(.gpu)), at: CGPoint(x: 550, y: 20))
+        XCTAssertEqual(advance(state, by: 0.35), [.showDetail(.gpu, owner: .more)])
+        move(state, to: .arc(.more), at: CGPoint(x: 590, y: 45))      // arc padding beside the entry
+        move(state, to: .none, at: CGPoint(x: 650, y: 40))             // on the entry-to-card route
+        XCTAssertEqual(at(0.35 + 0.35 + 0.69, state), [], "690 ms: still inside the grace")
+        XCTAssertEqual(state.expansion.detail?.kind, .gpu)
+        XCTAssertEqual(at(0.35 + 0.35 + 0.7, state), [], "grace ends; the 450 ms leave begins")
+        XCTAssertEqual(at(0.35 + 0.35 + 0.7 + 0.449, state), [])
+        XCTAssertEqual(at(0.35 + 0.35 + 0.7 + 0.45, state), [.hideDetail, .hideArc(.more)])
+    }
+
     func testLeavingAPreviewMoreClosesItAndItsChild() {
         let state = makeState()
         move(state, to: .node(.more), at: CGPoint(x: 50, y: 240))
