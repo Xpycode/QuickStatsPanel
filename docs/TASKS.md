@@ -4,7 +4,12 @@
 
 ## Active plan
 
-No active plan. [Native ring prototype](sessions/IMPLEMENTATION_PLAN-ring-prototype-DONE.md) complete 2026-11-13; E1 closed with interaction accepted and look redirected (D-035). Next plan: gauge ring prototype step (D-035, open questions answered).
+[Gauge ring prototype](../IMPLEMENTATION_PLAN.md) — planned 2026-11-14, execution not yet requested.
+First ready: Wave 1 tasks 1.1, 1.2 and 1.3 (no prerequisites; commit the plan and pending docs first).
+External gate E1 (owner review) closes the plan. Status and evidence live in the plan.
+
+Previous: [Native ring prototype](sessions/IMPLEMENTATION_PLAN-ring-prototype-DONE.md) complete
+2026-11-13; E1 closed with interaction accepted and look redirected (D-035).
 
 Transfer history shipped as **v1.2.0 (1200)** on 2026-10-28: 8/8 implementation tasks complete;
 remaining E1 checks explicitly deferred by the owner to everyday use, not marked as tested.
@@ -25,7 +30,7 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 **This file is the backlog** — `PROJECT_STATE.md` is a digest and points here.
 
 ### Ring
-- [ ] **Wedge inner-shape artifact — superseded by D-035 gauge drawing; verify gone in gauge step.** Owner's native screenshot (`eight`
+- [ ] **Wedge inner-shape artifact — superseded by D-035 gauge drawing; verify gone in gauge step (plan E1 row C3).** Owner's native screenshot (`eight`
       fixture) shows a darker inner quadrilateral inside the amber Temperature/Memory wedges
       (fainter in others). Not fixed in 1.2 (out of its scope); bounded prototype correction
       candidate for 1.3/E1. E1 checklist case C3 re-checks it.
@@ -39,16 +44,21 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
       (`output/ring-gauges/`); proposals and open questions in `sessions/2026-11-13.md`. Needs
       `RingReading` fraction/segment fields and a sub-radius wedge path. Fix gauge-misleading scales
       first: `PowerSample.loadPercent` (session peak only rises), `NetworkSample.activityPercent`
-      (12.5 MB/s cap). Not authorized for implementation; spec + D-035 next.
+      (12.5 MB/s cap) — the revised spec gives gauges their own scales, so these now matter only for
+      status bands (open item). Spec revised 2026-11-13 (D-035, D-036); adds per-part needs: per-core CPU
+      read, volume enumeration, per-interface deltas, un-averaged sensors. Not authorized for
+      implementation until an execute request. **Mapped to the
+      [gauge ring prototype plan](../IMPLEMENTATION_PLAN.md)** (tasks 1.1–5.1, E1); per-part sampler
+      work is deferred there to a follow-up plan. Status lives in the plan.
 
 ### Distribution
 - [ ] **Sparkle release acceptance** — requested 2026-11-11. Integration, dedicated signing key, signed empty feed and packaging validation implemented for 1.2.1. Initial signed empty feed published and verified; validate manual check and opt-in checkbox, back up key to Strongbox, package/notarize release, and test a real upgrade with retained preferences/history. 1.2.0 must upgrade manually. See `sparkle-updates.md`.
 
 ### Layouts and appearance
-- **Alternate layouts and bounded appearance** — prototype work maps to
-  [active plan tasks 1.1–1.3 and E1](../IMPLEMENTATION_PLAN.md). Remaining production Ring,
-  Grid/Rail and appearance controls stay deferred until working-prototype review and follow-up
-  planning; [spec](../specs/panel-layouts-and-appearance.md). No duplicate completion status here.
+- **Alternate layouts and bounded appearance** — the first ring prototype is
+  [archived](sessions/IMPLEMENTATION_PLAN-ring-prototype-DONE.md); the gauge ring prototype is the
+  [active plan](../IMPLEMENTATION_PLAN.md). Remaining production Ring, Grid/Rail and appearance
+  controls stay deferred until that plan's owner review and follow-up planning; [spec](../specs/panel-layouts-and-appearance.md). No duplicate completion status here.
 
 ### D-025 tails
 - [ ] **Detail-card headline pair** (optional) — the big `61 KB/s / Upload` block from the iStat

@@ -449,3 +449,20 @@ wedge-content section and a revised hub/expansion section. Owner follow-up (same
 for **CPU → cores, Disk → volumes, Network → interfaces, Temperatures → sensors**; non-favourite
 stats are reached through a **More wedge** in the ring that opens an outer ring like a sub-ring. `RingReading` needs fraction/segment fields and `RingGeometry`
 a sub-radius wedge path. Detail cards must fit without clipping Close (E1 C1).
+
+### 2026-11-13 - D-036: Sub-ring and detail open together; More is a narrow extra wedge
+**Context:** Revising the layout spec for D-035 left two structural points open: how a stat's
+sub-ring and its detail card relate, and how the More wedge sits beside the favourites.
+**Alternatives:** Hover shows only the sub-ring and click adds the card; sub-ring first with the
+card one step further. For More: a ninth equal wedge; More taking one of the eight favourite slots.
+**Decision:** A sub-ring and its detail card open together as one branch (dwell previews both,
+click holds both, Close or Escape closes both). The More wedge is a narrow extra wedge at six
+o'clock showing an icon and the remaining-stat count; favourites share the rest of the circle and
+the eight-favourite limit is unchanged.
+**Rationale:** Owner choices. One rule for every wedge keeps the hover/hold behaviour accepted in
+E1; a narrow More wedge keeps eight favourites and most of their text width.
+**Consequences:** The branch state generalises from a hub-owned More ring to an outer arc owned by
+any wedge plus one detail card. Placement reserves the outer band and the card together. Spec
+proposals not decided here (child level as an arc centred on its parent, preset dimensions,
+gauges for Fans/Load/Uptime, colour-mode mapping, Power ceiling) stay open for the gauge prototype
+review. See [layout spec](../specs/panel-layouts-and-appearance.md).
