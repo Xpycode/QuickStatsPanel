@@ -1,7 +1,7 @@
 # Gauge Ring Prototype — Implementation Plan
 
-**Created:** 2026-11-14 · **Status:** Waves 1–3 complete (2.1 replanned under D-037; 3.2 added from the owner's look); Wave 4 (4.1) needs a new request
-**Progress:** 6/8 tasks complete; external acceptance: **E1** open.
+**Created:** 2026-11-14 · **Status:** Waves 1–4 complete (2.1 replanned under D-037; 3.2 added from the owner's look); Wave 5 (5.1) needs a new request
+**Progress:** 7/8 tasks complete; external acceptance: **E1** open.
 **Task states:** unchecked = pending / implemented-unverified / blocked (name the gate); checked =
 complete with required evidence. This file owns task status and evidence; `docs/TASKS.md` links
 here without duplicating completion boxes. Task identity is this plan path plus ID.
@@ -162,6 +162,8 @@ parent agree by construction.
   2026-11-14 (session 3): owner reviewed screenshots of the running 2.1 build, asked to add a
   bounded fix task (3.2) and run it **with Wave 3** (3.1 + 3.2 in parallel, Wave 3 only); owner
   authorized commit and push of the Wave 2 records (`3738529`, pushed).
+  2026-11-14 (session 4): owner requested "execute wave 4" only; Wave 4 done. Wave 5 needs a new
+  request. No push authorized.
 - **Precondition for Wave 1:** commit and push this plan, the revised spec and the pending
   documentation edits (with the owner's confirmation), so wave diffs are clean and the other Mac
   can see them.
@@ -474,7 +476,25 @@ E1 → 5.1. No cycle; every prerequisite is a task in this plan.
 
 ### Wave 4 (serial — native arcs; consumes 3.1, 3.2)
 
-- [ ] **4.1 — Native sub-ring and More arcs, captions and segment accessibility**
+- [x] **4.1 — Native sub-ring and More arcs, captions and segment accessibility** — done
+  2026-11-14 (`3a6338c`, review fixes included). Shims removed (greps empty), band on, controller on
+  `RingBranchState`/`resolveBranch`/`RingBranchCommand`. New `Model/RingArcSurface.swift` (arc
+  surface = ring outer radius → arc outer radius, so `arcFrames` include the 6-point gap; caption
+  slot `RingCaption` reserved at summon in the 20-point top/bottom strip of the band footprint on the
+  parent's side — a stat whose caption cannot fit gets a card and no arc; `RingPlan.arcOutlines` and
+  `ringDisc`; travel route = convex hull of arc outline + target, widened 12 pt, minus the ring disc)
+  and `Views/RingArcView.swift` (one non-activating arc panel; More entries reuse
+  `RingGaugeWedgeView` at `moreArcRung`; segments via `RingPart.gauge(stat:)` and shared
+  `RingGaugeFill`). `RingReading.fullReading` speaks paired readings. Fixture mode seeds CPU, Disk,
+  Network, Temperature from `--ring-parts=`; fixture wedge text follows the real AppSettings display
+  modes (read only). Behaviour change by design: crossing the ring from a sub-ring is no longer under
+  the 700 ms grace (a sibling previews after 350 ms) — E1 judgement. Independent read-only review
+  (Opus): PASS_WITH_CONCERNS; fixed: caption slot had no hit fill (click fell through to the app below
+  and hid the HUD — confirmed), hit fill scaled with theme opacity (now fixed `Color.black.opacity
+  (0.02)`), outlines stroked past the hit surface (now clipped), base not snapped to the replanned
+  frame after drag (now `setFrame`); also the base ring disc (separator gaps, hub band) got the same
+  hit fill — a 2.1-era gap the review noted. Not changed: the arc panel for a near-full sub-ring is
+  ~500 × 500 and mostly transparent (matches "sized to the arc's frame"; E1 note).
   - Depends on: 3.1. External gates: none.
   - Owns: `Sources/Panel/RingPanelController.swift`, `Sources/Views/RingView.swift`,
     `RingMoreView.swift`, `Views/AppKit/RingInputView.swift`, the ring section of
@@ -515,6 +535,13 @@ E1 → 5.1. No cycle; every prerequisite is a task in this plan.
     guards; findings fixed and affected checks rerun.
 
 ### Wave 5 (verification)
+
+Carry-over from 4.1 (2026-11-14) for the evidence and E1 checklist: native-only items are arc
+drawing, segment labels and caption look/placement, clicks in the gap/separators/caption slot and
+base-disc gaps reaching the panel (not the app below) at the lowest Custom opacity, arc panel order
+and shadow, VoiceOver on segment children and More-arc Press, teardown on drag/Settings/display
+change, the ring-crossing travel change, and the large transparent arc panel on `dense`. Add
+`RingArcSurfaceTests` to T-ring.
 
 - [ ] **5.1 — Integration evidence, fresh artifact and the owner checklist**
   - Depends on: 4.1. External gates: none for build and headless evidence; native claims wait for
@@ -642,6 +669,9 @@ Carried from the ring prototype plan; add new ones during execution.
 - Agent worktrees are created from `origin/main`, not local `HEAD`: push (or tell agents to read the
   plan/spec from the main checkout) before dispatch. Worktree builds need `Config/Debug.local.xcconfig`
   copied and an APFS clone (`cp -cR`) of `build/SparklePackages`.
+- Transparent pixels in a borderless panel pass clicks to the app below, and the global click-away
+  monitor then hides the HUD. Any area the resolver counts as inside needs a non-zero, theme-
+  independent hit fill (`RingArcView.hitFill`) — a theme-derived alpha can quantise to zero.
 - The Bash tool runs zsh: build `-only-testing` lists as an array (`O+=(...)`, `"${O[@]}"`); a
   space-joined string is passed as one argument and xcodebuild rejects it.
 
@@ -660,6 +690,7 @@ in place.
 | W1 / 1.1, 1.2, 1.3 | Parallel, three fresh developer agents (Sonnet), each in its own git worktree with its own generated project and derived data (adaptation: lets agents compile; coordinator re-validated on `main`) | Agents: 1.1 139/139 (incl. existing ring suites), 1.2 51/51, 1.3 B ok + 20/20. Integrated on `main`: B `build/GaugePrototype-W1-B-run01.log` exit 0; T-focus 14 suites `build/GaugePrototypeTests-W1-run02.xcresult` 211 tests, 0 failures (run01 was a shell argument error, no tests ran); `git diff --check` clean | `87dfaf7` (1.1), `f171627` (1.2), `baaa4e7` (1.3), `5d5a70f` (records); plan precondition `6558f59`; not pushed | Stop condition raised by 1.1 → 2.1 blocked on owner decision (Blocked tasks) |
 | W2 / 2.1 (replanned under D-037) | Serial (single coupled migration): one fresh developer agent in the main checkout, own derived data `build/GaugePrototype-2.1-agent*`; coordinator re-validated (adaptation: no worktree since nothing ran in parallel) | Agent: B exit 0, T-ring 229/229 (`build/GaugePrototypeTests-2.1-agent-run02.xcresult`; run01 had 2 own-test failures, fixed), compile-only Release `--ring-` count 0. Coordinator on `main`: B `build/GaugePrototype-W2-B-run01.log` exit 0; T-ring 15 suites `build/GaugePrototypeTests-W2-run01.xcresult` **229 tests, 0 failures** (+18 vs 211; replacements listed in 2.1); `git diff --check` clean | `ad22329` (2.1); replan/D-037 `64c9436`; not pushed | Fresh-build handoff done: old prototype PID 92303 quit normally, `GaugePrototype` Debug launched with `--ring-prototype` as PID 56912, path and SHA-256 `18544d9a…` verified. Wave 3 (3.1) ready, needs a new request |
 | W3 / 3.1, 3.2 (3.2 added from the owner's screenshots) | Parallel, two fresh developer agents in their own git worktrees from `origin/main` `3738529` (3.1 Opus — subtle state machine; 3.2 Sonnet), own derived data; coordinator cherry-picked onto `main`, applied the 3.2 → `RingPresentation` follow-up, ran an independent Opus read-only review of the 3.1 diff and fixed its findings | Agents: 3.1 T-ring 267/267 (run03) + B ok; 3.2 T-ring 232/232 (run03; run02 caught the "Nominal" width bug) + B ok. Coordinator on `main`: B `build/GaugePrototype-W3-B-run01.log` exit 0; T-ring 16 suites `build/GaugePrototypeTests-W3-run01.xcresult` 270/0; after review fixes `build/GaugePrototypeTests-W3-run02.xcresult` **273 tests, 0 failures** (+44 vs 229: 3.1 +38, 3.2 +3, review +3; none removed); red check without the fix 7 failures in the 3 new tests; final B `build/GaugePrototype-W3-B-run02.log` exit 0; `git diff --check` clean | `bbe1432` (3.1), `e73b7c7` (3.2), `5f5001a` (fallback), `77619ff` (review fixes); plan `6eec2c6`; not pushed | Fresh-build handoff: PID 56912 quit normally (~1 s), launched with `--ring-prototype` as PID 69117, path and SHA-256 `f06dec54…` verified. Band is off until 4.1, so the visible changes are 3.2's. Wave 4 (4.1) ready, needs a new request |
+| W4 / 4.1 | Serial (single coupled migration): one fresh developer agent (Opus — stale callbacks/teardown) in the main checkout, own derived data `build/GaugePrototype-4.1-agent*`; coordinator re-validated, ran an independent Opus read-only review and applied its fixes | Agent: baseline 273/0, T-ring run02 288/0 (17 suites), red check (bounding-box route forced) 2 failures as intended, B ok, compile-only Release `--ring-` count 0 (Debug control 4), shim greps empty. Coordinator on `main`: B `build/GaugePrototype-W4-B-run01.log` exit 0; T-ring `build/GaugePrototypeTests-W4-run01.xcresult` 288/0; after review fixes B `build/GaugePrototype-W4-B-run02.log` exit 0, T-ring `build/GaugePrototypeTests-W4-run02.xcresult` **288 tests, 0 failures** (+15 vs 273: `RingArcSurfaceTests` 13, `RingWedgeValueTests` 2; 2 shim tests replaced one-for-one); `git diff --check` clean. Review fixes are view/controller only (not hostless-testable) | `3a6338c` (4.1 + review fixes); not pushed | Fresh-build handoff: PID 69117 quit normally (~2 s), launched with `--ring-prototype --ring-fixture=twelve --ring-favourites=6 --ring-parts=typical` as PID 48142, path and SHA-256 `c138f26f…` verified. Wave 5 (5.1) ready, needs a new request |
 
 Planning performed no source change, build, test run, app launch or product acceptance.
 
