@@ -61,7 +61,7 @@ extension StatKind {
         case .network:             return "888 MB/s"
         case .fan:                 return "8888 rpm"
         case .power:               return "888.8 W"
-        case .temps:               return "Critical"
+        case .temps:               return "Nominal"   // widest thermal word in the headline font (3.2)
         case .loadAverage:         return "88.88"
         case .uptime:              return "88d 88h"
         }
