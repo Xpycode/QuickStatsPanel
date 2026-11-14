@@ -10,17 +10,18 @@
 - **Started:** 2026-06-04 · **Target:** macOS 15+ · **License:** PolyForm Noncommercial 1.0.0 (public repo)
 
 ## Now
-- **Funnel:** build · **Phase:** Ring gauges — prototype Wave 2 (2.1) in progress <!-- Phase changed: 2026-11-14 -->
+- **Funnel:** build · **Phase:** Ring gauges — prototype Wave 2 done, Wave 3 ready <!-- Phase changed: 2026-11-14 -->
 - **Focus:** v1.2.1 universal app/DMG notarized and local signed update feed verified. Published version remains v1.2.0; [release preparation](evidence/release-1.2.1.md).
 - **Blockers:** Strongbox backup confirmed incomplete; remaining updater controls and real upgrade acceptance open.
-- **Execution:** [Gauge ring prototype plan](../IMPLEMENTATION_PLAN.md) — Wave 1 complete (3/7). Fit stop resolved by **D-037** (icon-only accepted at Medium/8); 2.1 replanned; **Wave 2 (2.1) in progress**, Wave 2 only authorized.
+- **Execution:** [Gauge ring prototype plan](../IMPLEMENTATION_PLAN.md) — Waves 1–2 complete (4/7; 2.1 `ad22329`, replanned under **D-037**: icon-only accepted at Medium/8). **Ready:** Wave 3 (3.1, branch state + outer band), needs a new request. E1 open.
 - **Feature definition:** [Panel layouts and dynamic appearance](../specs/panel-layouts-and-appearance.md) — revised 2026-11-13 for **D-035/D-036** (gauge wedges, size presets, small hub, More wedge at six o'clock, sub-rings as outer arcs, AC-24…AC-41). Its Proposed/Open rows are built as provisional prototype baselines and decided at the plan's E1; fixtures-first for sub-ring parts was decided in planning.
-- **Current handoff:** [Wave 1 done, stopped at the fit rule](sessions/2026-11-14.md#resume--gauge-prototype-wave-1-done-stopped-at-the-fit-rule).
+- **Current handoff:** [Wave 2 done](sessions/2026-11-14.md#resume--gauge-prototype-wave-2-done).
 - **Validation:** 1.2.1: 19 focused hostless tests, Debug build/deep signature, signed-feed/tamper and release-tool fixture checks passed. Paired displays and live manual no-update check accepted; other updater controls and real upgrade untested.
-- **Next:** Finish 2.1 → fresh-build handoff. Push `main` (local commits not yet on origin). Separately: Strongbox backup, updater/upgrade acceptance and publication for 1.2.1.
+- **Next:** Optional early look at the running gauge ring → `/execute` Wave 3. Push `main` (7 local commits). Separately: Strongbox backup, updater/upgrade acceptance and publication for 1.2.1.
 - **Last updated:** 2026-11-14
 
 ## Recent
+- **2026-11-14** — Owner chose icon-only at Medium/8 (D-037); gauge ring 2.1 built: presets, real-data gauges, small hub, More wedge at six o'clock; 229 ring tests pass; fresh build launched.
 - **2026-11-14** — Gauge prototype Wave 1 built in parallel (geometry kit, gauge content/parts, card Close fix); 211 focused tests pass. Geometry check shows Medium with 8 favourites is too tight for values — stopped for an owner decision.
 - **2026-11-14** — Gauge ring prototype planned: 7 tasks in 5 waves, fixtures first for sub-ring parts, owner review (E1) at the end. Nothing built or run.
 - **2026-11-13** — Layout spec revised for the gauge ring after code and web research; owner chose sub-ring + card together and a narrow More wedge (D-036).

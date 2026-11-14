@@ -1,7 +1,7 @@
 # Gauge Ring Prototype — Implementation Plan
 
-**Created:** 2026-11-14 · **Status:** Wave 1 complete; fit rule resolved by D-037 (option a) and 2.1 replanned 2026-11-14; Wave 2 in progress
-**Progress:** 3/7 tasks complete; external acceptance: **E1** open.
+**Created:** 2026-11-14 · **Status:** Waves 1–2 complete (2.1 replanned under D-037); Wave 3 needs a new request
+**Progress:** 4/7 tasks complete; external acceptance: **E1** open.
 **Task states:** unchecked = pending / implemented-unverified / blocked (name the gate); checked =
 complete with required evidence. This file owns task status and evidence; `docs/TASKS.md` links
 here without duplicating completion boxes. Task identity is this plan path plus ID.
@@ -300,7 +300,21 @@ E1 → 5.1. No cycle; every prerequisite is a task in this plan.
 
 ### Wave 2 (serial — one coupled migration; consumes 1.1, 1.2, 1.3)
 
-- [ ] **2.1 — Gauge ring end to end: presets, gauges on real data, small hub, More wedge**
+- [x] **2.1 — Gauge ring end to end: presets, gauges on real data, small hub, More wedge** —
+  done 2026-11-14 (`ad22329`). New `Model/RingPrototypeOptions.swift` (pure argument parser),
+  `Views/RingGaugeWedgeView.swift`, `Tests/RingPrototypeOptionsTests.swift`. `RingGeometry.swift`
+  reduced to the `RingTarget` enum; `RingMoreGeometry`, `RingMoreRingView`, `.outerRing` and the
+  100/260/520/820 constants removed. Rungs for `eight`/`long` agree with the 1.1 matrix (Small all
+  icon-only; Medium Memory/Network icon-only; Large L/S); no unfit wedge. Hostless: layout,
+  containment, More wedge at 180° for 0/1/6/8 favourites in each preset, fixtures, real-data gauge
+  construction, options parsing. Code path only, for E1: drawing, motion/contrast variants,
+  accessibility with VoiceOver, controller wiring. **Deviations for E1:** every card now sits in
+  the fixed 380-point side column (More list above it), vertically centred on the ring, not beside
+  the parent wedge (3.1 restores parent-relative placement with the band); base panel is the
+  ring-only footprint (band footprint comes with 3.1); Small's More icon/count is contained but
+  inside the 6-point padding; Battery mark glyph may touch tall text; peak ticks start empty at
+  launch; the Temperature fixture gauge uses its own three-sensor sample while the card keeps
+  none. Interaction suite passed unmodified apart from `.outerRing` → `.sideList`.
   - Depends on: 1.1, 1.2, 1.3. External gates: none.
   - **Replanned 2026-11-14 (D-037):** the fit stop is relaxed to "at least icon only". The 1.1
     rung matrix is the expected outcome, not a failure: at Medium/8 with More, Memory, Disk,
@@ -562,6 +576,7 @@ in place.
 | Wave / IDs | Assignment or serial reason | Validation / evidence | Commit / exception | Remaining gates / next action or stop reason |
 |---|---|---|---|---|
 | W1 / 1.1, 1.2, 1.3 | Parallel, three fresh developer agents (Sonnet), each in its own git worktree with its own generated project and derived data (adaptation: lets agents compile; coordinator re-validated on `main`) | Agents: 1.1 139/139 (incl. existing ring suites), 1.2 51/51, 1.3 B ok + 20/20. Integrated on `main`: B `build/GaugePrototype-W1-B-run01.log` exit 0; T-focus 14 suites `build/GaugePrototypeTests-W1-run02.xcresult` 211 tests, 0 failures (run01 was a shell argument error, no tests ran); `git diff --check` clean | `87dfaf7` (1.1), `f171627` (1.2), `baaa4e7` (1.3), `5d5a70f` (records); plan precondition `6558f59`; not pushed | Stop condition raised by 1.1 → 2.1 blocked on owner decision (Blocked tasks) |
+| W2 / 2.1 (replanned under D-037) | Serial (single coupled migration): one fresh developer agent in the main checkout, own derived data `build/GaugePrototype-2.1-agent*`; coordinator re-validated (adaptation: no worktree since nothing ran in parallel) | Agent: B exit 0, T-ring 229/229 (`build/GaugePrototypeTests-2.1-agent-run02.xcresult`; run01 had 2 own-test failures, fixed), compile-only Release `--ring-` count 0. Coordinator on `main`: B `build/GaugePrototype-W2-B-run01.log` exit 0; T-ring 15 suites `build/GaugePrototypeTests-W2-run01.xcresult` **229 tests, 0 failures** (+18 vs 211; replacements listed in 2.1); `git diff --check` clean | `ad22329` (2.1); replan/D-037 `64c9436`; not pushed | Fresh-build handoff done: old prototype PID 92303 quit normally, `GaugePrototype` Debug launched with `--ring-prototype` as PID 56912, path and SHA-256 `18544d9a…` verified. Wave 3 (3.1) ready, needs a new request |
 
 Planning performed no source change, build, test run, app launch or product acceptance.
 

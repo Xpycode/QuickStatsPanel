@@ -4,9 +4,8 @@
 
 ## Active plan
 
-[Gauge ring prototype](../IMPLEMENTATION_PLAN.md) — Wave 1 complete 2026-11-14 (3/7); Wave 2 (2.1)
-blocked on an owner decision about the Medium/eight-favourite fit rule (see the plan's Blocked tasks).
-External gate E1 (owner review) closes the plan. Status and evidence live in the plan.
+[Gauge ring prototype](../IMPLEMENTATION_PLAN.md) — Waves 1–2 complete 2026-11-14 (4/7); fit rule
+resolved by D-037 (icon-only accepted at Medium/8). Wave 3 (3.1) ready. External gate E1 (owner review) closes the plan. Status and evidence live in the plan.
 
 Previous: [Native ring prototype](sessions/IMPLEMENTATION_PLAN-ring-prototype-DONE.md) complete
 2026-11-13; E1 closed with interaction accepted and look redirected (D-035).
