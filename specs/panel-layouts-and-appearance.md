@@ -643,7 +643,7 @@ typography without shrinking, fixture launch plumbing and the accessibility elem
 | More placement | Confirmed (D-036) | Narrow extra wedge at six o'clock, outside the eight favourite slots |
 | Hover dwell/close timing and pointer corridor | Accepted in native review | 350 ms dwell, 450 ms leave, bounded 700 ms transit grace; held detail wins over hover |
 | Child level shape | Proposed | Arc centred on the parent in one outer band, not a full ring |
-| Preset dimensions and content ladder | Proposed for prototype review | 260 / 360 / 460 points; per-wedge richest content that fits, so one ring may mix rungs |
+| Preset dimensions and content ladder | Proposed for prototype review | 260 / 360 / 460 points; per-wedge richest content that fits, so one ring may mix rungs; icon-only accepted where the ladder reaches it, including Medium with eight favourites (D-037) |
 | Gauges for Fans, Load and Uptime | Proposed; not in the mockup | Fan speed within its range; load ÷ cores; Uptime without a fill |
 | Fill basis differing from the configured text reading | Review on prototype | Fixed basis per stat; detail card names it |
 | Gauge fill colour versus the shared colour mode | Open | Prototype uses per-stat hues; mapping of Off / Value colour / Subtle tile tint undecided |

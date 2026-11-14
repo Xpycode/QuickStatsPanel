@@ -466,3 +466,20 @@ any wedge plus one detail card. Placement reserves the outer band and the card t
 proposals not decided here (child level as an arc centred on its parent, preset dimensions,
 gauges for Fans/Load/Uptime, colour-mode mapping, Power ceiling) stay open for the gauge prototype
 review. See [layout spec](../specs/panel-layouts-and-appearance.md).
+
+### 2026-11-14 - D-037: Icon-only wedges are acceptable at Medium with eight favourites
+**Context:** Gauge prototype task 1.1's rung matrix showed that at Medium with eight favourites and
+a More wedge, Memory, Disk, Network, Fans, Power and Uptime reach only the icon-only rung (their
+worst-case 16-point values are ~90 points; the diagonal wedges allow ~65). The plan's stop rule
+required at least icon + value for every stat there.
+**Alternatives:** (b) Large as default or Medium capped at six favourites; (c) a narrower or lighter
+ring value font; (d) icon stacked above value.
+**Decision:** Option (a): accept icon-only for those stats at Medium/8 (and wherever the ladder
+falls to it in any preset) and rely on the detail card and accessibility for the full reading.
+Text size, preset geometry and the eight-favourite limit are unchanged.
+**Rationale:** Owner choice. Matches the spec's existing ladder ("icon only always fits; the full
+reading stays in the card"); keeps 16-point text and preset geometry; legibility of a glance with
+mixed rungs is judged at E1.
+**Consequences:** The plan's Medium/8 stop rule is relaxed to "every wedge fits at least icon
+only". More-arc entries (4.1) follow the same ladder, so most arcs show icon/gauge entries; arcs
+that cannot fit even that use the side list. Revisit at E1 if icon-only proves unreadable.

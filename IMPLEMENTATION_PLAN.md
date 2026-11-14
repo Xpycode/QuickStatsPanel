@@ -1,6 +1,6 @@
 # Gauge Ring Prototype — Implementation Plan
 
-**Created:** 2026-11-14 · **Status:** Wave 1 complete; **stopped before Wave 2** on the Medium/eight-favourite fit rule (see Blocked tasks)
+**Created:** 2026-11-14 · **Status:** Wave 1 complete; fit rule resolved by D-037 (option a) and 2.1 replanned 2026-11-14; Wave 2 in progress
 **Progress:** 3/7 tasks complete; external acceptance: **E1** open.
 **Task states:** unchecked = pending / implemented-unverified / blocked (name the gate); checked =
 complete with required evidence. This file owns task status and evidence; `docs/TASKS.md` links
@@ -35,8 +35,10 @@ time behind hostless tests. AC-37, and AC-34 on real data, wait for that plan.
 Terminology: **owner** is the human reviewer. The wedge that a child arc or card belongs to is its
 **parent target**.
 
-Stop and replan, instead of pressing on, when: the Medium preset with eight favourites and a More
-wedge cannot fit at least icon + value for every stat's worst-case string; any preset needs text
+Stop and replan, instead of pressing on, when: any wedge in any preset cannot fit at least the
+icon-only rung (D-037 accepts icon-only, including Medium with eight favourites and a More wedge,
+with the full reading in the card and to accessibility; the earlier icon + value floor is retired);
+any preset needs text
 smaller than 13/16/12 points, rotated or truncated; the outward route from a wedge into its
 sub-ring or card cannot be preserved with the accepted timings; or success would need a second
 outer band, recursive rings, a new permission or a sampler change. Use the spec's list/card
@@ -154,8 +156,9 @@ parent agree by construction.
 
 ## Execution schedule and ownership
 
-- **Execution scope/limits:** 2026-11-14 owner requested "execute wave 1" only. Wave 1 done;
-  Wave 2 needs a new request after the stop condition is resolved.
+- **Execution scope/limits:** 2026-11-14 owner requested "execute wave 1" only; Wave 1 done.
+  2026-11-14 (later): owner chose fit option (a) (D-037), asked to replan 2.1 and execute **Wave 2
+  only**. Wave 3 needs a new request. No push authorized.
 - **Precondition for Wave 1:** commit and push this plan, the revised spec and the pending
   documentation edits (with the owner's confirmation), so wave diffs are clean and the other Mac
   can see them.
@@ -299,6 +302,15 @@ E1 → 5.1. No cycle; every prerequisite is a task in this plan.
 
 - [ ] **2.1 — Gauge ring end to end: presets, gauges on real data, small hub, More wedge**
   - Depends on: 1.1, 1.2, 1.3. External gates: none.
+  - **Replanned 2026-11-14 (D-037):** the fit stop is relaxed to "at least icon only". The 1.1
+    rung matrix is the expected outcome, not a failure: at Medium/8 with More, Memory, Disk,
+    Network, Fans, Power and Uptime draw icon only; Small with 7–8 favourites is icon only
+    throughout. Consume the 1.1 API as built (`RingSizePreset` lives in `RingSector.swift`; the
+    layout hit type is `RingLayoutTarget`, because `RingTarget` already exists) and the 1.2 API as
+    built (`RingGaugeMapper`, `RingPalette`, `RingRateScale`, `RingPeakWindow`). An icon-only
+    wedge draws its gauge at full strength with the stat icon centred in its text frame; its
+    accessibility value and the card always carry the full reading, whatever the rung. The ladder
+    choice stays inside `RingLayout`; views never re-measure or pick a rung themselves.
   - Owns: `Sources/Model/RingGeometry.swift` (retired or reduced to shared helpers),
     `RingPresentation.swift`, `RingPlacement.swift`, `RingHitResolver.swift`,
     `RingInteractionState.swift` (only where frames or targets change), `StatDescriptor.swift`
@@ -333,8 +345,11 @@ E1 → 5.1. No cycle; every prerequisite is a task in this plan.
     drag, pin, click-away and first click behave as accepted in the earlier review; no ring
     argument or drag writes a persistent setting; accessibility elements exist for each wedge
     (name, value, availability, expanded), the More wedge (count) and the gear, with Press equal
-    to click. Report the rung actually chosen per preset for the `eight` and `long` fixtures.
-  - Stop condition: the Medium/eight-favourite fit rule in "Goal and bounded scope".
+    to click. Report the rung actually chosen per preset for the `eight` and `long` fixtures and
+    confirm it agrees with the 1.1 matrix; icon-only wedges draw icon and gauge with nothing
+    clipped.
+  - Stop condition: the relaxed fit rule in "Goal and bounded scope" (a wedge that cannot fit even
+    icon only), or any other stop listed there.
   - Backpressure: B; T-ring. Surviving interaction suites (hover, dwell, hold, leave, transit,
     Escape, stale token, drag, accessibility) pass unmodified apart from where the More target
     moved; replaced hub-target, fixed-radius and outer-ring tests are listed with their
@@ -385,6 +400,9 @@ E1 → 5.1. No cycle; every prerequisite is a task in this plan.
     `AppDelegate.swift`, `Sources/Model/StatsStore.swift` (fixture seeding from part sets),
     `RingPresentation.swift` (fixtures), plus removal of the 3.1 compatibility accessors in the
     model files; targeted fixes to the ring test suites.
+  - D-037 carry-over: More-arc entries use the same content ladder including icon only, which
+    the 1.1 arc fit shows is the usual case; an arc that cannot fit icon-only entries uses the side
+    list chosen at summon.
   - Build: one non-activating arc panel sized to the arc's frame, following the existing window
     model (no large transparent window, no click interception in travel regions). The More arc
     draws each non-favourite as a full gauge wedge with text; sub-ring arcs draw each part as a
@@ -533,23 +551,17 @@ Carried from the ring prototype plan; add new ones during execution.
 
 ## Blocked tasks
 
-- **2.1 (and 3.1–5.1 behind it) — stopped, needs owner decision.** The stop condition in "Goal
-  and bounded scope" fired in 1.1: at Medium with 8 favourites and a More wedge, the diagonal
-  wedges (~40°, ~115 points deep) allow ~65 points of padded text; a 16-point value such as
-  Memory's or Network's worst-case string is ~90 points, so six stats fall to icon-only
-  ([matrix](docs/evidence/gauge-ring-w1-rung-matrix.md)). Note the ladder's icon + value rung is
-  horizontal and therefore wider than stacked label + value, so it rarely rescues a wedge.
-  Related finding for 4.1: More-arc entries with label + value text fit only one or two per arc.
-  Options to decide before replanning 2.1: (a) accept icon-only for those stats at Medium/8 and
-  rely on the card; (b) make Large the default or cap Medium at 6 favourites; (c) a narrower or
-  lighter value font for the ring (spec currently fixes 16 points); (d) stack icon above value so
-  that rung needs only the value width. More-arc entries likely need an icon/gauge-only rung.
+None. *Resolved 2026-11-14:* 2.1 had stopped on the Medium/eight-favourite fit rule (1.1
+[matrix](docs/evidence/gauge-ring-w1-rung-matrix.md): six stats icon-only). The owner chose option
+(a) — accept icon-only and rely on the card ([D-037](docs/decisions.md)); options (b) Large default
+or six-favourite cap, (c) narrower value font and (d) stacked icon/value were declined. 2.1 replanned
+in place.
 
 ## Execution log
 
 | Wave / IDs | Assignment or serial reason | Validation / evidence | Commit / exception | Remaining gates / next action or stop reason |
 |---|---|---|---|---|
-| W1 / 1.1, 1.2, 1.3 | Parallel, three fresh developer agents (Sonnet), each in its own git worktree with its own generated project and derived data (adaptation: lets agents compile; coordinator re-validated on `main`) | Agents: 1.1 139/139 (incl. existing ring suites), 1.2 51/51, 1.3 B ok + 20/20. Integrated on `main`: B `build/GaugePrototype-W1-B-run01.log` exit 0; T-focus 14 suites `build/GaugePrototypeTests-W1-run02.xcresult` 211 tests, 0 failures (run01 was a shell argument error, no tests ran); `git diff --check` clean | see commit after `6558f59` | Stop condition raised by 1.1 → 2.1 blocked on owner decision (Blocked tasks) |
+| W1 / 1.1, 1.2, 1.3 | Parallel, three fresh developer agents (Sonnet), each in its own git worktree with its own generated project and derived data (adaptation: lets agents compile; coordinator re-validated on `main`) | Agents: 1.1 139/139 (incl. existing ring suites), 1.2 51/51, 1.3 B ok + 20/20. Integrated on `main`: B `build/GaugePrototype-W1-B-run01.log` exit 0; T-focus 14 suites `build/GaugePrototypeTests-W1-run02.xcresult` 211 tests, 0 failures (run01 was a shell argument error, no tests ran); `git diff --check` clean | `87dfaf7` (1.1), `f171627` (1.2), `baaa4e7` (1.3), `5d5a70f` (records); plan precondition `6558f59`; not pushed | Stop condition raised by 1.1 → 2.1 blocked on owner decision (Blocked tasks) |
 
 Planning performed no source change, build, test run, app launch or product acceptance.
 

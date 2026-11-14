@@ -10,14 +10,14 @@
 - **Started:** 2026-06-04 · **Target:** macOS 15+ · **License:** PolyForm Noncommercial 1.0.0 (public repo)
 
 ## Now
-- **Funnel:** build · **Phase:** Ring gauges — prototype Wave 1 done, stopped before Wave 2 on a fit rule <!-- Phase changed: 2026-11-14 -->
+- **Funnel:** build · **Phase:** Ring gauges — prototype Wave 2 (2.1) in progress <!-- Phase changed: 2026-11-14 -->
 - **Focus:** v1.2.1 universal app/DMG notarized and local signed update feed verified. Published version remains v1.2.0; [release preparation](evidence/release-1.2.1.md).
 - **Blockers:** Strongbox backup confirmed incomplete; remaining updater controls and real upgrade acceptance open.
-- **Execution:** [Gauge ring prototype plan](../IMPLEMENTATION_PLAN.md) — Wave 1 (1.1, 1.2, 1.3) complete, 3/7. **Blocked:** 2.1 stopped by the plan's Medium/eight-favourite fit rule — six stats reach only icon-only ([matrix](evidence/gauge-ring-w1-rung-matrix.md)); owner chooses among options (a)–(d) in the plan's Blocked tasks, then replan 2.1.
+- **Execution:** [Gauge ring prototype plan](../IMPLEMENTATION_PLAN.md) — Wave 1 complete (3/7). Fit stop resolved by **D-037** (icon-only accepted at Medium/8); 2.1 replanned; **Wave 2 (2.1) in progress**, Wave 2 only authorized.
 - **Feature definition:** [Panel layouts and dynamic appearance](../specs/panel-layouts-and-appearance.md) — revised 2026-11-13 for **D-035/D-036** (gauge wedges, size presets, small hub, More wedge at six o'clock, sub-rings as outer arcs, AC-24…AC-41). Its Proposed/Open rows are built as provisional prototype baselines and decided at the plan's E1; fixtures-first for sub-ring parts was decided in planning.
-- **Current handoff:** [Gauge prototype planning](sessions/2026-11-13.md#resume--gauge-prototype-planning).
+- **Current handoff:** [Wave 1 done, stopped at the fit rule](sessions/2026-11-14.md#resume--gauge-prototype-wave-1-done-stopped-at-the-fit-rule).
 - **Validation:** 1.2.1: 19 focused hostless tests, Debug build/deep signature, signed-feed/tamper and release-tool fixture checks passed. Paired displays and live manual no-update check accepted; other updater controls and real upgrade untested.
-- **Next:** Owner decides the Medium/8 fit options → replan 2.1 → `/execute` Wave 2. Push `main` (local commits not yet on origin). Separately: Strongbox backup, updater/upgrade acceptance and publication for 1.2.1.
+- **Next:** Finish 2.1 → fresh-build handoff. Push `main` (local commits not yet on origin). Separately: Strongbox backup, updater/upgrade acceptance and publication for 1.2.1.
 - **Last updated:** 2026-11-14
 
 ## Recent
