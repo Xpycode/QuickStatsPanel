@@ -20,9 +20,9 @@ struct StatDetailView: View {
     var showsUnavailableState = false
     /// Ring only: shows a Close row. The strip leaves this `nil` and is unchanged.
     var onClose: (() -> Void)?
-    /// Ring only, set when the card is shown in its reserved frame: wraps the body (not the
-    /// Close row) in a vertical `ScrollView`. Measurement leaves it false so `fittingSize`
-    /// reports natural height.
+    /// Ring only, set when the card is shown in its reserved frame: lets the body (not the
+    /// Close row) scroll when, and only when, it is taller than the frame. Measurement leaves
+    /// it false so `fittingSize` reports natural height.
     var scrollsBody = false
 
     /// Card graph geometry. Wide enough for roughly a minute of 2pt bars — the
@@ -56,15 +56,18 @@ struct StatDetailView: View {
         Group {
             if let onClose {
                 // Ring: only the card body scrolls; Close stays outside the scroll region so
-                // it is always visible. Scrolling applies only when the frame is shorter than
-                // the content; a card that fits looks identical to an unwrapped one.
-                VStack(alignment: .leading, spacing: 6) {
-                    if scrollsBody {
-                        ScrollView(.vertical) { card.frame(maxWidth: .infinity, alignment: .leading) }
-                    } else {
-                        card
+                // it is always visible. A card that fits is laid out exactly as measured, with
+                // no ScrollView at all: a ScrollView under the "Always show scroll bars"
+                // setting reserves a legacy scroller's width, which wraps text the measurement
+                // never wrapped. Only a card taller than its frame falls through to scrolling.
+                if scrollsBody {
+                    ViewThatFits(in: .vertical) {
+                        ringBody(card, onClose, theme: theme)
+                        ringBody(ScrollView(.vertical) { card.frame(maxWidth: .infinity, alignment: .leading) },
+                                 onClose, theme: theme)
                     }
-                    closeRow(onClose, theme: theme)
+                } else {
+                    ringBody(card, onClose, theme: theme)
                 }
             } else {
                 card
@@ -80,6 +83,13 @@ struct StatDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: theme.metrics.cornerRadius, style: .continuous))
         .onDisappear {
             if let transferStat { store.cancelTransferReset(for: transferStat) }
+        }
+    }
+
+    private func ringBody<Body: View>(_ body: Body, _ onClose: @escaping () -> Void, theme: Theme) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            body
+            closeRow(onClose, theme: theme)
         }
     }
 

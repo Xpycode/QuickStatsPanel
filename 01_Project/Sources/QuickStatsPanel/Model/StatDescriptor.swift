@@ -156,8 +156,9 @@ extension StatsStore {
     /// `reservingProcessRows` is Ring-only: Ring freezes each card's frame at summon, before the
     /// top-process sampler has produced rows, so an empty list still reports its section with the
     /// full row count. The Strip leaves it false and keeps nil-for-empty.
-    func resolvedDescriptor(for kind: StatKind, reservingProcessRows: Bool = false) -> StatDescriptor? {
-        guard var descriptor = descriptor(for: kind, settings: AppSettings.shared,
+    func resolvedDescriptor(for kind: StatKind, reservingProcessRows: Bool = false,
+                            settings: AppSettings = AppSettings.shared) -> StatDescriptor? {
+        guard var descriptor = descriptor(for: kind, settings: settings,
                                           reservingProcessRows: reservingProcessRows) else { return nil }
         let resolved = tint(for: kind, percent: descriptor.loadPercent, reversed: kind == .battery)
         descriptor.band = resolved.band
@@ -167,12 +168,39 @@ extension StatsStore {
 
     /// Live wedge reading for `kind`; unavailable stats keep their identity. The gauge is built
     /// from the live samples and agrees with the reading's availability.
-    func ringReading(for kind: StatKind) -> RingReading {
-        guard var reading = resolvedDescriptor(for: kind).map(RingReading.init(descriptor:)) else {
+    ///
+    /// The wedge never draws a paired or mode-dependent headline. `ringWedgeForms` replaces the
+    /// value and its worst case with one compact form, so the text block measured at summon
+    /// bounds every value a tick can later produce; the full pair stays in the detail card.
+    func ringReading(for kind: StatKind, settings: AppSettings = AppSettings.shared) -> RingReading {
+        guard var reading = resolvedDescriptor(for: kind, settings: settings)
+            .map(RingReading.init(descriptor:)) else {
             return .unavailable(kind)
+        }
+        if let forms = ringWedgeForms(for: kind, settings: settings) {
+            reading.value = forms.value
+            reading.widestValue = forms.widest
         }
         reading.gauge = ringGauge(for: kind)
         return reading
+    }
+
+    /// Compact wedge value and its worst case for the stats whose headline can be a pair or a
+    /// long phrase; nil for stats whose headline is already a single short token.
+    func ringWedgeForms(for kind: StatKind, settings: AppSettings) -> (value: String, widest: String)? {
+        switch kind {
+        case .power:
+            return (power.wedgeValue(for: settings.powerDisplayMode), PowerSample.wedgeWidest)
+        case .temps:
+            let unit = settings.temperatureUnit
+            let mode = settings.temperatureDisplayMode
+            return (temps.wedgeValue(for: mode, unit: unit), mode.wedgeWidest(unit: unit))
+        case .loadAverage:
+            return (loadAverage.wedgeValue(for: settings.loadDisplayMode),
+                    LoadSample.wedgeWidest)
+        default:
+            return nil
+        }
     }
 
     /// Wedge gauge for `kind` from the live samples (a presentation value; drawing it never
@@ -581,6 +609,61 @@ extension StatsStore {
                     ("Uptime", uptime.compactFormatted),
                     ("Booted", uptime.bootDateFormatted),
                 ])
+        }
+    }
+}
+
+// MARK: - Compact wedge forms
+
+extension PowerSample {
+    /// Widest wedge form: one reading in watts. Equals the unavailable-wedge worst case.
+    static let wedgeWidest = "888.8 W"
+
+    /// One watts figure for the wedge. A paired mode shows the figure that matters when the
+    /// pair is collapsed: whole-system draw for charger-plus-system, CPU plus GPU for the split.
+    func wedgeValue(for mode: PowerDisplayMode) -> String {
+        switch mode {
+        case .system, .dcInAndSystem: return systemFormatted ?? "\u{2014} W"
+        case .chipTotal: return totalFormatted
+        case .cpu: return cpuFormatted
+        case .gpu: return gpuFormatted
+        case .cpuAndGPU: return String(format: "%.1f W", cpuWatts + gpuWatts)
+        case .dcIn: return dcInFormatted ?? "\u{2014} W"
+        }
+    }
+}
+
+extension TemperatureSample {
+    /// Status modes show the thermal word; a paired mode keeps the word and leaves the sensor
+    /// reading to the card.
+    func wedgeValue(for mode: TemperatureDisplayMode, unit: TemperatureUnit) -> String {
+        switch mode {
+        case .status, .statusAndCPU, .statusAndGPU: return headlineFormatted
+        case .cpu, .gpu: return headline(for: mode, unit: unit)
+        }
+    }
+}
+
+extension TemperatureDisplayMode {
+    func wedgeWidest(unit: TemperatureUnit) -> String {
+        switch self {
+        // "Nominal", not "Critical": in the heavy headline font the m makes it the widest of the
+        // four thermal words.
+        case .status, .statusAndCPU, .statusAndGPU: return "Nominal"
+        case .cpu, .gpu: return "888\u{00B0}\(unit.symbol)"
+        }
+    }
+}
+
+extension LoadSample {
+    static let wedgeWidest = "88.88"
+
+    /// The ratio-to-cores phrase is card-only; the wedge shows the 1-minute figure it is built on.
+    func wedgeValue(for mode: LoadDisplayMode) -> String {
+        switch mode {
+        case .oneMinute, .relativeToCores: return oneFormatted
+        case .fiveMinutes: return fiveFormatted
+        case .fifteenMinutes: return fifteenFormatted
         }
     }
 }
