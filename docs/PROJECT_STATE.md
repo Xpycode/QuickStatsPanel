@@ -17,7 +17,7 @@
 - **Feature definition:** [Panel layouts and dynamic appearance](../specs/panel-layouts-and-appearance.md) — revised 2026-11-13 for **D-035/D-036** (gauge wedges, size presets, small hub, More wedge at six o'clock, sub-rings as outer arcs, AC-24…AC-41). Its Proposed/Open rows are built as provisional prototype baselines and decided at the plan's E1; fixtures-first for sub-ring parts was decided in planning.
 - **Current handoff:** [E1 in progress, fix pass 1 built](sessions/2026-11-15.md#resume--e1-in-progress-fix-pass-1-built).
 - **Validation:** 1.2.1: 19 focused hostless tests, Debug build/deep signature, signed-feed/tamper and release-tool fixture checks passed. Paired displays and live manual no-update check accepted; other updater controls and real upgrade untested.
-- **Next:** Owner rechecks fix pass 1 on the running build, then E1 continues at Step 3 (~30 rows + S1/Q1–Q9) → close the plan. Push `7a8f331`. Separately: Strongbox backup, updater/upgrade acceptance and publication for 1.2.1.
+- **Next:** Owner rechecks fix pass 1 on the running build, then E1 continues at Step 3 (~30 rows + S1/Q1–Q9) → close the plan. Separately: Strongbox backup, updater/upgrade acceptance and publication for 1.2.1.
 - **Last updated:** 2026-11-15
 
 ## Recent
