@@ -118,6 +118,15 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 - [ ] `cornerRadius` 12pt reads fine at the snug width — revisit if it ever feels too round.
 
 ## Inbox
+- [ ] **Strip drag may switch Space at a screen edge (2026-11-15).** Ring E1 found F4: `performDrag`
+      held at a left/right edge makes macOS switch Space. Fixed for the Ring (event-tracking loop,
+      `RingPanelController.trackDrag`); the Strip still uses `performDrag` (`PanelWindowController`).
+      Owner to confirm whether the Strip shows it.
+- [ ] **Text orientation setting (owner request, 2026-11-14).** As in MousePlus (`LabelOrientation`:
+      upright / radial / tangential, auto-flipped). Conflicts with the spec's horizontal-text rule
+      (D-035); decide at Ring E1 close.
+- [ ] **Sub-ring caption/label toggle (owner idea, 2026-11-14).** Possible Settings toggle for hover
+      captions versus in-segment labels. Not requested yet.
 - [ ] **Power sampler stop/restart race — awaiting reproduction (2026-10-03).** Review found
       timer cancellation followed by main-thread reader/SMC teardown while a queued tick may still
       run. No crash reproduced. Validate queue-confined teardown before changing sampler lifecycle.

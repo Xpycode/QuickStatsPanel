@@ -10,23 +10,22 @@
 - **Started:** 2026-06-04 · **Target:** macOS 15+ · **License:** PolyForm Noncommercial 1.0.0 (public repo)
 
 ## Now
-- **Funnel:** build · **Phase:** Ring gauges — prototype built, awaiting owner review (E1) <!-- Phase changed: 2026-11-14 -->
+- **Funnel:** build · **Phase:** Ring gauges — owner review (E1) in progress <!-- Phase changed: 2026-11-14 -->
 - **Focus:** v1.2.1 universal app/DMG notarized and local signed update feed verified. Published version remains v1.2.0; [release preparation](evidence/release-1.2.1.md).
 - **Blockers:** Strongbox backup confirmed incomplete; remaining updater controls and real upgrade acceptance open.
-- **Execution:** [Gauge ring prototype plan](../IMPLEMENTATION_PLAN.md) — Waves 1–5 complete (8/8). **Awaiting acceptance:** E1 owner review, [checklist](evidence/gauge-ring-prototype.md#e1-owner-review-checklist).
+- **Execution:** [Gauge ring prototype plan](../IMPLEMENTATION_PLAN.md) — 8/8 tasks complete. **E1 in progress:** 12 rows pass, A1 skipped; fix pass 1 built for F2/F4 and owner corrections; [results](evidence/gauge-ring-prototype.md#owner-results).
 - **Feature definition:** [Panel layouts and dynamic appearance](../specs/panel-layouts-and-appearance.md) — revised 2026-11-13 for **D-035/D-036** (gauge wedges, size presets, small hub, More wedge at six o'clock, sub-rings as outer arcs, AC-24…AC-41). Its Proposed/Open rows are built as provisional prototype baselines and decided at the plan's E1; fixtures-first for sub-ring parts was decided in planning.
-- **Current handoff:** [Wave 5 done](sessions/2026-11-14.md#resume--gauge-prototype-wave-5-done-e1-ready).
+- **Current handoff:** [E1 in progress, fix pass 1 built](sessions/2026-11-15.md#resume--e1-in-progress-fix-pass-1-built).
 - **Validation:** 1.2.1: 19 focused hostless tests, Debug build/deep signature, signed-feed/tamper and release-tool fixture checks passed. Paired displays and live manual no-update check accepted; other updater controls and real upgrade untested.
-- **Next:** Owner runs the E1 batch on the running build (PID 92319) and returns results → record, fix bounded corrections, close the plan. Push `main` (local commits). Separately: Strongbox backup, updater/upgrade acceptance and publication for 1.2.1.
-- **Last updated:** 2026-11-14
+- **Next:** Owner rechecks fix pass 1 on the running build, then E1 continues at Step 3 (~30 rows + S1/Q1–Q9) → close the plan. Push `7a8f331`. Separately: Strongbox backup, updater/upgrade acceptance and publication for 1.2.1.
+- **Last updated:** 2026-11-15
 
 ## Recent
+- **2026-11-15** — E1 review run in batches: most branch, More and placement rows pass; clipped card notes and a Space switch on drag found and fixed with the owner's arc and card corrections; fresh build running.
 - **2026-11-14** — Wave 5 done: Release check clean (no `--ring-` literal or ring view symbol), 390 hostless tests pass (reconciled against 212), independent review PASS with one minor fixture-Settings concern; evidence and a finite E1 checklist written; fresh build launched.
 - **2026-11-14** — Wave 4 built: native sub-ring and More arcs with hover captions and segment accessibility; 3.1 shims gone, band on; review found clicks falling through transparent inside areas (fixed with a hit fill); 288 ring tests pass; fresh build launched on fixtures.
 - **2026-11-14** — Wave 3 built: any wedge can own the outer arc and card (band stays off until Wave 4), cards no longer scroll or clip under always-visible scroll bars, long wedge values fit; review found and fixed a More flicker; 273 ring tests pass; fresh build launched.
 - **2026-11-14** — Owner chose icon-only at Medium/8 (D-037); gauge ring 2.1 built: presets, real-data gauges, small hub, More wedge at six o'clock; 229 ring tests pass; fresh build launched.
-- **2026-11-14** — Gauge prototype Wave 1 built in parallel (geometry kit, gauge content/parts, card Close fix); 211 focused tests pass. Geometry check shows Medium with 8 favourites is too tight for values — stopped for an owner decision.
-- **2026-11-14** — Gauge ring prototype planned: 7 tasks in 5 waves, fixtures first for sub-ring parts, owner review (E1) at the end. Nothing built or run.
 
 ## What we're building
 Press a global hotkey → a **thin** wide strip appears near the cursor showing live stats as compact
@@ -39,7 +38,7 @@ Fans, Power, Temperatures, plus per-stat history graphs (2026-07-27).
 
 ## Progress
 **Features** ✅ roadmap + retained transfers shipped · **UI** ✅ approved release scope; remaining manual checks deferred ·
-**Testing** ✅ 390 hostless tests (incl. 270 ring) + bounded hardware probes · **Docs** ✅ ·
+**Testing** ✅ 390 hostless tests + bounded hardware probes · **Docs** ✅ ·
 **Distribution** ✅ v1.2.0 notarized + released; GitHub and website downloads verified
 
 ## Detail (read only if needed)
