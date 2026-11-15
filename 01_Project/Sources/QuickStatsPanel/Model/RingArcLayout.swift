@@ -49,7 +49,7 @@ struct RingArcSegment: Equatable, Sendable {
 /// sliver needs 8 points at that radius. A label is kept only if the block then fits
 /// inside its sector, which also limits it by the band depth. The arc spans the entries' needs plus separator and
 /// wider group gaps, at least the parent's span and at most a full circle, centred on
-/// the parent's mid-angle. Spare span beyond the needs is shared evenly in proportion.
+/// the parent's mid-angle. Spare span beyond the needs is shared equally among entries.
 /// When the needs exceed a full circle, labelled entries fall back to slivers
 /// (largest need first) if `allowsSlivers`; if that still does not fit, or slivers are
 /// not allowed, the layout reports `.cannotFit` and places nothing. Text is never
@@ -137,12 +137,16 @@ struct RingArcLayout: Equatable, Sendable {
             let total = sum + gapTotal
             let span = min(2 * Double.pi, max(total, parentSpan))
             let full = span >= 2 * Double.pi - 1e-9
-            let scale = max(0, span - gapTotal - (full ? separator : 0)) / sum
+            let available = max(0, span - gapTotal - (full ? separator : 0))
+            let sparePerEntry = max(0, available - sum) / Double(needs.count)
+            // Preserve provisional placement while solving an overfull arc. Such
+            // needs must still pass the overflow/sliver gate before being rendered.
+            let scale = min(1, available / sum)
             var cursor = parentMidAngle - span / 2
             var centres: [Double] = [], widths: [Double] = []
             for i in needs.indices {
                 cursor += gaps[i]
-                let width = needs[i] * scale
+                let width = needs[i] * scale + sparePerEntry
                 centres.append(cursor + width / 2)
                 widths.append(width)
                 cursor += width

@@ -1,7 +1,7 @@
 # Gauge Ring Prototype — Implementation Plan
 
 **Created:** 2026-11-14 · **Status:** all waves complete (2.1 replanned under D-037; 3.2 added from the owner's look); awaiting owner acceptance **E1**
-**Progress:** 8/8 tasks complete; external acceptance: **E1** open ([checklist](docs/evidence/gauge-ring-prototype.md#e1-owner-review-checklist)).
+**Progress:** 12/12 tasks complete (8 original tasks + F5–F8 corrections); external acceptance: **E1** open ([checklist](docs/evidence/gauge-ring-prototype.md#e1-owner-review-checklist)).
 **Task states:** unchecked = pending / implemented-unverified / blocked (name the gate); checked =
 complete with required evidence. This file owns task status and evidence; `docs/TASKS.md` links
 here without duplicating completion boxes. Task identity is this plan path plus ID.
@@ -655,6 +655,24 @@ Expected count is 0 (`grep` then exits 1, which is the pass). Run the same `grep
   - While unavailable: bounded prototype corrections and documentation only. The 1.2.1 Strongbox,
     updater and upgrade gates are separate and unchanged.
 
+## E1 fix pass 2 — F5–F8
+
+Authorized by the owner on 2026-11-15 after Step 3 passed on Medium. Bounded corrections;
+E1 remains open and the prepared 1.2.1 distribution artifacts are unchanged.
+
+- [x] **F5:** share spare arc span equally, preserving intrinsic label needs and gaps.
+- [x] **F6:** shared pointer-tracking drag for Strip, Ring hub and whole-list header;
+  disable native window dragging, preserve Strip position rules and reset its SwiftUI gesture.
+- [x] **F7:** remove the arc panel shadow that silhouettes the empty caption slot;
+  retain the nonzero hit fill to prevent click-through. Visual verdict remains E1.
+- [x] **F8:** one radial gradient for temperature wedges and segments, with palette anchors
+  fixed to the selected scale and actual ring centre.
+
+Validation: Debug and Release builds and 391 hostless tests pass; Release excludes prototype flags. F5 regression fails against old code
+(18 assertions), then passes with the fix. Independent F6/F7 review found no concrete defect.
+Native rechecks, including repeated Strip gestures, remain pending; see the finite
+[fix pass 2 evidence and recheck](docs/evidence/gauge-ring-fix-pass-2.md).
+
 ## After E1 — deferred follow-up, not executable tasks
 
 - Per-part sampling plan: per-core CPU with core class from `cluster-type`, volume enumeration by
@@ -701,6 +719,7 @@ in place.
 
 | Wave / IDs | Assignment or serial reason | Validation / evidence | Commit / exception | Remaining gates / next action or stop reason |
 |---|---|---|---|---|
+| E1 / F5–F8 | Fresh independent agents: F5 arc spacing, F8 heat rendering; coordinator: F6 drag and F7 shadow; fresh read-only F6/F7 review | Debug/Release builds pass, 391/0 hostless tests; F5 red 18 assertions; deep signature pass; Release flags 0 / Debug 4. [Evidence](docs/evidence/gauge-ring-fix-pass-2.md) | Scoped local execution commit; see git log | Implementation scope complete; affected native rechecks and E1 remain open |
 | W1 / 1.1, 1.2, 1.3 | Parallel, three fresh developer agents (Sonnet), each in its own git worktree with its own generated project and derived data (adaptation: lets agents compile; coordinator re-validated on `main`) | Agents: 1.1 139/139 (incl. existing ring suites), 1.2 51/51, 1.3 B ok + 20/20. Integrated on `main`: B `build/GaugePrototype-W1-B-run01.log` exit 0; T-focus 14 suites `build/GaugePrototypeTests-W1-run02.xcresult` 211 tests, 0 failures (run01 was a shell argument error, no tests ran); `git diff --check` clean | `87dfaf7` (1.1), `f171627` (1.2), `baaa4e7` (1.3), `5d5a70f` (records); plan precondition `6558f59`; not pushed | Stop condition raised by 1.1 → 2.1 blocked on owner decision (Blocked tasks) |
 | W2 / 2.1 (replanned under D-037) | Serial (single coupled migration): one fresh developer agent in the main checkout, own derived data `build/GaugePrototype-2.1-agent*`; coordinator re-validated (adaptation: no worktree since nothing ran in parallel) | Agent: B exit 0, T-ring 229/229 (`build/GaugePrototypeTests-2.1-agent-run02.xcresult`; run01 had 2 own-test failures, fixed), compile-only Release `--ring-` count 0. Coordinator on `main`: B `build/GaugePrototype-W2-B-run01.log` exit 0; T-ring 15 suites `build/GaugePrototypeTests-W2-run01.xcresult` **229 tests, 0 failures** (+18 vs 211; replacements listed in 2.1); `git diff --check` clean | `ad22329` (2.1); replan/D-037 `64c9436`; not pushed | Fresh-build handoff done: old prototype PID 92303 quit normally, `GaugePrototype` Debug launched with `--ring-prototype` as PID 56912, path and SHA-256 `18544d9a…` verified. Wave 3 (3.1) ready, needs a new request |
 | W3 / 3.1, 3.2 (3.2 added from the owner's screenshots) | Parallel, two fresh developer agents in their own git worktrees from `origin/main` `3738529` (3.1 Opus — subtle state machine; 3.2 Sonnet), own derived data; coordinator cherry-picked onto `main`, applied the 3.2 → `RingPresentation` follow-up, ran an independent Opus read-only review of the 3.1 diff and fixed its findings | Agents: 3.1 T-ring 267/267 (run03) + B ok; 3.2 T-ring 232/232 (run03; run02 caught the "Nominal" width bug) + B ok. Coordinator on `main`: B `build/GaugePrototype-W3-B-run01.log` exit 0; T-ring 16 suites `build/GaugePrototypeTests-W3-run01.xcresult` 270/0; after review fixes `build/GaugePrototypeTests-W3-run02.xcresult` **273 tests, 0 failures** (+44 vs 229: 3.1 +38, 3.2 +3, review +3; none removed); red check without the fix 7 failures in the 3 new tests; final B `build/GaugePrototype-W3-B-run02.log` exit 0; `git diff --check` clean | `bbe1432` (3.1), `e73b7c7` (3.2), `5f5001a` (fallback), `77619ff` (review fixes); plan `6eec2c6`; not pushed | Fresh-build handoff: PID 56912 quit normally (~1 s), launched with `--ring-prototype` as PID 69117, path and SHA-256 `f06dec54…` verified. Band is off until 4.1, so the visible changes are 3.2's. Wave 4 (4.1) ready, needs a new request |

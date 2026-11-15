@@ -128,39 +128,22 @@ final class PanelWindowController {
         panel.setFrame(NSRect(origin: origin, size: size), display: true)
     }
 
-    /// Hand a strip-wide SwiftUI drag to AppKit's native window-drag loop. Updating
-    /// `setFrameOrigin` from every SwiftUI gesture callback lags behind the pointer
-    /// because those callbacks are paced by view rendering. `performDrag` tracks at
-    /// the window server's cadence and returns only after mouse-up.
+    /// SwiftUI detects the drag threshold; the shared event tracker then follows the
+    /// pointer without entering the window-server drag that switches Spaces at edges.
     func drag(translation: CGSize, ended: Bool) {
-        if ended {
-            nativeDragActive = false
-            return
-        }
-        guard !nativeDragActive, let panel, let current = NSApp.currentEvent else { return }
+        guard !ended, !nativeDragActive, let panel,
+              NSApp.currentEvent?.type == .leftMouseDragged else { return }
         nativeDragActive = true
-
-        // `performDrag` expects the initiating left-mouse-down event. SwiftUI calls
-        // us on the first dragged event, so synthesize an equivalent mouse-down at
-        // that exact window location, then let AppKit consume the remaining stream.
-        guard let mouseDown = NSEvent.mouseEvent(
-            with: .leftMouseDown,
-            location: current.locationInWindow,
-            modifierFlags: current.modifierFlags,
-            timestamp: current.timestamp,
-            windowNumber: panel.windowNumber,
-            context: nil,
-            eventNumber: current.eventNumber,
-            clickCount: 1,
-            pressure: current.pressure
-        ) else {
-            nativeDragActive = false
-            return
+        defer { nativeDragActive = false }
+        let mouseUp = PanelDragTracker.track(panel)
+        if self.panel === panel {
+            let origin = panel.frame.origin
+            lastAppliedOrigin = origin
+            onPanelMoved?(origin)
         }
-        panel.performDrag(with: mouseDown)
-        let origin = panel.frame.origin
-        lastAppliedOrigin = origin
-        onPanelMoved?(origin)
+        // The tracker consumes mouse-up. Deliver it to SwiftUI so its gesture resets
+        // before the next drag (the ring's direct input path does not need this).
+        if let mouseUp { NSApp.sendEvent(mouseUp) }
     }
 
     // MARK: - Drag tracking
@@ -282,9 +265,9 @@ final class PanelWindowController {
         // Let the user drag the strip by any empty region of its background. Tiles
         // and the gear are SwiftUI controls — they consume their own mouse-downs —
         // so only the gaps/padding initiate a window drag, and a plain tap never
-        // moves it. The dragged spot is captured via the move observer (above).
-        panel.isMovable = true
-        panel.isMovableByWindowBackground = true
+        // moves it. The shared tracker reports the final dragged spot.
+        panel.isMovable = false
+        panel.isMovableByWindowBackground = false
         panel.hasShadow = true
 
         // Float over other apps without stealing focus; still deliver mouse-moved

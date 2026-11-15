@@ -79,6 +79,44 @@ final class RingArcLayoutTests: XCTestCase {
         XCTAssertGreaterThan(many.span, 0.3)
     }
 
+    func testSpareSpanIsSharedEquallyWithoutEqualizingSegmentWidths() {
+        // One measured label and two unlabelled entries have unequal intrinsic needs.
+        // Recover the label's need from requiredSpan so this checks spare allocation
+        // independently of the iterative text-projection calculation.
+        let entries = [RingArcEntry(labelSize: CGSize(width: 48, height: 15)),
+                       RingArcEntry(), RingArcEntry(group: 1)]
+        for preset in RingSizePreset.allCases {
+            for parentSpan in [1.8, two] {
+                let arc = RingArcLayout(preset: preset, kind: .subRing, parentMidAngle: 0,
+                                        parentSpan: parentSpan, entries: entries)
+                assertWellFormed(arc, parentMid: 0, parentSpan: parentSpan)
+                guard arc.segments.count == 3 else {
+                    XCTFail("Expected all three entries")
+                    continue
+                }
+                let radius = Double(arc.innerRadius)
+                let separator = Double(RingSizePreset.separator) / radius
+                let groupGap = Double(RingArcLayout.groupGap) / radius
+                let sliver = Double(RingArcLayout.minSliverWidth) / radius
+                let wrapGap = parentSpan == two ? separator : 0
+                let spare = (arc.span - arc.requiredSpan - wrapGap) / 3
+                let labelNeed = arc.requiredSpan - separator - groupGap - 2 * sliver
+                XCTAssertGreaterThan(spare, 0)
+                XCTAssertGreaterThan(labelNeed, sliver)
+                XCTAssertEqual(arc.segments[0].sector.span - labelNeed, spare, accuracy: 1e-9)
+                XCTAssertEqual(arc.segments[1].sector.span - sliver, spare, accuracy: 1e-9)
+                XCTAssertEqual(arc.segments[2].sector.span - sliver, spare, accuracy: 1e-9)
+                XCTAssertGreaterThan(arc.segments[0].sector.span, arc.segments[1].sector.span)
+                XCTAssertEqual(arc.segments[1].sector.startAngle - arc.segments[0].sector.endAngle,
+                               separator, accuracy: 1e-9)
+                XCTAssertEqual(arc.segments[2].sector.startAngle - arc.segments[1].sector.endAngle,
+                               groupGap, accuracy: 1e-9)
+                XCTAssertEqual(arc.startAngle + arc.span - arc.segments[2].sector.endAngle,
+                               wrapGap, accuracy: 1e-9)
+            }
+        }
+    }
+
     func testWiderGapsBetweenGroups() {
         let entries = [RingArcEntry(group: 0), RingArcEntry(group: 0), RingArcEntry(group: 1), RingArcEntry(group: 1)]
         let arc = RingArcLayout(preset: .medium, kind: .subRing, parentMidAngle: 0, parentSpan: 0, entries: entries)

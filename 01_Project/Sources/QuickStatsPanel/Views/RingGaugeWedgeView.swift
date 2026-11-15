@@ -253,22 +253,35 @@ struct RingGaugeFill: View {
     @ViewBuilder
     private func stackFill(_ gauge: RingGauge, scale: RingFillScale, inner: CGFloat, outer: CGFloat) -> some View {
         if gauge.usesHeatRamp {
-            // Heat colour is fixed to radius: each step is coloured by the fraction it reaches.
-            let total = gauge.totalFraction
-            let steps = 10
-            ForEach(0..<steps, id: \.self) { step in
-                let f0 = total * Double(step) / Double(steps), f1 = total * Double(step + 1) / Double(steps)
-                slice(sector,
-                      from: scale.radius(fraction: f0, inner: inner, outer: outer),
-                      to: scale.radius(fraction: f1, inner: inner, outer: outer),
-                      color: RingPalette.heat(fraction: (f0 + f1) / 2))
-            }
+            heatFill(fraction: gauge.totalFraction, scale: scale)
         } else {
             let radii = scale.cumulativeRadii(fractions: gauge.components.map(\.fraction), inner: inner, outer: outer)
             ForEach(Array(gauge.components.enumerated()), id: \.offset) { index, component in
                 slice(sector, from: index == 0 ? inner : radii[index - 1], to: radii[index],
                       color: RingPalette.color(for: component.component, stat: kind))
             }
+        }
+    }
+
+    /// One filled shape avoids antialiased seams between adjacent heat slices. The gradient
+    /// spans the full track, independent of the live fill edge, so colours stay at fixed radii.
+    /// This also serves More entries and temperature sub-ring segments in RingArcView.
+    private func heatFill(fraction: Double, scale: RingFillScale) -> some View {
+        let inner = sector.innerRadius, outer = sector.outerRadius
+        let stops = RingPalette.heatStops.map { stop in
+            Gradient.Stop(color: context.fillColor(stop.color),
+                          location: sector.depth > 0
+                            ? (scale.radius(fraction: stop.at, inner: inner, outer: outer) - inner) / sector.depth
+                            : CGFloat(stop.at))
+        }
+        return GeometryReader { geometry in
+            // Arc panels translate the ring centre, which can lie outside their bounds.
+            // Resolve that actual centre in the drawing view instead of assuming .center.
+            let center = UnitPoint(x: sector.center.x / max(geometry.size.width, 1),
+                                   y: sector.center.y / max(geometry.size.height, 1))
+            shape(sector.filled(to: fraction, scale: scale))
+                .fill(RadialGradient(stops: stops, center: center,
+                                     startRadius: inner, endRadius: outer))
         }
     }
 
