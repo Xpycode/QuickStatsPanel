@@ -301,7 +301,8 @@ struct RingSnapshot: Sendable {
             }
             let arc = RingArcLayout(preset: layout.preset, kind: .subRing, center: layout.center,
                                     parentMidAngle: favourite.sector.centerAngle, parentSpan: favourite.sector.span,
-                                    entries: entries, allowsSlivers: true)
+                                    entries: entries, allowsSlivers: true,
+                                    equalWidthsWithinGroups: favourite.kind == .cpu)
             if arc.status == .fits, !arc.segments.isEmpty { arcs[.stat(favourite.kind)] = arc }
         }
         return arcs

@@ -86,13 +86,15 @@ struct RingArcLayout: Equatable, Sendable {
     ///   - parentMidAngle: centre angle of the parent wedge (pi for the More arc).
     ///   - parentSpan: the parent wedge's full angular span.
     ///   - allowsSlivers: sub-rings allow unlabelled slivers; the More arc does not.
+    ///   - equalWidthsWithinGroups: CPU cores share their group span equally; labels fit afterward.
     init(preset: RingSizePreset,
          kind: RingArcKind,
          center: CGPoint? = nil,
          parentMidAngle: Double,
          parentSpan: Double,
          entries: [RingArcEntry],
-         allowsSlivers: Bool = true) {
+         allowsSlivers: Bool = true,
+         equalWidthsWithinGroups: Bool = false) {
         let origin = center ?? CGPoint(x: preset.footprintWithBand.width / 2,
                                        y: preset.footprintWithBand.height / 2)
         self.preset = preset
@@ -184,13 +186,32 @@ struct RingArcLayout: Equatable, Sendable {
             return
         }
 
-        let layout = place(needs)
+        var layout = place(needs)
+        if equalWidthsWithinGroups {
+            // Keep group spans, group gaps and the overall footprint. A label must
+            // never make one core look larger than its neighbours in the same group.
+            let groups = Dictionary(grouping: entries.indices, by: { entries[$0].group })
+            for indices in groups.values {
+                let width = indices.reduce(0.0) { $0 + layout.widths[$1] } / Double(indices.count)
+                for index in indices { layout.widths[index] = width }
+            }
+            var cursor = parentMidAngle - layout.span / 2
+            for i in entries.indices {
+                cursor += gaps[i]
+                layout.centres[i] = cursor + layout.widths[i] / 2
+                cursor += layout.widths[i]
+            }
+        }
         var placed: [RingArcSegment] = []
         for i in entries.indices {
             let sector = RingSector(center: origin, innerRadius: rIn, outerRadius: rOut,
                                     centerAngle: layout.centres[i], halfSpan: layout.widths[i] / 2)
+                .parallelEdges(
+                    start: i > 0 ? CGFloat(gaps[i]) * rIn / 2 : (layout.span >= 2 * .pi - 1e-9 ? RingSizePreset.separator / 2 : 0),
+                    end: i + 1 < entries.count ? CGFloat(gaps[i + 1]) * rIn / 2 : (layout.span >= 2 * .pi - 1e-9 ? RingSizePreset.separator / 2 : 0),
+                    at: rIn)
             var frame: CGRect?
-            if labelEligible[i], let size = entries[i].labelSize {
+            if (equalWidthsWithinGroups || labelEligible[i]), let size = entries[i].labelSize {
                 frame = sector.textFrame(fitting: size, padding: padding)
             }
             placed.append(RingArcSegment(index: i, group: entries[i].group, sector: sector, textFrame: frame))

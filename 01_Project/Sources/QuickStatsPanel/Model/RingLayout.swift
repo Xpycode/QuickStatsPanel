@@ -68,7 +68,8 @@ enum RingLayoutTarget: Equatable, Hashable, Sendable {
 /// Uses `RingSector`'s angle convention (radians clockwise from twelve o'clock, y down).
 ///
 /// Tiling. Each sector's drawn span is its slot minus a 4-point separator, taken as an
-/// angle at the sector's mid radius. With a More wedge, More is drawn 24 degrees centred
+/// angle at the sector's mid radius for allocation, then drawn with parallel edges.
+/// With a More wedge, More is drawn 24 degrees centred
 /// on six o'clock; favourites share the rest of the circle in equal slots clockwise from
 /// More's trailing edge. Favourite 1 is the first slot whose centre lies at or past
 /// twelve o'clock; order continues clockwise and skips More. Without More, favourites
@@ -155,6 +156,7 @@ struct RingLayout: Equatable, Sendable {
         if hasMore {
             let sector = RingSector(center: origin, innerRadius: inner, outerRadius: outer,
                                     centerAngle: .pi, halfSpan: Self.moreSpan / 2)
+                .parallelEdges(start: 2, end: 2, at: (inner + outer) / 2)
             let frame = sector.frame(of: moreContentSize, atRadius: sector.midRadius)
             moreWedge = MoreWedge(sector: sector, count: moreCount, contentFrame: frame,
                                   fits: sector.contains(rect: frame, padding: Self.textPadding))
@@ -187,6 +189,7 @@ struct RingLayout: Equatable, Sendable {
             let slot = geometric[(firstIndex + order) % n]
             let sector = RingSector(center: origin, innerRadius: inner, outerRadius: outer,
                                     centerAngle: slot.center, halfSpan: slot.halfSpan)
+                .parallelEdges(start: n > 1 ? 2 : 0, end: n > 1 ? 2 : 0, at: (inner + outer) / 2)
             let choice = Self.choose(sizes: used[order].sizes, sector: sector, cap: cap)
             placed.append(Favourite(kind: used[order].kind, order: order, sector: sector,
                                     rung: choice.rung, textFrame: choice.frame, fits: choice.fits))

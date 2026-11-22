@@ -19,6 +19,9 @@ struct RingBandShape: Shape {
     let halfSpan: Double
     var inner: CGFloat
     var outer: CGFloat
+    var startInset: CGFloat = 0
+    var endInset: CGFloat = 0
+    var edgeReferenceRadius: CGFloat = 1
 
     var animatableData: AnimatablePair<CGFloat, CGFloat> {
         get { AnimatablePair(inner, outer) }
@@ -27,7 +30,8 @@ struct RingBandShape: Shape {
 
     func path(in rect: CGRect) -> Path {
         Path(RingSector(center: center, innerRadius: inner, outerRadius: outer,
-                        centerAngle: centerAngle, halfSpan: halfSpan).cgPath)
+                        centerAngle: centerAngle, halfSpan: halfSpan)
+            .parallelEdges(start: startInset, end: endInset, at: edgeReferenceRadius).cgPath)
     }
 }
 
@@ -40,7 +44,8 @@ struct RingArcLineShape: Shape {
         var path = Path()
         let steps = max(2, Int((sector.span / RingSector.outlineStep).rounded(.up)))
         for i in 0...steps {
-            let angle = sector.startAngle + sector.span * Double(i) / Double(steps)
+            let bounds = sector.angles(at: radius)
+            let angle = bounds.start + (bounds.end - bounds.start) * Double(i) / Double(steps)
             let point = RingSector.point(center: sector.center, angle: angle, radius: radius)
             if i == 0 { path.move(to: point) } else { path.addLine(to: point) }
         }
@@ -84,7 +89,8 @@ struct RingGaugeWedgeView: View {
             shape(sector).fill(theme.colors.background)
             shape(sector).fill(theme.colors.primaryText.opacity(RingPalette.trackTint))
             if let gauge, gauge.isAvailable {
-                RingGaugeFill(kind: kind, sector: sector, gauge: gauge, context: context)
+                RingGaugeFill(kind: kind, sector: sector, gauge: gauge, context: context,
+                              contentClearance: textFrame.insetBy(dx: -3, dy: -3))
             }
             shape(sector).fill(theme.colors.primaryText.opacity(hovered ? 0.14 : 0))
             content(available: available)
@@ -98,7 +104,8 @@ struct RingGaugeWedgeView: View {
 
     private func shape(_ sector: RingSector) -> some Shape {
         RingBandShape(center: sector.center, centerAngle: sector.centerAngle, halfSpan: sector.halfSpan,
-                      inner: sector.innerRadius, outer: sector.outerRadius)
+                      inner: sector.innerRadius, outer: sector.outerRadius,
+                      startInset: sector.startInset, endInset: sector.endInset, edgeReferenceRadius: sector.edgeReferenceRadius)
     }
 
     // MARK: Marks
@@ -203,12 +210,16 @@ struct RingGaugeFill: View {
     let context: RingDrawingContext
     /// Sub-ring segments are too shallow for the dotted quarter arcs.
     var showsReferenceArcs = true
+    /// Frozen main-wedge content bounds, in the same ring coordinates as the sector.
+    /// Moving peak/fill-edge lines must never strike through the label or values.
+    var contentClearance: CGRect? = nil
 
     private static let rimThickness: CGFloat = 3
 
     private func shape(_ sector: RingSector) -> some Shape {
         RingBandShape(center: sector.center, centerAngle: sector.centerAngle, halfSpan: sector.halfSpan,
-                      inner: sector.innerRadius, outer: sector.outerRadius)
+                      inner: sector.innerRadius, outer: sector.outerRadius,
+                      startInset: sector.startInset, endInset: sector.endInset, edgeReferenceRadius: sector.edgeReferenceRadius)
     }
 
     var body: some View {
@@ -231,22 +242,36 @@ struct RingGaugeFill: View {
             }
             .animation(context.ease, value: gauge)
 
-            if showsReferenceArcs {
-                referenceArcs(gauge, scale: scale)
+            ZStack(alignment: .topLeading) {
+                if showsReferenceArcs {
+                    referenceArcs(gauge, scale: scale)
+                }
+                peakTicks(gauge, scale: scale)
+                if context.explicitEdge {
+                    edgeLines(gauge, scale: scale)
+                }
+            }
+            .mask {
+                GeometryReader { geometry in
+                    Path { path in
+                        path.addRect(CGRect(origin: .zero, size: geometry.size))
+                        if let contentClearance {
+                            path.addRect(contentClearance)
+                        }
+                    }
+                    .fill(style: FillStyle(eoFill: true))
+                }
             }
             if let rim = gauge.rim {
                 shape(sector.rim(thickness: Self.rimThickness))
                     .fill(Color(context.isMono ? RingPalette.mono : RingPalette.diskRim).opacity(0.2 + 0.8 * rim))
             }
-            peakTicks(gauge, scale: scale)
-            if context.explicitEdge {
-                edgeLines(gauge, scale: scale)
-            }
         }
     }
 
     private func slice(_ s: RingSector, from lo: CGFloat, to hi: CGFloat, color: RingRGB) -> some View {
-        RingBandShape(center: s.center, centerAngle: s.centerAngle, halfSpan: s.halfSpan, inner: lo, outer: hi)
+        RingBandShape(center: s.center, centerAngle: s.centerAngle, halfSpan: s.halfSpan, inner: lo, outer: hi,
+                      startInset: s.startInset, endInset: s.endInset, edgeReferenceRadius: s.edgeReferenceRadius)
             .fill(context.fillColor(color))
     }
 

@@ -11,6 +11,37 @@ final class RingSectorTests: XCTestCase {
                    centerAngle: degrees * .pi / 180, halfSpan: halfDegrees * .pi / 180)
     }
 
+    func testParallelSeparatorsKeepWidthAcrossRadiiAndPresets() {
+        for preset in RingSizePreset.allCases {
+            for gap: CGFloat in [4, 12] {
+                let inner = gap == 4 ? preset.innerRadius : preset.bandInnerRadius
+                let outer = gap == 4 ? preset.outerRadius : inner + 44
+                let reference = (inner + outer) / 2
+                let angularGap = Double(gap / reference)
+                let a = RingSector(center: origin, innerRadius: inner, outerRadius: outer,
+                                   centerAngle: -0.4 - angularGap / 2, halfSpan: 0.4)
+                    .parallelEdges(start: 0, end: gap / 2, at: reference)
+                let b = RingSector(center: origin, innerRadius: inner, outerRadius: outer,
+                                   centerAngle: 0.4 + angularGap / 2, halfSpan: 0.4)
+                    .parallelEdges(start: gap / 2, end: 0, at: reference)
+                for radius in [inner, reference, outer] {
+                    let left = RingSector.point(center: origin, angle: a.angles(at: radius).end, radius: radius)
+                    let right = RingSector.point(center: origin, angle: b.angles(at: radius).start, radius: radius)
+                    XCTAssertEqual(right.x - left.x, gap, accuracy: 0.000001)
+                    XCTAssertFalse(a.contains(CGPoint(x: origin.x, y: origin.y - radius)))
+                    XCTAssertFalse(b.contains(CGPoint(x: origin.x, y: origin.y - radius)))
+                    XCTAssertTrue(a.contains(left))
+                    XCTAssertTrue(b.contains(right))
+                }
+                let fill = b.filled(to: 0.5, scale: .area)
+                XCTAssertEqual(fill.angles(at: fill.outerRadius).start, b.angles(at: fill.outerRadius).start)
+                XCTAssertEqual(b.half(.left).startInset, b.startInset)
+                XCTAssertEqual(b.half(.left).endInset, 0)
+                XCTAssertEqual(b.rim(thickness: 3).endInset, b.endInset)
+            }
+        }
+    }
+
     // MARK: Presets (spec table)
 
     func testPresetTable() {

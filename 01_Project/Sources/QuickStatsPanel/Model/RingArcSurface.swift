@@ -111,6 +111,7 @@ struct RingArcPanelGeometry: Equatable, Sendable {
     func local(_ sector: RingSector) -> RingSector {
         RingSector(center: local(sector.center), innerRadius: sector.innerRadius, outerRadius: sector.outerRadius,
                    centerAngle: sector.centerAngle, halfSpan: sector.halfSpan)
+            .parallelEdges(start: sector.startInset, end: sector.endInset, at: sector.edgeReferenceRadius)
     }
 }
 

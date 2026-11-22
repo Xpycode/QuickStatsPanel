@@ -148,7 +148,8 @@ struct RingPartSegmentView: View {
         let theme = context.theme
         let gauge = part.gauge(stat: stat)
         let shape = RingBandShape(center: sector.center, centerAngle: sector.centerAngle, halfSpan: sector.halfSpan,
-                                  inner: sector.innerRadius, outer: sector.outerRadius)
+                                  inner: sector.innerRadius, outer: sector.outerRadius,
+                      startInset: sector.startInset, endInset: sector.endInset, edgeReferenceRadius: sector.edgeReferenceRadius)
         ZStack(alignment: .topLeading) {
             shape.fill(theme.colors.background)
             shape.fill(theme.colors.primaryText.opacity(RingPalette.trackTint))

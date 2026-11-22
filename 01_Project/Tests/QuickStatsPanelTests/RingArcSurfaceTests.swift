@@ -7,6 +7,32 @@ import XCTest
 /// the chosen part set.
 final class RingArcSurfaceTests: XCTestCase {
 
+    func testCPUGroupSegmentsHaveEqualWidthsWithoutLosingPartsOrHitTargets() throws {
+        for preset in RingSizePreset.allCases {
+            for fixture in [RingPartFixtureName.typical, .dense] {
+                let s = snapshot(eight, preset: preset, parts: fixture)
+                let arc = try XCTUnwrap(s.arcs[.stat(.cpu)])
+                let parts = try XCTUnwrap(s.parts[.cpu])
+                XCTAssertEqual(arc.segments.count, parts.parts.count)
+                for group in Set(arc.segments.map(\.group)) {
+                    let segments = arc.segments.filter { $0.group == group }
+                    let width = try XCTUnwrap(segments.first).sector.span
+                    for segment in segments {
+                        XCTAssertEqual(segment.sector.span, width, accuracy: 1e-10)
+                        let point = RingSector.point(center: arc.center, angle: segment.sector.centerAngle,
+                                                     radius: segment.sector.midRadius)
+                        XCTAssertEqual(arc.entry(at: point), segment.index)
+                        if let frame = segment.textFrame {
+                            XCTAssertTrue(segment.sector.contains(rect: frame, padding: RingLayout.textPadding))
+                        }
+                        XCTAssertFalse(parts.parts[segment.index].name.isEmpty)
+                        XCTAssertFalse(parts.parts[segment.index].valueText.isEmpty)
+                    }
+                }
+            }
+        }
+    }
+
     private let visible = CGRect(x: 0, y: 0, width: 3000, height: 2000)
     private let all = Array(StatKind.allCases)
     private let eight: [StatKind] = [.cpu, .memory, .disk, .network, .battery, .gpu, .power, .temps]

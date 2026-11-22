@@ -62,7 +62,8 @@ struct RingView: View {
         let sector = more.sector
         let active = state.hovered == .more || state.moreExpanded
         let shape = RingBandShape(center: sector.center, centerAngle: sector.centerAngle, halfSpan: sector.halfSpan,
-                                  inner: sector.innerRadius, outer: sector.outerRadius)
+                                  inner: sector.innerRadius, outer: sector.outerRadius,
+                      startInset: sector.startInset, endInset: sector.endInset, edgeReferenceRadius: sector.edgeReferenceRadius)
         return ZStack(alignment: .topLeading) {
             shape.fill(theme.colors.background)
             shape.fill(theme.colors.primaryText.opacity(active ? 0.2 : RingPalette.trackTint))

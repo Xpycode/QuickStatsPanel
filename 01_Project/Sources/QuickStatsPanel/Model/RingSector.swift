@@ -21,7 +21,7 @@ enum RingSizePreset: String, CaseIterable, Sendable {
     var wedgeDepth: CGFloat { outerRadius - innerRadius }
 
     static let innerRadiusFraction: CGFloat = 0.36
-    /// Gap between neighbouring sectors, measured along the arc at the sector's mid radius.
+    /// Gap between neighbouring sectors, constant perpendicular distance between parallel edges.
     static let separator: CGFloat = 4
     /// The outer band starts this far outside the favourites ring.
     static let bandGap: CGFloat = 6
@@ -70,6 +70,9 @@ struct RingSector: Equatable, Sendable {
     let outerRadius: CGFloat
     let centerAngle: Double
     let halfSpan: Double
+    private(set) var startInset: CGFloat = 0
+    private(set) var endInset: CGFloat = 0
+    private(set) var edgeReferenceRadius: CGFloat = 1
 
     /// Largest angular step between outline vertices (2 degrees).
     static let outlineStep: Double = .pi / 90
@@ -91,8 +94,27 @@ struct RingSector: Equatable, Sendable {
     var depth: CGFloat { outerRadius - innerRadius }
     var midRadius: CGFloat { (innerRadius + outerRadius) / 2 }
     var isFullCircle: Bool { halfSpan >= .pi - 1e-9 }
-    /// Geometric area; for an equal-area fill the fraction of this area is the fraction filled.
+    /// Nominal annular area used by the gauge scale, before separator edge trimming.
     var area: Double { halfSpan * Double(outerRadius * outerRadius - innerRadius * innerRadius) }
+
+    /// Keep the allocated nominal span and replace its angular separator with sides
+    /// parallel to the separator centreline instead of converging on the hub.
+    func parallelEdges(start: CGFloat, end: CGFloat, at radius: CGFloat) -> RingSector {
+        var result = self
+        result.startInset = start
+        result.endInset = end
+        result.edgeReferenceRadius = radius
+        return result
+    }
+
+    func angles(at radius: CGFloat) -> (start: Double, end: Double) {
+        func correction(_ inset: CGFloat) -> Double {
+            guard inset > 0 else { return 0 }
+            return asin(Double(min(1, inset / max(radius, inset))))
+                - Double(inset / edgeReferenceRadius)
+        }
+        return (startAngle + correction(startInset), endAngle - correction(endInset))
+    }
 
     // MARK: Hit testing
 
@@ -107,7 +129,10 @@ struct RingSector: Equatable, Sendable {
         if isFullCircle { return true }
         if dx == 0 && dy == 0 { return true }
         let angle = atan2(Double(dx), Double(-dy))
-        return abs(Self.wrapped(angle - centerAngle)) <= halfSpan + 1e-12
+        let bounds = angles(at: hypot(dx, dy))
+        let relative = Self.wrapped(angle - centerAngle)
+        return relative >= bounds.start - centerAngle - 1e-12
+            && relative <= bounds.end - centerAngle + 1e-12
     }
 
     /// True when `rect`, grown by `padding` on every side, lies wholly inside the sector.
@@ -175,11 +200,13 @@ struct RingSector: Equatable, Sendable {
         var points: [CGPoint] = []
         points.reserveCapacity(2 * (steps + 1))
         for i in 0...steps {
-            let t = startAngle + span * Double(i) / Double(steps)
+            let bounds = angles(at: outerRadius)
+            let t = bounds.start + (bounds.end - bounds.start) * Double(i) / Double(steps)
             points.append(Self.point(center: center, angle: t, radius: outerRadius))
         }
         for i in stride(from: steps, through: 0, by: -1) {
-            let t = startAngle + span * Double(i) / Double(steps)
+            let bounds = angles(at: innerRadius)
+            let t = bounds.start + (bounds.end - bounds.start) * Double(i) / Double(steps)
             points.append(Self.point(center: center, angle: t, radius: innerRadius))
         }
         return points
@@ -198,6 +225,15 @@ struct RingSector: Equatable, Sendable {
 
     /// Exact bounding box of the sector (corners plus the axis crossings of the outer arc).
     var boundingFrame: CGRect {
+        if startInset > 0 || endInset > 0 {
+            // Include the true circular extrema as well as the sampled polygon.
+            var bounds = cgPath.boundingBox
+            for k in 0..<4 {
+                let point = Self.point(center: center, angle: Double(k) * .pi / 2, radius: outerRadius)
+                if contains(point) { bounds = bounds.union(CGRect(origin: point, size: .zero)) }
+            }
+            return bounds
+        }
         var points = [
             Self.point(center: center, angle: startAngle, radius: outerRadius),
             Self.point(center: center, angle: endAngle, radius: outerRadius),
@@ -226,6 +262,7 @@ struct RingSector: Equatable, Sendable {
         let hi = min(max(outer, lo), outerRadius)
         return RingSector(center: center, innerRadius: lo, outerRadius: hi,
                           centerAngle: centerAngle, halfSpan: halfSpan)
+            .parallelEdges(start: startInset, end: endInset, at: edgeReferenceRadius)
     }
 
     /// The part of the sector from the inner edge out to the fill reached by `fraction`.
@@ -245,12 +282,15 @@ struct RingSector: Equatable, Sendable {
         let offset = side == .left ? -quarter : quarter
         return RingSector(center: center, innerRadius: innerRadius, outerRadius: outerRadius,
                           centerAngle: centerAngle + offset, halfSpan: quarter)
+            .parallelEdges(start: side == .left ? startInset : 0,
+                           end: side == .right ? endInset : 0, at: edgeReferenceRadius)
     }
 
     /// Same radii and centre angle with a different half span.
     func withHalfSpan(_ newHalfSpan: Double) -> RingSector {
         RingSector(center: center, innerRadius: innerRadius, outerRadius: outerRadius,
                    centerAngle: centerAngle, halfSpan: newHalfSpan)
+            .parallelEdges(start: startInset, end: endInset, at: edgeReferenceRadius)
     }
 
     // MARK: Helpers

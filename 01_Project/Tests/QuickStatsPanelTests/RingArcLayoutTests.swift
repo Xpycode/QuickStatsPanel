@@ -3,6 +3,28 @@ import XCTest
 /// Hostless checks of the outer-band arc layout: spans, label-or-sliver, hit testing.
 final class RingArcLayoutTests: XCTestCase {
 
+    func testRenderedGapsStayFourOrTwelvePointsAcrossBand() {
+        for preset in RingSizePreset.allCases {
+            for kind in [RingArcKind.subRing, .more] {
+                let arc = RingArcLayout(preset: preset, kind: kind, parentMidAngle: 0,
+                                        parentSpan: 2, entries: [RingArcEntry(group: 0),
+                                            RingArcEntry(group: 0), RingArcEntry(group: 1)])
+                XCTAssertEqual(arc.status, .fits)
+                for i in 1..<arc.segments.count {
+                    let left = arc.segments[i - 1].sector, right = arc.segments[i].sector
+                    let boundary = (left.endAngle + right.startAngle) / 2
+                    for r in [arc.innerRadius, (arc.innerRadius + arc.outerRadius) / 2, arc.outerRadius] {
+                        let a = RingSector.point(center: arc.center, angle: left.angles(at: r).end, radius: r)
+                        let b = RingSector.point(center: arc.center, angle: right.angles(at: r).start, radius: r)
+                        let width = (b.x - a.x) * cos(boundary) + (b.y - a.y) * sin(boundary)
+                        XCTAssertEqual(width, i == 1 ? 4 : 12, accuracy: 0.000001)
+                        XCTAssertNil(arc.entry(at: RingSector.point(center: arc.center, angle: boundary, radius: r)))
+                    }
+                }
+            }
+        }
+    }
+
     private let two = 2 * Double.pi
 
     private func labelSize(_ text: String) -> CGSize {
