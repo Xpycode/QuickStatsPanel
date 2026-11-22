@@ -6,6 +6,11 @@ look, small hub, More wedge and sub-rings (D-035, D-036) specified and awaiting 
 **Last updated:** 2026-11-13
 **Release:** Future release; not part of the prepared 1.2.1 artifact
 
+> **Priority update (2026-11-22):** Ring review is parked with E1 open (D-040).
+> The [floating-tile experiment](floating-tiles.md) is the current draft for review (D-041).
+> Its separate surfaces and content-sized expansion are scoped independently of the Grid/Ring
+> requirements below; this document does not authorize a production layout wave.
+
 ## Problem Statement
 
 QuickStatsPanel currently gives the owner one horizontal strip for glancing at local system
@@ -242,6 +247,8 @@ review images in `02_Design/ring-review/` show the superseded large hub and are 
   Temperature fill.
 - A stat with fewer than two parts on this Mac has no sub-ring; its detail card still opens. The
   part list and its order are frozen per summon. Parts are never sorted by value.
+- CPU segments share equal widths within each core group (D-039); labels are fitted afterward,
+  with full names/values retained in hover captions and wider gaps between groups.
 - Segments carry a label and value only when the measured text fits. Otherwise they are unlabelled
   slivers at least 8 points wide with the hover caption. Above 32 parts, the largest group collapses
   to one segment showing its hottest or highest member, repeated until 32 or fewer remain.
@@ -643,7 +650,7 @@ typography without shrinking, fixture launch plumbing and the accessibility elem
 | More placement | Confirmed (D-036) | Narrow extra wedge at six o'clock, outside the eight favourite slots |
 | Hover dwell/close timing and pointer corridor | Accepted in native review | 350 ms dwell, 450 ms leave, bounded 700 ms transit grace; held detail wins over hover |
 | Child level shape | Proposed | Arc centred on the parent in one outer band, not a full ring |
-| Preset dimensions and content ladder | Proposed for prototype review | 260 / 360 / 460 points; per-wedge richest content that fits, so one ring may mix rungs; icon-only accepted where the ladder reaches it, including Medium with eight favourites (D-037) |
+| Preset dimensions and content ladder | Presets/default confirmed (D-038); ladder governed by D-037, remaining validation at E1 | 260 / 360 / 460 points; per-wedge richest content that fits, so one ring may mix rungs; icon-only accepted where the ladder reaches it, including Medium with eight favourites (D-037) |
 | Gauges for Fans, Load and Uptime | Proposed; not in the mockup | Fan speed within its range; load ÷ cores; Uptime without a fill |
 | Fill basis differing from the configured text reading | Review on prototype | Fixed basis per stat; detail card names it |
 | Gauge fill colour versus the shared colour mode | Open | Prototype uses per-stat hues; mapping of Off / Value colour / Subtle tile tint undecided |

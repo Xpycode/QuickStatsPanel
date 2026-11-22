@@ -483,3 +483,54 @@ mixed rungs is judged at E1.
 **Consequences:** The plan's Medium/8 stop rule is relaxed to "every wedge fits at least icon
 only". More-arc entries (4.1) follow the same ladder, so most arcs show icon/gauge entries; arcs
 that cannot fit even that use the side list. Revisit at E1 if icon-only proves unreadable.
+
+### 2026-11-15 - D-038: Keep three Ring sizes, Medium default
+**Context:** Owner reviewed the Small, Medium and Large native gauge-ring presets during E1.
+**Decision:** Retain Small (260 pt), Medium (360 pt) and Large (460 pt), with Medium as default.
+**Rationale:** Owner explicitly approved keeping all three sizes and the Medium default.
+**Consequences:** Locks the preset/default portion of E1 Q2. Existing D-037 content-ladder rules
+remain; this does not close unperformed validation or approve all other E1 design questions.
+Production settings implementation remains deferred.
+
+### 2026-11-15 - D-039: Equal CPU segment widths within each core group
+**Context:** Dense CPU fixtures showed wide labelled segments beside thin slivers.
+**Decision:** Divide each CPU group's allocated arc span evenly among its cores. Preserve wider
+group gaps; draw inline labels only where they fit, with full names/values on hover.
+**Rationale:** Owner approved this correction after reviewing the dense fixture screenshots.
+**Consequences:** CPU label fit no longer gives individual cores disproportionate widths. Other
+stat arcs retain their current allocation. Visual acceptance of the rebuilt CPU arc remains E1.
+
+### 2026-11-22 - D-040: Prioritize tile exploration; park circle review
+**Context:** After reviewing the November 20 futureIdeas commits, the owner said the circle might
+be a dead end, or its suitable visual style has not yet been found, and proposed focusing on tiles
+for a while. The gauge-ring prototype has 12/12 implementation tasks complete but E1 remains open.
+**Decision:** Shift near-term design exploration to tiles. Park further circle styling and owner
+review; retain the prototype, accepted checks, unresolved questions and evidence.
+**Alternatives:** Continue ring refinement now; reject the circle permanently; explore tiles first.
+**Rationale:** A tile layout is worth testing for readable values and details before investing more
+in the unresolved circular presentation. The owner has not concluded that circles cannot work.
+**Consequences:** The next proposed step is a small clickable mockup with fixture values and an
+expanded detail state. The [futureIdeas tile-square concept](https://github.com/Xpycode/futureIdeas/blob/9e8fe04610d2a00f6a6cc6904633b493ea019db7/ideas/tile-square/README.md)
+(4×4 grid, three sizes, fixed square and icon rail) is a candidate, not approved geometry or style.
+Ring Q1 and remaining E1 checks stay open; do not archive the plan as accepted or discard prior
+work. This priority change does not approve production layout/settings/sampler implementation.
+
+### 2026-11-22 - D-041: Floating tiles with an independent stationary switcher
+**Context:** The owner liked the first fixed-square mockup but described separate tile objects
+with no shared panel background. Selecting one should hide the others and expand only to the
+size its content needs. The owner wanted the right-hand stat links retained as an extra tile.
+**Decision:** Carry this floating-tile direction into the next short spec: individual surfaces,
+transparent gaps, content-sized detail, and a separate switcher anchored independently of the
+detail's size. Return restores the overview. Usage colours are part of the direction.
+**Alternatives:** Keep the enclosing fixed square; remove the switcher when expanding; let the
+switcher move with detail width. The last was tried and explicitly corrected by the owner.
+**Rationale:** Independent surfaces match the owner's intended HUD while the stationary switcher
+retains quick access to other stats without moving targets under the pointer.
+**Consequences:** The HTML mock uses existing status-band thresholds (green below 50%, amber
+50–79%, red 80–100%), reversed for battery charge; unknown/non-percentage scales remain neutral.
+These are prototype defaults, not new universal thresholds for temperature, watts or bandwidth.
+The GPU fixture is deliberately 100% to demonstrate red. Keep values and labels as non-colour cues.
+Native window architecture, content limits, edge placement, order/sizing, keyboard and dismissal
+still need the spec. This is visual/interaction direction, not native implementation acceptance.
+Reference: [floating mockup](../output/tile-exploration/floating-tiles.html); standalone browser
+preview beside it. Original fixed-square mock remains for comparison. Ring stays parked (D-040).

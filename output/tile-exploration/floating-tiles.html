@@ -1,0 +1,117 @@
+<div id="qsp-floating" class="viz-dotted-background" aria-label="QuickStatsPanel floating tile mockup">
+  <div class="qt-stage"><div class="qt-panel" aria-label="Floating tiles">
+    <header><span>QuickStatsPanel</span><span class="qt-muted">Sample readings</span></header>
+    <div class="qt-body"><div class="qt-grid"></div><section class="qt-detail" aria-live="polite" hidden></section><nav class="qt-rail" aria-label="Switch statistic" hidden></nav></div>
+    <footer><span class="qt-status">11 statistics</span><span>Click to expand</span></footer>
+  </div></div>
+</div>
+<style>
+#qsp-floating{--qt-bg:light-dark(#f3f3f1,#232527);--qt-fg:light-dark(#24272a,#edf0f2);--qt-sub:light-dark(#60666b,#aab2b8);--qt-line:light-dark(#d4d7d8,#43484c);--qt-hover:light-dark(#e2e8e4,#33433c);--qt-green:light-dark(#327254,#8ac8a7);--qt-amber:light-dark(#956100,#ecc070);--qt-cell:light-dark(#e9ece9,#2b302e);font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:var(--qt-fg);font-variant-numeric:tabular-nums}
+#qsp-floating *{box-sizing:border-box}#qsp-floating [hidden]{display:none!important}
+#qsp-floating .qt-stage{padding:48px 8px 24px;display:flex;justify-content:center}
+#qsp-floating .qt-panel{width:480px;max-width:100%;background:var(--qt-bg);border:1px solid var(--qt-line);border-radius:10px;padding:14px;box-shadow:0 12px 32px #00000015}
+#qsp-floating header,#qsp-floating footer{display:flex;justify-content:space-between;gap:8px;font-size:11px;line-height:18px}
+#qsp-floating header{margin-bottom:12px;font-weight:500}#qsp-floating footer{margin-top:12px;color:var(--qt-sub)}
+#qsp-floating .qt-body{height:426px;position:relative;display:flex;gap:8px}
+#qsp-floating .qt-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(4,1fr);gap:6px;width:100%}
+#qsp-floating button{font:inherit;color:inherit;border:0;background:transparent;border-radius:5px;text-align:left}
+#qsp-floating .qt-tile{padding:12px 8px;display:flex;flex-direction:column;justify-content:center;gap:7px;min-width:0;position:relative;transition:background .16s}
+#qsp-floating .qt-tile:hover,#qsp-floating .qt-tile:focus-visible,#qsp-floating .qt-rail button:hover,#qsp-floating .qt-rail button[aria-pressed=true]{background:var(--qt-hover)}
+#qsp-floating .qt-tile:nth-child(1){grid-column:span 2;grid-row:span 2;padding:18px}
+#qsp-floating .qt-tile:nth-child(2),#qsp-floating .qt-tile:nth-child(3){grid-column:span 2}
+#qsp-floating .qt-label{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--qt-sub)}
+#qsp-floating .qt-label svg{color:var(--qt-green);flex:none}
+#qsp-floating .qt-value{font-size:21px;font-weight:500;line-height:1.15;letter-spacing:-.5px;white-space:nowrap}
+#qsp-floating .qt-tile:first-child .qt-value{font-size:48px;letter-spacing:-2px}
+#qsp-floating .qt-secondary{font-size:11px;color:var(--qt-sub);line-height:1.25}
+#qsp-floating .qt-muted{color:var(--qt-sub)}
+#qsp-floating .qt-meter{height:3px;width:100%;background:var(--qt-line);border-radius:2px;margin-top:4px;overflow:hidden}
+#qsp-floating .qt-meter span{display:block;height:100%;background:var(--qt-green)}
+#qsp-floating .qt-chevron{position:absolute;right:5px;top:5px;color:var(--qt-sub);opacity:.55}
+#qsp-floating .qt-detail{flex:1;min-width:0;padding:4px 12px 8px 4px;overflow-wrap:anywhere}
+#qsp-floating .qt-back{display:flex;align-items:center;gap:5px;font-size:12px;padding:6px 4px;margin-bottom:24px}
+#qsp-floating .qt-detail h2{font-size:14px;font-weight:500;margin:0 0 8px}
+#qsp-floating .qt-headvalue{font-size:44px;letter-spacing:-1.5px;font-weight:500;margin-bottom:6px}
+#qsp-floating .qt-detail .qt-meter{margin:18px 0 20px;height:5px}
+#qsp-floating .qt-row{display:flex;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--qt-line);font-size:12px}
+#qsp-floating .qt-row span:first-child{color:var(--qt-sub)}
+#qsp-floating .qt-rail{width:76px;flex:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:1fr;gap:3px;border-left:1px solid var(--qt-line);padding-left:6px}
+#qsp-floating .qt-rail button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:3px 0;font-size:10px;min-width:0}
+#qsp-floating .qt-boxes .qt-tile{background:var(--qt-cell)}
+@media(max-width:410px){#qsp-floating .qt-panel{padding:10px}#qsp-floating .qt-body{height:400px}#qsp-floating .qt-tile{padding:8px 4px}#qsp-floating .qt-value{font-size:16px}#qsp-floating .qt-tile:first-child{padding:10px}#qsp-floating .qt-tile:first-child .qt-value{font-size:36px}#qsp-floating .qt-label{gap:3px}#qsp-floating .qt-label svg{width:12px;height:12px}#qsp-floating .qt-headvalue{font-size:32px}#qsp-floating .qt-detail{padding-right:4px}}
+@media(pointer:coarse){#qsp-floating .qt-rail{width:94px}#qsp-floating .qt-rail button{min-height:44px}#qsp-floating .qt-back{min-height:44px;margin-bottom:12px}}
+
+/* Floating variant: each tile owns its surface; the parent is transparent. */
+#qsp-floating .qt-stage{padding:48px 8px 28px;min-height:570px;align-items:flex-start}
+#qsp-floating .qt-panel{width:480px;max-width:100%;padding:0;background:transparent;border:0;box-shadow:none;border-radius:0;--qt-gap:12px}
+#qsp-floating header{margin:0 2px 14px}
+#qsp-floating footer{margin:14px 2px 0}
+#qsp-floating .qt-body{height:auto;align-items:flex-start;gap:var(--qt-gap)}
+#qsp-floating .qt-grid{gap:var(--qt-gap);grid-template-rows:repeat(4,100px)}
+#qsp-floating .qt-tile,#qsp-floating .qt-detail,#qsp-floating .qt-rail{background:var(--qt-bg);border:1px solid var(--qt-line);border-radius:9px;box-shadow:0 4px 12px #00000012}
+#qsp-floating .qt-tile{padding:12px 10px}
+#qsp-floating .qt-detail{flex:0 1 auto;width:max-content;max-width:calc(100% - 106px - var(--qt-gap));padding:16px;overflow-wrap:normal}
+#qsp-floating .qt-detail h2{margin-top:0}
+#qsp-floating .qt-back{margin:0 0 16px;padding:4px 0}
+#qsp-floating .qt-row{gap:22px;line-height:18px}
+#qsp-floating .qt-row:last-child{border:0;padding-bottom:0}
+#qsp-floating .qt-row span:last-child{text-align:right}
+#qsp-floating .qt-detail .qt-secondary{margin-bottom:16px}
+#qsp-floating .qt-detail .qt-meter{margin:16px 0 12px}
+#qsp-floating .qt-rail{width:106px;padding:7px;gap:3px;grid-auto-rows:48px}
+#qsp-floating .qt-rail button{font-size:11px;min-height:44px}
+#qsp-floating .qt-rail button[aria-pressed=true]{color:var(--qt-green)}
+#qsp-floating .qt-expanded .qt-body{justify-content:flex-start}
+/* Keep the switcher at the overview footprint’s right edge, independent of detail width. */
+#qsp-floating .qt-expanded .qt-rail{margin-left:auto;align-self:flex-start}
+@media(max-width:410px){
+#qsp-floating .qt-stage{padding-left:0;padding-right:0;min-height:540px}
+#qsp-floating .qt-panel{padding:0}
+#qsp-floating .qt-grid{grid-template-rows:repeat(4,96px)}
+#qsp-floating .qt-tile{padding:9px 5px}
+#qsp-floating .qt-label{font-size:11px}
+#qsp-floating .qt-label svg{display:none}
+#qsp-floating .qt-rail{width:94px;padding:4px;gap:0}
+#qsp-floating .qt-detail{max-width:calc(100% - 94px - var(--qt-gap));padding:12px}
+#qsp-floating .qt-row{gap:8px;flex-wrap:wrap}
+#qsp-floating .qt-row span:last-child{margin-left:auto}
+#qsp-floating .qt-headvalue{font-size:29px}
+}
+
+/* Use the app's initial status bands: busy at 50%, hot at 80%. */
+#qsp-floating{--qt-red:light-dark(#bd3434,#ff9292)}
+#qsp-floating .qt-value,#qsp-floating .qt-headvalue,#qsp-floating .qt-label svg,#qsp-floating .qt-rail button svg{color:var(--qt-usage,var(--qt-sub))}
+#qsp-floating .qt-meter span{background:var(--qt-usage,var(--qt-green))}
+#qsp-floating .qt-rail button[aria-pressed=true]{color:var(--qt-usage,var(--qt-fg))}
+</style>
+<script>
+(()=>{
+const root=document.getElementById('qsp-floating'),panel=root.querySelector('.qt-panel'),grid=root.querySelector('.qt-grid'),detail=root.querySelector('.qt-detail'),rail=root.querySelector('.qt-rail');
+const stats=[
+['CPU','CPU','42%','64°C · 10 cores','cpu',42,[['User','30%'],['System','12%'],['Idle','58%'],['Top process','Xcode · 18%'],['Temperature','64°C']]],
+['Memory','MEM','18.4 GB','of 32 GB used','memory-stick',57.5,[['App memory','11.2 GB'],['Wired','4.1 GB'],['Compressed','3.1 GB'],['Available','13.6 GB'],['Swap used','0.8 GB']]],
+['Network','NET','2.4 MB/s','Upload 180 KB/s','arrow-down-up',null,[['Download','2.4 MB/s'],['Upload','180 KB/s'],['Interface','Wi-Fi · en0'],['Received this session','1.8 GB'],['Sent this session','240 MB']]],
+['Disk','DSK','62%','of 1 TB','hard-drive',62,[['Used','620 GB'],['Free','380 GB'],['Read','148 MB/s'],['Write','12 MB/s'],['Volume','Macintosh HD']]],
+['Battery','BAT','82%','4:12 left','battery',82,[['Charge','82%'],['Time remaining','4 h 12 min'],['Power source','Battery'],['Condition','Normal'],['Cycle count','124']]],
+['GPU','GPU','100%','8 cores','microchip',100,[['Utilization','100%'],['Temperature','48°C'],['Active cores','8'],['Power','3.8 W']]],
+['Fans','FAN','1,420','rpm','fan',null,[['Left fan','1,420 rpm'],['Right fan','1,380 rpm'],['Control','Automatic']]],
+['Power','PWR','28 W','System','zap',null,[['System','28 W'],['CPU','12.4 W'],['GPU','3.8 W'],['DC input','0 W'],['Source','Battery']]],
+['Temp','TMP','64°C','CPU','thermometer',null,[['CPU','64°C'],['GPU','48°C'],['Battery','31°C'],['SSD','39°C']]],
+['Load','LOAD','2.4','1 minute','activity',null,[['1 minute','2.40'],['5 minutes','2.12'],['15 minutes','1.86'],['Logical cores','10']]],
+['Uptime','UP','3d 4h','Since restart','clock',null,[['Uptime','3 days, 4 hours'],['Boot time','Nov 19 · 08:32'],['Sleep time','Excluded from reading']]]
+];
+let selected=null;const settings={gap:12,secondary:true};
+const icon=name=>'<i data-lucide="'+name+'" aria-hidden="true"></i>';
+function icons(){if(globalThis.lucide)lucide.createIcons({attrs:{width:15,height:15}})}
+function usageColor(s){if(s[5]===null)return 'var(--qt-sub)';const load=s[0]==='Battery'?100-s[5]:s[5];return load>=80?'var(--qt-red)':load>=50?'var(--qt-amber)':'var(--qt-green)'}
+function meter(s){return s[5]===null?'':'<div class="qt-meter" role="img" aria-label="'+s[0]+' '+s[5]+' percent"><span style="width:'+s[5]+'%"></span></div>'}
+function save(){if(window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{selectedStat:selected===null?null:stats[selected][0],tileGap:settings.gap,pairedReadings:settings.secondary},privateContent:{design:'floating',selected,settings}}).catch(()=>{})}
+function open(index,focus=false){const previous=selected;const origin=previous===null&&index!==null?grid.children[index].getBoundingClientRect():null;selected=index;const expanded=index!==null;grid.hidden=expanded;detail.hidden=!expanded;rail.hidden=!expanded;panel.classList.toggle('qt-expanded',expanded);root.querySelector('.qt-status').textContent=expanded?stats[index][0]+' details':'11 statistics';root.querySelector('footer span:last-child').textContent=expanded?'Escape to return':'Click to expand';if(expanded){const s=stats[index];detail.style.setProperty('--qt-usage',usageColor(s));detail.innerHTML='<button type="button" class="qt-back cursor-interaction">'+icon('arrow-left')+'All statistics</button><h2>'+s[0]+'</h2><div class="qt-headvalue">'+s[2]+'</div><div class="qt-secondary">'+s[3]+'</div>'+meter(s)+'<div>'+s[6].map(r=>'<div class="qt-row"><span>'+r[0]+'</span><span>'+r[1]+'</span></div>').join('')+'</div>';detail.querySelector('button').onclick=()=>{const old=selected;open(null);grid.children[old].focus();save()};rail.querySelectorAll('button').forEach((b,i)=>b.setAttribute('aria-pressed',String(i===index)));icons();if(focus)detail.querySelector('button').focus();if(!matchMedia('(prefers-reduced-motion: reduce)').matches){const target=detail.getBoundingClientRect();if(origin){detail.animate([{transformOrigin:'top left',transform:'translate('+(origin.left-target.left)+'px,'+(origin.top-target.top)+'px) scale('+origin.width/target.width+','+origin.height/target.height+')',opacity:.6},{transformOrigin:'top left',transform:'none',opacity:1}],{duration:240,easing:'cubic-bezier(.2,.7,.2,1)'});}else if(previous!==null){detail.animate([{transform:'translateY(5px)',opacity:.7},{transform:'none',opacity:1}],{duration:140});}}}else if(focus)grid.querySelector('button').focus()}
+stats.forEach((s,i)=>{const b=document.createElement('button');b.type='button';b.className='qt-tile cursor-interaction';b.style.setProperty('--qt-usage',usageColor(s));b.setAttribute('aria-label',s[0]+', '+s[2]+', '+s[3]+'. Expand details');b.innerHTML='<span class="qt-chevron">'+icon('chevron-right')+'</span><span class="qt-label">'+icon(s[4])+s[0]+'</span><span class="qt-value">'+s[2]+'</span><span class="qt-secondary">'+s[3]+'</span>'+(i===0||i===1?meter(s):'');b.onclick=()=>{open(i,true);save()};grid.appendChild(b);const r=document.createElement('button');r.type='button';r.className='cursor-interaction';r.style.setProperty('--qt-usage',usageColor(s));r.setAttribute('aria-label',s[0]);r.innerHTML=icon(s[4])+'<span>'+s[1]+'</span>';r.onclick=()=>{open(i);save()};rail.appendChild(r)});
+root.addEventListener('keydown',e=>{if(e.key==='Escape'&&selected!==null){e.preventDefault();const old=selected;open(null);grid.children[old].focus();save()}if(['ArrowRight','ArrowLeft','ArrowDown','ArrowUp'].includes(e.key)){const buttons=Array.from((selected===null?grid:rail).querySelectorAll('button'));const at=buttons.indexOf(document.activeElement);if(at>=0){e.preventDefault();const step=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:e.key==='ArrowDown'?(selected===null?4:2):-(selected===null?4:2);buttons[(at+step+buttons.length)%buttons.length].focus()}}});
+function style(){panel.style.setProperty('--qt-gap',settings.gap+'px');grid.querySelectorAll('.qt-secondary').forEach(x=>x.hidden=!settings.secondary)}
+function restore(state){const p=state?.privateContent?.design==='floating'?state.privateContent:null;if(p?.settings){settings.gap=Number.isFinite(p.settings.gap)?Math.max(6,Math.min(24,p.settings.gap)):12;settings.secondary=p.settings.secondary!==false}style();open(Number.isInteger(p?.selected)&&p.selected>=0&&p.selected<stats.length?p.selected:null)}
+restore(window.openai?.widgetState);icons();window.addEventListener('openai:set_globals',e=>{if(e.detail?.globals?.widgetState)restore(e.detail.globals.widgetState)});
+if(globalThis.Tweak){const tweak=new Tweak({container:panel,onChange:()=>{style();save()}});tweak.addSlider(settings,'gap',{label:'Space between tiles',min:6,max:24,unit:'px'});tweak.addToggle(settings,'secondary',{label:'Paired readings'})}
+})();
+</script>

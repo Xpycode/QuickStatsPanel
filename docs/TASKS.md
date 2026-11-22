@@ -4,7 +4,17 @@
 
 ## Active plan
 
-[Gauge ring prototype](../IMPLEMENTATION_PLAN.md) — all 8 tasks complete 2026-11-14 (3.2 added from
+[Floating-tile prototype](IMPLEMENTATION_PLAN-floating-tiles.md) — selected, 0/4 tasks across four
+serial waves. First ready task 1.1 proves an isolated native interaction loop; execution not yet
+requested. Provisional defaults are evaluated at tile E1; no production rollout.
+
+## Parked plan
+
+[Gauge ring prototype](../IMPLEMENTATION_PLAN.md) — 12/12 implementation tasks complete (8 original tasks plus F5–F8 fix pass 2,
+2026-11-15). Separator/CPU-width follow-ups implemented; scoped native passes recorded, E1 remains open.
+Review parked while tile exploration takes priority (D-040); all remaining E1 gates stay open.
+See [current handoff](sessions/2026-11-22.md#resume--pre-clear-floating-tile-implementation-next) and [fix pass 2 evidence](evidence/gauge-ring-fix-pass-2.md).
+Original implementation tasks completed 2026-11-14 (3.2 added from
 the owner's look at the 2.1 build; fit rule resolved by D-037). External gate E1 (owner review,
 [checklist](evidence/gauge-ring-prototype.md#e1-owner-review-checklist)) closes the plan. Status and
 evidence live in the plan.
@@ -31,6 +41,10 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 **This file is the backlog** — `PROJECT_STATE.md` is a digest and points here.
 
 ### Ring
+- [ ] **Fixture history period queries stall (Debug only)** — confirmed November 16: automatic scheduling is disabled in fixture mode, so changing period queues a query without publishing it. Real-data Network retest passed. See owner evidence; deferred from C7 drawing correction.
+- [ ] **Configurable ring gap width, including zero (no gaps)** — owner, 2026-11-15, after accepting the constant-width main-ring separators. Deferred to production appearance/settings planning; no control added now. Decide how ordinary and sensor-group spacing relate when specifying it.
+- [ ] **CPU wedge secondary value low contrast** — owner, 2026-11-15: "74°C" under "42%" sits on the
+      lighter inner temperature ring. Deferred by owner ("later").
 - [ ] **Disk/Network detail card: blank gap mid-card (Strip and Ring)** — owner screenshots 2026-11-14;
       cause found by 3.2: `transferContent` always reserves a 32-point empty warning slot between
       "Unsaved · Last saved …" and Used/Free. Shared with the Strip card, so left unchanged. Fix
@@ -65,10 +79,11 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 - [ ] **Sparkle release acceptance** — requested 2026-11-11. Integration, dedicated signing key, signed empty feed and packaging validation implemented for 1.2.1. Initial signed empty feed published and verified; validate manual check and opt-in checkbox, back up key to Strongbox, package/notarize release, and test a real upgrade with retained preferences/history. 1.2.0 must upgrade manually. See `sparkle-updates.md`.
 
 ### Layouts and appearance
+- [ ] **Specify floating tiles, then plan the native prototype** — owner, 2026-11-22 (D-040/D-041). Clickable mockup explored; carry forward separate surfaces, content-sized detail, hidden overview, stationary independent switcher and usage colours. Next session writes a short spec covering sizing/order, edge placement and keyboard/dismiss behaviour, reusing existing stat/detail groundwork. Native implementation has not started. See [handoff](sessions/2026-11-22.md#resume--spec-next-session).
 - **Alternate layouts and bounded appearance** — the first ring prototype is
   [archived](sessions/IMPLEMENTATION_PLAN-ring-prototype-DONE.md); the gauge ring prototype is the
   [active plan](../IMPLEMENTATION_PLAN.md). Remaining production Ring, Grid/Rail and appearance
-  controls stay deferred until that plan's owner review and follow-up planning; [spec](../specs/panel-layouts-and-appearance.md). No duplicate completion status here.
+  controls stay deferred pending follow-up planning; tile exploration may proceed before ring E1 closes (D-040); [spec](../specs/panel-layouts-and-appearance.md). No duplicate completion status here.
 
 ### D-025 tails
 - [ ] **Detail-card headline pair** (optional) — the big `61 KB/s / Upload` block from the iStat
@@ -118,10 +133,7 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 - [ ] `cornerRadius` 12pt reads fine at the snug width — revisit if it ever feels too round.
 
 ## Inbox
-- [ ] **Strip drag may switch Space at a screen edge (2026-11-15).** Ring E1 found F4: `performDrag`
-      held at a left/right edge makes macOS switch Space. Fixed for the Ring (event-tracking loop,
-      `RingPanelController.trackDrag`); the Strip still uses `performDrag` (`PanelWindowController`).
-      Owner to confirm whether the Strip shows it.
+- [ ] **Fixture transfer-card labels disappear during period changes** — November 16 screenshots; did not recur after verified real-data launch. Cause unconfirmed; distinct from the diagnosed fixture history-query stall.
 - [ ] **Text orientation setting (owner request, 2026-11-14).** As in MousePlus (`LabelOrientation`:
       upright / radial / tangential, auto-flipped). Conflicts with the spec's horizontal-text rule
       (D-035); decide at Ring E1 close.

@@ -1,0 +1,208 @@
+# Floating Tiles — Native Prototype Plan
+
+**Created:** 2026-11-22 · **Status:** planned; execution not requested
+**Progress:** 0/4 implementation tasks complete; external acceptance **E1 open**.
+Unchecked tasks are pending unless explicitly marked blocked or implemented-unverified.
+This file owns task status/evidence. The [ring plan](../IMPLEMENTATION_PLAN.md) remains parked,
+12/12 implemented with its own E1 open; it is not archived or superseded as evidence.
+
+Execute using `/Users/sim/ProgrammingProjects/0-DIRECTIONS/__DIRECTIONS/commands/execute.md`.
+
+## Goal and scope
+
+One Debug-only, fixture-backed native HUD demonstrating overview → select CPU → switch to
+Network/history → return → dismiss, using independent tile surfaces and stationary navigation.
+The [spec](../specs/floating-tiles.md) owns FT-1–FT-10. All are pending; this plan maps them to
+implementation and acceptance rather than copying completion boxes.
+
+The user's “next” advances preparation to planning. Proposed sizing/order, gap-click and
+keyboard defaults remain provisional, to be evaluated at E1, not recorded as accepted design.
+An execute request authorizes this bounded experiment, not production rollout.
+
+No new sampling, production preferences, ring fixes, updater/release work or public publication.
+Leave the owner's review app and saved preferences alone. UI checks run in the Atlas helper
+with isolated data. Read the Atlas skill and testing guide before execution; do not launch
+on the owner's desktop under a generic fresh-build handoff.
+
+## Gap analysis and interfaces
+
+- `StatDescriptor.swift` already offers ordered enabled identities and unavailable-aware
+  descriptors. `AppSettings` already accepts injected defaults, but `shared` currently uses
+  standard defaults: isolation must begin before first singleton access, including Settings.
+- `StatsStore` already accepts a transfer-history root and scheduling policy. Ring fixtures
+  seed useful samples but disable automatic history scheduling and do not clean their root;
+  tile fixtures need their own lifecycle and working period-query publication.
+- `StatDetailView` contains reusable details, fixed transfer width and height limiting.
+  Its `onClose` option also gates Ring presentation. Add an explicit presentation option with
+  unchanged existing defaults; do not emulate Ring to get scrolling.
+- `AppDelegate` already routes hotkey, Escape, pin, click-away, shutdown and updater startup.
+  Tile launch must be mutually exclusive with Ring launch. Ordinary Debug/Release remain Strip.
+- Existing panels intentionally never become key. Arrow/Tab navigation needs a native focus
+  check; Ring's passthrough host cannot simply replace controls in an interactive detail card.
+- Hostless tests compile Model/Sampling, Theme and HotKeyService, not Views/Panel/AppDelegate.
+  Native focus, transparency and accessibility require separate observed helper checks.
+
+New interfaces: `FloatingTilePlan` (frozen frames, identities, neighbour map, scroll limits),
+`FloatingTileState` (overview/detail/hidden and focused identity), `FloatingTileReading`
+(existing display text plus explicitly based optional usage), and a controller reporting
+visibility and consuming select/return/dismiss/drag actions. Names may change without changing
+the contract. No sample update may rebuild the plan or move switcher targets.
+
+### Geometry decision for the experiment
+
+Preserve the confirmed switcher anchor at the overview's right edge. Measure required detail
+widths first; if needed, enlarge the overview footprint once at summon to accommodate the
+widest detail plus 106-point switcher and 12-point gap. Freeze that footprint for the session.
+This is a provisional native adaptation of the 480-point HTML baseline, not permission to
+shift the switcher when a different card opens. On narrow displays, establish a readable
+minimum in 1.1 and use bounded scrolling/column reduction. If the anchored layout cannot fit
+without clipping, reduced type or inaccessible controls, stop and revise the spec.
+
+## Execution schedule and ownership
+
+Four serial waves: each extends and validates the same native interaction loop and consumes
+the prior task's interface. Parallel edits to app routing, controller and singleton setup
+would overlap; no safe independent implementation task is proposed. Follow execute.md's
+fresh-context rules at execution time; planning itself starts no agents.
+
+The coordinator exclusively owns AppDelegate wiring integration, `01_Project/project.yml`,
+project generation, all documentation, Git operations and `build/FloatingTiles-*` resources.
+Task owners own the source/test files listed below only during their wave. Never overwrite
+existing dirty Ring changes. New paths below are relative to
+`01_Project/Sources/QuickStatsPanel/`; test paths to `01_Project/Tests/QuickStatsPanelTests/`.
+
+## Tasks
+
+### Wave 1 — prove one native interaction loop
+
+- [ ] **1.1: CPU/Network overview, detail switch and return with isolated startup**
+  - Depends on: none. External gates: none; starts only after execution is requested.
+  - Owns: new `Model/FloatingTilePrototypeOptions.swift`, `Model/FloatingTileFixtures.swift`,
+    `Model/FloatingTileLayout.swift`, `Model/FloatingTileState.swift`,
+    `Panel/FloatingTilePanelController.swift`, `Views/FloatingTilesView.swift`,
+    `Views/AppKit/FloatingTileControls.swift`; bounded changes to `Model/AppSettings.swift`,
+    `Model/StatsStore.swift`, `Views/StatDetailView.swift`; coordinator integrates AppDelegate.
+    Tests: new FloatingTileOptionsTests, FloatingTileLayoutTests, FloatingTileStateTests,
+    FloatingTileIsolationTests.
+  - Interface: frozen plan/state and controller callbacks above; proposed Debug argument
+    `--floating-tiles-prototype` with fixture selection (not an existing command yet).
+  - Success: CPU and Network can open, switch, return and dismiss in the helper with stationary
+    switcher, no focus theft on summon, usable keyboard entry and explicit AppKit navigation
+    controls. Settings/Quit stay reachable. Prove transparent gaps and coordinated dismissal;
+    choose the smallest working panel arrangement and record why. Start with one transparent
+    host and separate detail/switcher surfaces as needed, not one window per stat by default.
+  - Isolation: defaults selected before any singleton read; temporary history root retained
+    until flush completes and then removed. Disable samplers, updater and first-run hint in
+    fixture mode; wire existing history queries so period changes settle. Fixture Settings
+    writes must remain isolated. Preserve default initialization for normal launches/tests.
+  - Backpressure: B and focused T below for the four new suites, plus Atlas observations of
+    the named journey/focus/gap cases. Keep screenshots and actual artifact identity in evidence.
+  - Stop/replan: new permission, focus theft, unreadable minimum size, broken click-through or
+    leaked defaults/history. Do not build the remaining tiles until this proof passes.
+  - Covers: initial FT-2–5, FT-8–10; full breadth belongs to 2.1–4.1 and E1.
+
+### Wave 2 — complete the eleven-stat overview
+
+- [ ] **2.1: Stable hierarchy, real descriptor meanings and usage colours on fixtures**
+  - Depends on: 1.1 and its accepted plan/state interfaces. External gates: none.
+  - Owns: FloatingTileLayout/Fixtures/View/Controls from 1.1; new
+    `Model/FloatingTileReading.swift`; corresponding layout/reading/state tests.
+  - Success: saved order drives first-large/next-two-wide hierarchy and switcher; all eleven
+    stat identities, empty/one/subset cases and unavailable states work. Render configured
+    primary/paired readings with width reservation. Usage basis is explicit; only meaningful
+    percentages receive the spec's bands. Selection/focus remain distinct without colour.
+  - Backpressure: B; focused T for layout/reading/state, including colour boundaries, reverse
+    battery and neutral scales. Atlas checks eleven-stat overview, Mono/light/dark and value
+    changes without movement. Freeze gap/size prototype constants; no production settings UI.
+  - Covers: FT-1, FT-6, FT-7 and full-stat reachability portion of FT-2/FT-3.
+
+### Wave 3 — complete detail, edges and accessible interaction
+
+- [ ] **3.1: All details, constrained displays, keyboard and group lifecycle**
+  - Depends on: 2.1. External gates: none.
+  - Owns: FloatingTileLayout/State/Controller/View/Controls, `Views/StatDetailView.swift` explicit
+    presentation adaptation, isolated fixture query plumbing; coordinator integrates AppDelegate
+    visibility, Escape, pinning and display-change routing. Tests: layout/state/isolation suites.
+  - Success: all existing detail content and transfer controls remain usable, including period
+    switching and scoped reset confirmation on disposable data. Short/long cards share stationary
+    navigation; only oversized content scrolls. Arrow navigation follows actual neighbours;
+    return restores focus; VoiceOver names/value/selection/actions are exposed. Group drag and
+    display re-clamp move surfaces together; hide/quit removes all panels and owned monitors.
+  - Backpressure: B and focused T for affected suites; Atlas finite matrix: edge/corner and
+    narrow frames, longest labels, unavailable stat, Always-show scroll bars, Reduce Motion,
+    Tab/Shift-Tab/arrows/Return/Space/Escape, pinned/unpinned gap-click, drag and resummon.
+    Simulated model frames do not count as native multi-display verification; record unavailable
+    hardware checks separately for E1. Restore only helper settings changed by these checks.
+  - Covers: FT-2–6, FT-8, FT-9. Existing Strip/Ring callers retain their defaults and behaviour.
+
+### Wave 4 — integrated verification and review handoff
+
+- [ ] **4.1: Regression, Release exclusion and finite owner review packet**
+  - Depends on: 3.1. External gates: none for compilation/tests/helper inspection.
+  - Owns: coordinator documentation/build results and necessary corrections returned to their
+    owning source; no unrelated cleanup. Evidence: `docs/evidence/floating-tiles-prototype.md`.
+  - Success: full inspected hostless suite passes; Debug and Release compile; signatures verify;
+    Release has no floating prototype flag/controller symbol, with Debug as positive control.
+    Review startup/isolation and shared detail/routing diffs; correct concrete scoped findings
+    and rerun affected checks. Normal Strip smoke and Ring compatibility checks use only isolated
+    helper instances. Record real test counts, skipped/blocked checks and exact final artifact.
+  - Backpressure: B, full T, R, `codesign --verify --deep --strict` against each built bundle,
+    `strings` and `nm` Release inspection with Debug control; Atlas screenshots/interaction
+    evidence. Do not infer regression success from earlier 394/0 results.
+  - Handoff: prepare E1 cases below against implemented controls and fixtures, with full artifact
+    paths. Keep owner's existing app running. No desktop replacement or publication.
+  - Covers: FT-10 and integrated evidence for FT-1–9. E1 remains open after this task.
+
+## Backpressure commands and execution prerequisites
+
+Before running, read master `34_testing.md`, inspect current scheme/test setup and startup
+effects, and use the Atlas skill for any native UI check. No commands below ran during planning.
+From `/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project`:
+
+```bash
+xcodegen generate
+# B — compile only; never launch implicitly
+xcodebuild -scheme QuickStatsPanel -destination 'platform=macOS' -configuration Debug -derivedDataPath ../build/FloatingTiles-Debug build
+# T — hostless tests; use a fresh result path for every invocation
+xcodebuild -scheme QuickStatsPanel -destination 'platform=macOS' -configuration Debug -derivedDataPath ../build/FloatingTiles-Tests -resultBundlePath ../build/FloatingTiles-tests-run01.xcresult test
+# R — compile only
+xcodebuild -scheme QuickStatsPanel -destination 'platform=macOS' -configuration Release -derivedDataPath ../build/FloatingTiles-Release build
+```
+
+Focused T adds one `-only-testing:QuickStatsPanelTests/<SuiteName>` argument per implemented
+suite. Confirm actual suite names before invocation. Inspect hardware-probe tests before full T;
+separate any unsafe/unsupported cases and report them rather than silently skipping them.
+Preserve raw logs, producer exit status and failed result bundles; serialize shared build caches.
+Native commands depend on the implemented argument parser and verified Atlas backend, not a
+guessed invocation. Verify startup isolation before the first helper launch.
+
+## External acceptance
+
+- [ ] **E1: Owner judges floating-tile usefulness and provisional defaults**
+  - Depends on: 4.1. Requires owner feedback on the exact final native artifact.
+  - Owns: result rows in the evidence document. Gates final product acceptance and subsequent
+    production planning; does not block implementation on the provisional defaults above.
+  - Finite cases: (A) glance at eleven stats/order/size hierarchy; (B) CPU → Network → short
+    detail → return with no moving switcher; (C) long detail/edge/scroll behaviour; (D) keyboard,
+    dismiss/pin and gap clicks; (E) colour/Mono/unavailable readability; (F) any native display
+    or accessibility cases unavailable in the helper, clearly listed as pending.
+  - Record pass/fail/blocked/not run separately, with screenshots/artifact and changed-scope
+    reasons for any repeat. Do not ask the owner to rerun unchanged checks already established
+    by reliable helper evidence; owner review primarily decides readability and interaction fit.
+  - Completion: FT-1–10 supported by integrated evidence, provisional choices accepted or scoped
+    changes implemented/rechecked, and no unresolved required case. A failed critical benefit
+    check triggers simplify/replan/park; do not extend into dashboard customization.
+
+## Schedule validation and current boundary
+
+Dependency graph: 1.1 → 2.1 → 3.1 → 4.1 → E1, no cycles or same-wave shared writers.
+All FT criteria have implementation and integrated/owner evidence owners. First ready task: 1.1,
+awaiting an execution request. No technical blocker is yet established; feasibility is 1.1's
+explicit stop boundary. Ring E1 and 1.2.1 release gates are independent and remain open.
+
+## Execution log
+
+| Wave / task | Assignment | Validation / evidence | Commit / exception | Next / stop reason |
+|---|---|---|---|---|
+
+No implementation, builds, tests, app launch or acceptance performed during planning.

@@ -10,22 +10,23 @@
 - **Started:** 2026-06-04 · **Target:** macOS 15+ · **License:** PolyForm Noncommercial 1.0.0 (public repo)
 
 ## Now
-- **Funnel:** build · **Phase:** Ring gauges — owner review (E1) in progress <!-- Phase changed: 2026-11-14 -->
-- **Focus:** v1.2.1 universal app/DMG notarized and local signed update feed verified. Published version remains v1.2.0; [release preparation](evidence/release-1.2.1.md).
-- **Blockers:** Strongbox backup confirmed incomplete; remaining updater controls and real upgrade acceptance open.
-- **Execution:** [Gauge ring prototype plan](../IMPLEMENTATION_PLAN.md) — 8/8 tasks complete. **E1 in progress:** 12 rows pass, A1 skipped; fix pass 1 built for F2/F4 and owner corrections; [results](evidence/gauge-ring-prototype.md#owner-results).
-- **Feature definition:** [Panel layouts and dynamic appearance](../specs/panel-layouts-and-appearance.md) — revised 2026-11-13 for **D-035/D-036** (gauge wedges, size presets, small hub, More wedge at six o'clock, sub-rings as outer arcs, AC-24…AC-41). Its Proposed/Open rows are built as provisional prototype baselines and decided at the plan's E1; fixtures-first for sub-ring parts was decided in planning.
-- **Current handoff:** [E1 in progress, fix pass 1 built](sessions/2026-11-15.md#resume--e1-in-progress-fix-pass-1-built).
-- **Validation:** 1.2.1: 19 focused hostless tests, Debug build/deep signature, signed-feed/tamper and release-tool fixture checks passed. Paired displays and live manual no-update check accepted; other updater controls and real upgrade untested.
-- **Next:** Owner rechecks fix pass 1 on the running build, then E1 continues at Step 3 (~30 rows + S1/Q1–Q9) → close the plan. Separately: Strongbox backup, updater/upgrade acceptance and publication for 1.2.1.
-- **Last updated:** 2026-11-15
+- **Funnel:** plan · **Phase:** Floating tiles — prototype planned <!-- Phase changed: 2026-11-22 -->
+- **Focus:** bounded native floating-tile prototype; [spec defaults](../specs/floating-tiles.md) remain provisional until owner review. Circle review remains parked (D-040).
+- **Blockers:** none for tile Wave 1; tile acceptance and parked ring E1 remain open. Separate release gates: Strongbox backup, remaining updater controls and real upgrade acceptance.
+- **Execution:** [Floating-tile prototype plan](IMPLEMENTATION_PLAN-floating-tiles.md) — 0/4 tasks, four serial waves; Wave 1 (1.1) has no prerequisites and is ready when execution is requested. Tile E1 open. [Ring plan](../IMPLEMENTATION_PLAN.md) remains 12/12 implemented, E1 open and parked.
+- **Feature definition:** [Floating tiles](../specs/floating-tiles.md), with provisional native defaults. [Earlier layouts/ring spec](../specs/panel-layouts-and-appearance.md) and remaining ring E1 decisions stay parked.
+- **Current handoff:** [After Git closeout](sessions/2026-11-22.md#resume--after-git-closeout) — all work committed and pushed; pickup per [pre-clear Resume](sessions/2026-11-22.md#resume--pre-clear-floating-tile-implementation-next).
+- **Validation:** C7 view correction Debug/Release, signature and Release exclusion pass; C7 visual correction accepted. Prior 394/0 hostless result unchanged. [Owner evidence](evidence/gauge-ring-prototype.md#owner-results).
+- **Next:** `/execute` — Wave 1: prove CPU/Network select, switch, return and dismissal with isolated preferences/history and native focus checks. Execution not yet requested; no production wave authorized.
+- **Release:** public v1.2.0; prepared v1.2.1 remains unpublished and separate from prototype work. [Release preparation](evidence/release-1.2.1.md).
+- **Last updated:** 2026-11-22
 
 ## Recent
-- **2026-11-15** — E1 review run in batches: most branch, More and placement rows pass; clipped card notes and a Space switch on drag found and fixed with the owner's arc and card corrections; fresh build running.
-- **2026-11-14** — Wave 5 done: Release check clean (no `--ring-` literal or ring view symbol), 390 hostless tests pass (reconciled against 212), independent review PASS with one minor fixture-Settings concern; evidence and a finite E1 checklist written; fresh build launched.
-- **2026-11-14** — Wave 4 built: native sub-ring and More arcs with hover captions and segment accessibility; 3.1 shims gone, band on; review found clicks falling through transparent inside areas (fixed with a hit fill); 288 ring tests pass; fresh build launched on fixtures.
-- **2026-11-14** — Wave 3 built: any wedge can own the outer arc and card (band stays off until Wave 4), cards no longer scroll or clip under always-visible scroll bars, long wedge values fit; review found and fixed a More flicker; 273 ring tests pass; fresh build launched.
-- **2026-11-14** — Owner chose icon-only at Medium/8 (D-037); gauge ring 2.1 built: presets, real-data gauges, small hub, More wedge at six o'clock; 229 ring tests pass; fresh build launched.
+- **2026-11-22** — Floating mockup explored: separate tiles, content-sized detail, stationary switcher and usage colours. Spec and four-task prototype plan prepared; defaults provisional, execution not started; circle parked. All Nov 15–22 work committed and pushed.
+- **2026-11-17** — Pre-clear handoff saved; accepted review results retained, artifact hashes reverified. Q1 arc arrangement still awaits a decision.
+- **2026-11-16** — C7 peak-line/text clearance accepted after screenshot review; Debug/Release/signature pass. C5 battery-power display passed by screenshots; C6 accepted. Next Q1 design decision.
+- **2026-11-16** — B4 and real-data B5/C1/Network C2 passed; history/labels work. C4 scroll-bar setting check passed; next C7 CPU spacing; fixture query limitation diagnosed.
+- **2026-11-16** — Owner accepted equal CPU segment widths; pre-clear handoff saved with exact remaining review boundary.
 
 ## What we're building
 Press a global hotkey → a **thin** wide strip appears near the cursor showing live stats as compact
@@ -38,11 +39,11 @@ Fans, Power, Temperatures, plus per-stat history graphs (2026-07-27).
 
 ## Progress
 **Features** ✅ roadmap + retained transfers shipped · **UI** ✅ approved release scope; remaining manual checks deferred ·
-**Testing** ✅ 390 hostless tests + bounded hardware probes · **Docs** ✅ ·
+**Testing** ✅ 394 hostless tests + bounded hardware probes · **Docs** ✅ ·
 **Distribution** ✅ v1.2.0 notarized + released; GitHub and website downloads verified
 
 ## Detail (read only if needed)
-- **Decisions:** `decisions.md` — D-001…D-036, full rationale for every locked choice. Load-bearing:
+- **Decisions:** `decisions.md` — D-001…D-041, full rationale for every locked choice. Load-bearing:
   **D-001** HUD `NSPanel` · **D-002** Carbon hotkey, no permissions · **D-003** `LSUIElement` ·
   **D-006** thin strip + click-to-expand · **D-008** content-driven width and fixed-width value
   slots (jitter discipline — read this before touching tile layout) · **D-015** self-drawn card.
