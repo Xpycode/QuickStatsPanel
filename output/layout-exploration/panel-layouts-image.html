@@ -1,0 +1,77 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html {color-scheme:dark;} body{margin:0;background:#16191c;color:#edf0f2;font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:44px;} h1{font-size:27px;font-weight:500;margin:0 0 8px;} p{color:#aab2b8;font-size:14px;margin:0 0 30px;} #qsp-layouts{display:grid;grid-template-columns:410px 340px 260px;gap:22px;} #qsp-layouts section::before{content:attr(data-variant);display:block;text-align:center;font-size:16px;padding-top:18px;} #qsp-layouts .qstage{min-height:430px;padding:20px 4px;} #qsp-layouts section{background:#1b1e21;border-radius:12px;} footer{margin-top:24px;font-size:13px;color:#aab2b8;}</style></head><body><h1>QuickStatsPanel — layout exploration</h1><p>Three alternative layouts · illustrative readings</p><div id="qsp-layouts" class="viz-carousel viz-dotted-background" aria-label="QuickStatsPanel layout concepts with sample readings">
+  <section data-variant="Compact grid" aria-label="Compact grid concept">
+    <div class="qstage"><div class="qmock qgrid" aria-label="Compact grid appearance">
+      <div class="qhead"><span>QuickStatsPanel</span><span class="qsub">Sample readings</span></div>
+      <div class="qcells"></div><div class="qdetail" aria-live="polite">CPU · Usage 24% · Temperature 52°C</div>
+    </div></div>
+  </section>
+  <section data-variant="Orbit" aria-label="Orbit concept">
+    <div class="qstage"><div class="qmock qorbit" aria-label="Orbit appearance">
+      <div class="qcircle"></div><div class="qcells"></div>
+      <div class="qcenter" aria-live="polite"><span class="qsub">CPU</span><strong>24%</strong><span>52°C</span></div>
+    </div></div>
+  </section>
+  <section data-variant="Vertical rail" aria-label="Vertical rail concept">
+    <div class="qstage"><div class="qmock qrail" aria-label="Vertical rail appearance">
+      <div class="qhead">QuickStatsPanel</div><div class="qcells"></div>
+      <div class="qdetail" aria-live="polite">CPU · 52°C</div>
+    </div></div>
+  </section>
+</div>
+<style>
+#qsp-layouts { --qp-bg:light-dark(#f3f3f1,#232527); --qp-text:light-dark(#24272a,#edf0f2); --qp-muted:light-dark(#60666b,#aab2b8); --qp-line:light-dark(#d4d7d8,#43484c); --qp-active:light-dark(#e0e9e5,#334b42); --qp-accent:light-dark(#37745b,#83c6a7); font-family:-apple-system,BlinkMacSystemFont,sans-serif; }
+#qsp-layouts .qstage { min-height:430px; display:flex; align-items:center; justify-content:center; padding:30px 8px; box-sizing:border-box; }
+#qsp-layouts .qmock { color:var(--qp-text); font-size:13px; font-variant-numeric:tabular-nums; }
+#qsp-layouts .qgrid,#qsp-layouts .qrail { background:var(--qp-bg); border:1px solid var(--qp-line); border-radius:10px; overflow:hidden; }
+#qsp-layouts .qgrid { width:390px; max-width:100%; }
+#qsp-layouts .qhead { padding:13px 14px; display:flex; justify-content:space-between; gap:8px; border-bottom:1px solid var(--qp-line); font-size:12px; }
+#qsp-layouts .qsub { color:var(--qp-muted); font-size:11px; }
+#qsp-layouts .qcells button { font-family:inherit; color:var(--qp-text); font-variant-numeric:tabular-nums; background:transparent; border:0; padding:12px; display:flex; flex-direction:column; align-items:flex-start; gap:5px; text-align:left; }
+#qsp-layouts .qcells button:hover,#qsp-layouts .qcells button[aria-pressed="true"] { background:var(--qp-active); }
+#qsp-layouts .qcells strong { font-size:20px; font-weight:500; white-space:nowrap; }
+#qsp-layouts .qlabel { font-size:12px; display:flex; align-items:center; gap:6px; }
+#qsp-layouts .qgrid .qcells { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); }
+#qsp-layouts .qgrid .qcells button { min-height:100px; border-right:1px solid var(--qp-line); border-bottom:1px solid var(--qp-line); }
+#qsp-layouts .qgrid .qcells button:nth-child(3n) { border-right:0; }
+#qsp-layouts .qdetail { padding:12px; font-size:12px; min-height:18px; }
+#qsp-layouts .qorbit { position:relative; width:310px; height:310px; max-width:100%; }
+#qsp-layouts .qcircle { position:absolute; inset:0; border-radius:50%; background:var(--qp-bg); border:1px solid var(--qp-line); }
+#qsp-layouts .qorbit .qcells button { position:absolute; width:86px; height:67px; padding:6px 2px; align-items:center; text-align:center; border-radius:7px; transform:translate(-50%,-50%); }
+#qsp-layouts .qorbit .qcells strong { font-size:17px; }
+#qsp-layouts .qorbit .qcells button:nth-child(1){left:50%;top:15%;}
+#qsp-layouts .qorbit .qcells button:nth-child(2){left:82%;top:33%;}
+#qsp-layouts .qorbit .qcells button:nth-child(3){left:82%;top:67%;}
+#qsp-layouts .qorbit .qcells button:nth-child(4){left:50%;top:85%;}
+#qsp-layouts .qorbit .qcells button:nth-child(5){left:18%;top:67%;}
+#qsp-layouts .qorbit .qcells button:nth-child(6){left:18%;top:33%;}
+#qsp-layouts .qcenter { position:absolute; left:50%;top:50%;transform:translate(-50%,-50%); width:100px;height:100px;border:1px solid var(--qp-line);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px; font-size:11px; text-align:center; }
+#qsp-layouts .qcenter strong {font-size:21px;font-weight:500;}
+#qsp-layouts .qrail {width:235px;}
+#qsp-layouts .qrail .qcells button {width:100%;display:grid;grid-template-columns:1fr auto;gap:3px 12px;border-bottom:1px solid var(--qp-line);padding:9px 13px;}
+#qsp-layouts .qrail .qcells strong {font-size:17px;text-align:right;}
+#qsp-layouts .qrail .qcells .qsub {grid-column:2;text-align:right;}
+@media(max-width:360px){#qsp-layouts .qgrid .qcells strong{font-size:17px;} #qsp-layouts .qgrid .qcells button{padding:10px 7px;} #qsp-layouts .qhead{flex-wrap:wrap;}}
+</style>
+<script>
+(() => {
+ const root=document.getElementById('qsp-layouts');
+ const stats=[['CPU','24%','52°C','cpu'],['Memory','18.4 GB','of 32 GB','memory-stick'],['Network','2.4 MB/s','Up 180 KB/s','arrow-down-up'],['Battery','82%','4:12 left','battery'],['Power','28 W','Input 65 W','zap'],['Disk','148 MB/s','Write 12 MB/s','hard-drive']];
+ root.querySelectorAll('.qmock').forEach(panel=>{
+   const cells=panel.querySelector('.qcells');
+   stats.forEach((s,i)=>{
+     const b=document.createElement('button');b.type='button';b.className='cursor-interaction';b.setAttribute('aria-pressed',String(i===0));
+     b.innerHTML='<span class="qlabel"><i data-lucide="'+s[3]+'" aria-hidden="true"></i>'+s[0]+'</span><strong>'+s[1]+'</strong><span class="qsub">'+s[2]+'</span>';
+     b.addEventListener('click',()=>{
+       cells.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+       const center=panel.querySelector('.qcenter');
+       if(center)center.innerHTML='<span class="qsub">'+s[0]+'</span><strong>'+s[1]+'</strong><span>'+s[2]+'</span>';
+       else panel.querySelector('.qdetail').textContent=s[0]+' · '+s[1]+' · '+s[2];
+     });cells.appendChild(b);
+   });
+   const settings={secondary:true};
+   if(globalThis.Tweak){const t=new Tweak({container:panel,onChange:()=>panel.querySelectorAll('.qcells .qsub').forEach(x=>x.hidden=!settings.secondary)});t.addToggle(settings,'secondary',{label:'Paired readings'});}
+ });
+ if(globalThis.lucide)lucide.createIcons({attrs:{width:14,height:14}});
+})();
+</script>
+<footer>Compact grid: room for paired values     ·     Orbit: favourites around the pointer     ·     Vertical rail: beside your workspace</footer></body></html>

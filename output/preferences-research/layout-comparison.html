@@ -1,0 +1,90 @@
+<div id="qsp-layouts" class="viz-carousel" aria-label="QuickStatsPanel preferences layouts">
+  <section data-variant="Toolbar and two columns" aria-label="Toolbar and two columns">
+    <div class="qsp-window toolbar-layout" data-layout="toolbar"></div>
+  </section>
+  <section data-variant="Compact existing sidebar" aria-label="Compact existing sidebar" hidden>
+    <div class="qsp-window sidebar-layout" data-layout="sidebar"></div>
+  </section>
+</div>
+<style>
+#qsp-layouts { color-scheme: light dark; }
+#qsp-layouts [hidden] { display:none !important; }
+#qsp-layouts section { min-height: 560px; }
+#qsp-layouts .qsp-window { --q-bg: light-dark(#fafafa,#262626); --q-chrome: light-dark(#ededed,#303030); --q-line: light-dark(#d4d4d4,#505050); --q-text: light-dark(#242424,#ededed); --q-sub: light-dark(#626262,#bcbcbc); --q-selection: light-dark(#2364d8,#285dc1); --q-on: #fff; background:var(--q-bg); color:var(--q-text); border:1px solid var(--q-line); border-radius:10px; overflow:hidden; font:13px -apple-system,BlinkMacSystemFont,sans-serif; min-height:520px; }
+#qsp-layouts .titlebar { display:flex; align-items:center; gap:14px; padding:12px 16px; background:var(--q-chrome); border-bottom:1px solid var(--q-line); font-weight:600; }
+#qsp-layouts .dots { color:var(--q-sub); letter-spacing:3px; }
+#qsp-layouts .categories { display:flex; justify-content:center; gap:8px; flex-wrap:wrap; padding:10px; background:var(--q-chrome); border-bottom:1px solid var(--q-line); }
+#qsp-layouts button, #qsp-layouts select { font:inherit; color:inherit; }
+#qsp-layouts button { background:transparent; border:0; border-radius:4px; padding:7px 10px; text-align:left; }
+#qsp-layouts button[aria-pressed="true"] { background:var(--q-selection); color:var(--q-on); }
+#qsp-layouts .categories button { display:flex; flex-direction:column; gap:5px; align-items:center; min-width:70px; }
+#qsp-layouts .workspace { display:flex; min-height:410px; }
+#qsp-layouts .outer { width:145px; flex-shrink:0; padding:12px 8px; background:var(--q-chrome); border-right:1px solid var(--q-line); }
+#qsp-layouts .outer button { display:block; width:100%; margin-bottom:4px; }
+#qsp-layouts .stats { width:178px; flex-shrink:0; padding:12px 8px; border-right:1px solid var(--q-line); }
+#qsp-layouts .stat { display:flex; align-items:center; gap:7px; padding:0 6px; border-radius:4px; min-height:31px; }
+#qsp-layouts .stat.active { background:var(--q-selection); color:var(--q-on); }
+#qsp-layouts input { accent-color:var(--q-selection); }
+#qsp-layouts .stat button { flex:1; padding:6px 0; border-radius:0; }
+#qsp-layouts .editor { flex:1; min-width:0; padding:22px 26px; }
+#qsp-layouts h2 { font-size:17px; font-weight:600; margin:0 0 20px; }
+#qsp-layouts h3 { font-size:13px; font-weight:600; margin:0 0 10px; }
+#qsp-layouts .field { display:grid; grid-template-columns:100px minmax(0,1fr); align-items:center; gap:10px; margin:10px 0; }
+#qsp-layouts select { width:100%; padding:3px 5px; border-radius:4px; border:1px solid var(--q-line); background:var(--q-chrome); }
+#qsp-layouts .note { font-size:12px; color:var(--q-sub); line-height:1.5; margin:10px 0 22px; }
+#qsp-layouts .checks { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px 18px; }
+#qsp-layouts .checks label { display:flex; align-items:center; gap:6px; overflow-wrap:anywhere; }
+#qsp-layouts .group { border-top:1px solid var(--q-line); padding-top:17px; }
+#qsp-layouts .footer { padding:10px 16px; color:var(--q-sub); font-size:12px; border-top:1px solid var(--q-line); }
+#qsp-layouts .other { min-height:320px; padding:24px; }
+#qsp-layouts .qsp-window svg { width:18px; height:18px; }
+@media(max-width:650px) { #qsp-layouts .outer { width:105px; } #qsp-layouts .stats { width:137px; } #qsp-layouts .editor { padding:18px 15px; } #qsp-layouts .checks { grid-template-columns:1fr; } #qsp-layouts .field { grid-template-columns:1fr; gap:5px; } #qsp-layouts section { min-height:720px; } }
+@media(max-width:440px) { #qsp-layouts .workspace { flex-wrap:wrap; } #qsp-layouts .outer { width:100%; display:flex; flex-wrap:wrap; padding:6px; } #qsp-layouts .outer button { width:auto; } #qsp-layouts .stats { width:100%; display:flex; flex-wrap:wrap; border-bottom:1px solid var(--q-line); border-right:0; } #qsp-layouts .stat { width:130px; } #qsp-layouts .checks { grid-template-columns:repeat(2,minmax(0,1fr)); } #qsp-layouts .categories button { min-width:40px; padding:5px; } #qsp-layouts section { min-height:900px; } }
+</style>
+<script>
+(() => {
+  const root=document.getElementById('qsp-layouts');
+  const kinds=['CPU','Memory','Disk','Network','Battery','GPU','Fans','Power','Temperature','Load Avg','Uptime'];
+  const categories=['Stats','Appearance','Panel','Hotkeys','About'];
+  const icons=['layout-grid','paintbrush','app-window','keyboard','info'];
+  const data={
+    CPU:{rows:['User','System','Idle','Temp'],graph:true},
+    Memory:{values:['Used','Free','Used + Free','Free + Used'],rows:['Used','Free','App','Wired','Compressed','Total','Pressure'],graph:true},
+    Disk:{values:['Capacity','Read/write activity'],pair:['Free','Used','Free + Used','Used + Free'],rows:['Used','Free','Total','Read','Write'],graph:true},
+    Network:{values:['Down','Up','Down + Up','Up + Down'],rows:['Down','Up','Interface','Local IP'],graph:true},
+    Battery:{rows:['Charge','State','Time','Health','Cycles','Temp']},
+    GPU:{rows:['Utilization','Device','Temp'],graph:true},
+    Fans:{rows:['Fan']},
+    Power:{values:['Whole system','Chip total','CPU','GPU','CPU + GPU','Charger input'],rows:['CPU','GPU','ANE','DRAM','Total','System','DC In'],note:'System measures the whole machine; chip total includes CPU, GPU, ANE and DRAM. Unavailable readings show —. Color follows chip activity relative to its session peak.'},
+    Temperature:{values:['Thermal status','CPU temperature','GPU temperature','Status + CPU temperature','Status + GPU temperature'],units:['Celsius (°C)','Fahrenheit (°F)'],rows:['CPU','GPU','SSD','Battery','Pressure'],note:'Units apply to all temperature readings. Color follows macOS thermal status. Detected sensor names appear in the list below.'},
+    'Load Avg':{values:['1-minute average','5-minute average','15-minute average','1-minute average / cores'],rows:['1 min','5 min','15 min','Cores'],note:'Load measures runnable work, not CPU usage. Core count provides a rough comparison for CPU demand.'},
+    Uptime:{rows:['Uptime','Booted']}
+  };
+  const field=(label,options)=>`<label class="field"><span>${label}</span><select aria-label="${label}">${options.map(x=>`<option>${x}</option>`).join('')}</select></label>`;
+  root.querySelectorAll('.qsp-window').forEach(win=>{
+    const isToolbar=win.dataset.layout==='toolbar';
+    const nav=categories.map((c,i)=>`<button type="button" class="cursor-interaction" data-category="${c}" aria-pressed="${i===0}">${isToolbar?`<i data-lucide="${icons[i]}" aria-hidden="true"></i>`:''}${c}</button>`).join('');
+    win.innerHTML=`<div class="titlebar"><span class="dots" aria-hidden="true">● ● ●</span>QuickStatsPanel Settings</div>${isToolbar?`<nav class="categories" aria-label="Settings categories">${nav}</nav>`:''}<div class="workspace">${isToolbar?'':`<nav class="outer" aria-label="Settings categories">${nav}</nav>`}<div class="stats" aria-label="Stats">${kinds.map(k=>`<div class="stat ${k==='Memory'?'active':''}"><input type="checkbox" checked aria-label="Show ${k}"><button type="button" class="cursor-interaction" data-kind="${k}" aria-pressed="${k==='Memory'}">${k}</button></div>`).join('')}</div><div class="editor" aria-live="polite"></div></div><div class="footer">Drag to reorder · select a stat to configure</div>`;
+    const editor=win.querySelector('.editor');
+    function show(kind) {
+      const d=data[kind];
+      editor.innerHTML=`<h2>${kind}</h2><h3>Strip</h3>${d.values?field('Value',d.values):''}${d.pair?field('Show',d.pair):''}${d.units?field('Unit',d.units):''}${d.graph?field('Display',['Text','Text + graph','Graph only']):''}${!d.values&&!d.graph?'<div class="note">Single value</div>':''}<div class="note">${d.note||(d.graph?'The detail card always includes its graph.':'')}</div><div class="group"><h3>Detail card rows</h3><div class="checks">${d.rows.map(r=>`<label><input type="checkbox" checked>${r}</label>`).join('')}</div><div class="note">Unavailable hardware readings stay hidden.</div></div>`;
+      win.querySelectorAll('[data-kind]').forEach(b=>{const active=b.dataset.kind===kind;b.setAttribute('aria-pressed',String(active));b.parentElement.classList.toggle('active',active);});
+      if(kind==='Memory') editor.querySelector('select').value='Free';
+    }
+    show('Memory');
+    win.querySelectorAll('[data-kind]').forEach(b=>b.addEventListener('click',()=>{
+      win.querySelector('.stats').hidden=false;
+      win.querySelectorAll('[data-category]').forEach(n=>n.setAttribute('aria-pressed',String(n.dataset.category==='Stats')));
+      show(b.dataset.kind);
+    }));
+    win.querySelectorAll('[data-category]').forEach(b=>b.addEventListener('click',()=>{
+      win.querySelectorAll('[data-category]').forEach(n=>n.setAttribute('aria-pressed',String(n===b)));
+      const stats=b.dataset.category==='Stats';win.querySelector('.stats').hidden=!stats;
+      if(stats) show('Memory'); else editor.innerHTML=`<h2>${b.dataset.category}</h2><div class="note">Existing ${b.dataset.category.toLowerCase()} settings remain in this category.</div>`;
+    }));
+    if(globalThis.Tweak){const state={twoColumns:true};const tweak=new Tweak({container:win,onChange:()=>{win.querySelectorAll('.checks').forEach(e=>e.style.gridTemplateColumns=state.twoColumns?'repeat(2,minmax(0,1fr))':'1fr');}});tweak.addToggle(state,'twoColumns',{label:'Two-column detail checkboxes'});}
+  });
+  if(globalThis.lucide) lucide.createIcons({attrs:{width:18,height:18}});
+})();
+</script>

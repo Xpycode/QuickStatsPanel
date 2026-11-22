@@ -451,3 +451,382 @@ Changes:
 
 Rows invalidated by this pass and to be rerun on this artifact: B1 (Close), B3 (Temperature and
 Network arcs), G4/D1/B11 (drag), H5 (Close), C1/C2/C4 (cards), P1 (drag clamping near edges).
+
+### Recheck of fix pass 1 — 2026-11-15 (artifact `d9737946…`, `eight --ring-parts=typical`, Medium)
+
+Eight screenshots. Arc items:
+
+- **CPU arc E-core shade:** shown. The two Efficiency segments come first, after a wider group gap,
+  with a dimmer fill. They read only faintly because both fixture E-cores are nearly empty.
+- **Network arc:** one fill per segment. The caption reads "Wi-Fi ↓4,5 MB/s ↑600 KB/s". The segments
+  are too short for the combined-rate label inside them.
+- **Temperature arc:** 5 segments, one per role. The caption reads "SSD 66°C · hottest of 3".
+- **Disk arc:** all four captions read "<volume> <n>% used" (Macintosh HD 62%, Archive 35%,
+  Backup 81%, Scratch 12%). This answers the Batch 3 identification note.
+
+Claude's observations (owner to judge):
+
+- **F5 — arc segments in one arc have very different lengths** (Disk: Macintosh HD about twice
+  Archive or Backup; Temperature: Battery and SSD much longer than the lower three). Likely cause (code reading, not yet verified), from
+  `RingArcLayout`: each entry's angle is its label's projected width at its tilt, and spare span is
+  shared *in proportion* to those needs. A label that then doesn't fit the band depth is dropped,
+  but its segment keeps the width it was sized for. So length follows text width and position,
+  not data. Fix candidates: equal shares of spare span, or size segments as unlabelled first and
+  only widen ones that keep a label.
+- **Temperature fill shows fine horizontal banding** in the screenshot. The CPU, Network and Disk
+  fills don't.
+- **The CPU wedge's "74°C" secondary value has low contrast** against the lighter inner temperature ring.
+- **A thin teal line at the outer edge of the Disk wedge**, in the whole-ring screenshot.
+
+Still open from the recheck: cards (clipped note, scroll bar, no Close) and drag at the screen edges.
+
+Cards (Memory, Disk, Network, GPU; four screenshots): **no clipped note, no scroll bar, no Close.**
+The Memory note shows all three lines; the Disk note shows both lines. GPU Temp reads 70°C (F3
+fixed on fixtures). The Disk and Network transfer sections read "No data", which is expected in
+fixture mode: the store is disposable, runs no samplers and keeps its own temporary transfer
+history (`StatsStore.makeRingFixtureStore`). This needs a real-data check (`L()`, C1). The scroll
+bar setting during capture wasn't stated, so C4 (Fans, Battery, CPU, Load, Power with scroll bars
+on Always) is still open.
+
+Drag at screen edges: owner reports **no Space switch — F4 fixed** for the ring. Whether the ring
+stays fully on screen and closes open children is covered when G4, D1, B11 and P1 are rerun.
+Whether the Strip's `performDrag` drag switches Space is still open.
+
+**Recheck result:** fix pass 1 accepted (F2, F3, F4 and the arc and card corrections). New: F5
+(arc segment lengths) plus three minor visual notes, all above.
+
+**F6 — the Strip drag switches Space too** (owner, 2026-11-15, same artifact launched with no
+arguments). Input keeps responding afterwards, unlike F4 on the ring. Same cause:
+`PanelWindowController.drag` hands off to `performDrag(with:)`. The ring's list panel
+(`RingPanelController`, header drag, `isMovable`) uses the same window-server drag and likely
+does the same. This defect is in the released v1.2.0 Strip, not only in the prototype.
+
+Owner answers on the recheck (2026-11-15):
+
+- **F5:** share spare span **equally** (option a). Goes into fix pass 2.
+- **"74°C" contrast on the CPU wedge:** later (backlog, not fix pass 2).
+- **F8 — Temperature heat fill shows visible seams** on screen (owner screenshots, wedge and arc).
+  Cause: `RingGaugeWedgeView.stackFill` draws the heat ramp as 10 separate radial slices, and the
+  antialiased edges between neighbouring slices show as thin lines. Fix direction: one shape filled
+  with a radial gradient centred on the ring. The arc segments use the same stepped drawing.
+- **Disk outer teal line: by design.** It's the Disk I/O rim (`gauge.rim`, D-035 Disk mapping):
+  a thin outer rim whose brightness follows read + write. It isn't a leftover arc. Owner to say
+  whether it reads as intended.
+- **F7 — an empty caption slot shows as a faint pale box** when the Disk arc is open and no segment
+  is hovered (owner screenshot). Likely cause (not verified): the slot carries the 2% black hit fill
+  (`RingArcView.hitFill`) so clicks don't fall through, and the panel's window shadow then outlines
+  that almost-transparent rectangle.
+- The "CPU" screenshots duplicated the Temperature ones; owner asked to resend.
+- **D1, Strip half:** you can't observe this with the owner's setting. Position is **At cursor**, so
+  the Strip re-homes to the pointer on every summon and never saves a drag (`AppDelegate`
+  `onPanelMoved` guard; `PanelWindowController.origin` ignores the saved spot in cursor mode). By code
+  inspection: the only writer of `AppSettings.customPosition` is the Strip's `onPanelMoved`, and the
+  ring controller never writes it. **Pass by inspection**; the ring half of D1 is still to run.
+
+### Step 3 — 2026-11-15 (artifact `d9737946…`, `eight`, Medium)
+
+Owner returned **"all pass"** for the Step 3 batch presented in this session:
+
+- **G3, C3:** mixed text/icon rungs look intentional; no darker inner quadrilateral.
+- **G4:** gear, hub drag and inert hub clicks pass on the current Medium launch.
+- **H1–H6:** preview, protected travel into the card, held precedence, sibling switching,
+  stationary dismissal and quick exit/re-entry pass. Close is no longer part of the interaction.
+- **D2:** pin, toggle hotkey, click-away and first click from another app pass.
+- **D1, ring half:** dragging moves the ring and closes child panels. Strip position isolation
+  remains passed by inspection as recorded above.
+
+The running process was checked before the batch: PID 14881 with
+`--ring-prototype --ring-fixture=eight`; the on-disk executable hash matched fix pass 1.
+Small/Large G4 repeats were described as later work, so this response does not establish them.
+No hover-mechanism log was captured; H1's owner-observed behaviour passes, but its logged
+mechanism remains unrecorded. This does not revalidate arc-specific rows on a launch without
+`--ring-parts`, or close the rest of E1. Corrected CPU screenshots and the Disk I/O rim verdict
+remain separate follow-ups.
+
+Next: request execution of queued fix pass 2 (F5–F8), then rebuild, test and rerun affected rows.
+
+### Fix pass 2 implementation — 2026-11-15
+
+F5–F8 implemented and committed as `6c70d18`; Debug/Release builds, 391 hostless tests and
+deep signature verification passed. [Changes, exact artifact and finite affected-row recheck](gauge-ring-fix-pass-2.md).
+No new native acceptance is claimed. E1 remains open.
+
+### Constant-gap correction — 2026-11-15
+
+Owner reviewed the verified Fix2 artifact (1.2.1/1201, PID 17600) with `eight`/`typical`
+fixtures. [Eight supplied screenshots](gauge-gap-review-2026-11-15/) preserve the visual evidence.
+Owner: “The wedges look strange as there is a tiny gap that grows bigger.” Requested parallel,
+constant-width separators on main wedges and outer arcs. Owner also reports no visible difference
+from two hours earlier; F5/F7/F8 visual acceptance remains open, and screenshots do not test F6 drag.
+CPU screenshots are now supplied; this alone does not approve CPU contrast or the Disk rim.
+
+Correction uses the shared sector geometry for drawing, fill slices, reference/peak lines,
+selection outlines, text containment, hit testing and translated arc panels. Ordinary gaps remain
+4 points and group gaps 12 points, now measured perpendicular to parallel edges at every radius.
+Gauge radial scales retain their nominal annular basis. No sampler, Settings or release change.
+
+Validation: full suite 392/0 (`GaugeGaps-all-run02.xcresult`); after adding the arc-layout
+regression, focused sector/arc tests 33/0 (`GaugeGaps-focused-run01.xcresult`). Tests cover all
+presets, ordinary/group separators, both outer-band depths, gap hit exclusion and partial fills.
+Initial run01 failed compilation on extra arguments introduced during editing; fixed before run02.
+Native visual acceptance remains open. Next: compare main wedge and outer-arc separators, then
+continue the prior finite recheck; do not mark unrelated corrections accepted from this change.
+
+### Main-ring separator acceptance — 2026-11-15
+
+Owner: “fantastic” on the constant-gap build, with [main-ring screenshot](gauge-gap-review-2026-11-15/09-main-ring-accepted.png). Main-ring separator appearance accepted. Requested a later gap-width setting including zero/no gap; tracked in TASKS, deferred to production settings planning. This screenshot does not close outer-arc, drag, preset or other outstanding E1 checks.
+
+### Outer-arc screenshots — 2026-11-15
+
+Owner supplied Temperature, CPU, Disk and Network crops from the current review. Preserved as
+images 10–13 in `gauge-gap-review-2026-11-15/`. Visual inspection: separator edges appear parallel
+through the band depth; wider Temperature/CPU group gaps remain distinct. Segment lengths still
+vary with label allocation. These images show hovered captions, not the unhovered empty caption
+slot or click-through behavior. No explicit owner accept/reject accompanies this batch; do not
+close other E1 rows from it. Next useful check: repeated Ring hub drags and screen-edge holds.
+
+### Ring drag recheck — 2026-11-15 — PASS
+
+On the constant-gap review build, owner replied “pass” to: open an arc, repeatedly drag the
+centre hub and hold it at a screen edge; no Space switch, arc/card closes during dragging, normal
+interaction afterward. Records the current Medium fixture Ring case of F6/G4/D1/B11/P1 only.
+Strip, whole-list fallback, Small/Large and additional-display repetitions are not implied.
+Next: F7 empty-caption visual and click-through check on the Disk arc.
+
+### Disk empty-caption recheck — 2026-11-15 — PASS
+
+Owner replied “pass” to the current Medium fixture Disk arc F7/B3 check: moving off segments
+leaves no faint caption box/shadow; clicking the empty caption area neither dismisses the HUD
+nor clicks the underlying app; hovering a segment restores its caption. This closes that scoped
+F7 recheck, not other presets or unrelated E1 rows. Next: default-area Temperature heat ramp verdict.
+
+### Temperature heat-ramp recheck — 2026-11-15 — PASS (default area)
+
+Owner replied “pass” to inspecting the Temperature wedge and outer segments for smooth
+purple-to-red transitions without thin bands or seams. Applies to current Medium, eight/typical
+fixtures, default area fill. Linear fill and Small/Large repetitions remain open. Next: F6 Strip
+repeated-drag/click check, requiring relaunch of the same artifact without prototype arguments.
+
+### Strip drag recheck — 2026-11-15 — PASS
+
+Owner replied “pass” after normal live-data launch of the GaugePrototypeGaps artifact: repeated
+Strip drags from padding and tiles, holds at screen edges without Space switching or stuck
+gestures, then functioning tile and Settings-gear clicks. F6 Strip repeated-gesture/click case
+passes. This does not establish fixed-position persistence or cursor re-homing, which were not
+part of this prompted batch. Whole-list fallback, other ring presets and linear-fill review
+remain open.
+
+### Saved display settings confirmed — 2026-11-15
+
+Owner confirmed “saved choices”: CPU = Usage + temperature; Temperature = CPU temperature;
+Power = DC in + system; Load = relative to cores. These are intended preferences, not temporary
+test values. Saved-settings confirmation is closed; no preferences changed or restoration needed
+for these four choices. This does not close other E1 checks.
+
+### Small Ring screenshot review — 2026-11-15
+
+Three owner screenshots preserved as images 14–16 in `docs/evidence/gauge-gap-review-2026-11-15/`
+(project-relative path). Main ring uses the expected icon-only rung for eight favourites in Small.
+Disk and Temperature captions are readable in the supplied crops; separator edges appear parallel
+and Temperature fills smooth. Visual inspection only: no explicit owner verdict or evidence of
+Small hub dragging/screen-edge holds supplied yet. Next: confirm that interaction check.
+
+### Small Ring interaction recheck — 2026-11-15 — PASS
+
+Owner confirmed “pass” for repeated hub drags and screen-edge holds in Small. No Space switch,
+children close and normal interaction remains usable, as in the prompted check. Screenshot
+inspection is recorded separately above; no other E1 row is implicitly closed.
+
+### Large Ring recheck — 2026-11-15 — PASS
+
+Owner replied “pass” to the Large eight/typical, default-area batch: Disk/Temperature readable
+captions, clean gaps, smooth gradients, repeated hub drag and screen-edge hold. Only these
+prompted cases are accepted; no empty-caption clicks, other displays or fallback implied.
+
+### Linear-fill Temperature recheck — 2026-11-15 — PASS
+
+Owner replied “pass” to the Large linear-fill Temperature wedge and outer segments: smooth
+colour transitions without bands or seams. F8 linear-fill visual recheck passes for this
+configuration. Large/eight/typical/linear fixture build remains running (last verified PID 56878).
+This does not select a preferred fill scale or close all E1 acceptance. Next design decision:
+Q2, whether to retain Small/Medium/Large with Medium as the default.
+
+### Preset/default decision — 2026-11-15 — APPROVED
+
+Owner confirmed keeping Small, Medium and Large with Medium as default (D-038). Resolves the
+preset/default portion of Q2; no other acceptance or design question is inferred. The currently
+running Large/linear review configuration is unchanged.
+
+### Dense-data screenshots — 2026-11-15
+
+Images 17–18 preserve the owner-supplied dense CPU arc and main ring. CPU caption “S3 24%”
+is readable; segment widths vary strongly, with wide segments beside thin slivers. This matches
+the label/sliver allocation but remains a visual review concern, not an accepted result. The
+second image is the main ring, not the Temperature arc. Still need owner outcome for caption
+stability during hover and outside-arc click-away (B3/B10); screenshots alone cannot establish
+those interactions. No dense-data pass inferred.
+
+### Dense-data interaction verdict — 2026-11-15 — PASS
+
+Owner replied “pass” to stable captions while hovering and outside-arc click dismissal (B3
+interaction/B10), supplying the missing Temperature screenshot, preserved as image 19 in
+`docs/evidence/gauge-gap-review-2026-11-15/`. Temperature caption is readable and the role-group
+arc is visible. The prior concern about unequal dense CPU segment widths remains separate;
+this response does not explicitly approve or request a correction to that allocation.
+
+### CPU equal-width correction — 2026-11-15
+
+Owner explicitly approved equal-width CPU segments within each group, showing labels only when
+they fit and retaining full hover captions. The CPU sub-ring now shares each group's allocated
+span evenly among its cores, retaining total footprint and wider group gaps. Text fit runs after
+redistribution; hidden inline text does not remove a part, its caption or accessibility information.
+Other stat arcs and the More arc keep their existing allocation. Prior dense caption/click-away
+passes remain historical evidence; CPU geometry requires a focused native recheck after rebuild.
+
+CPU correction validation: regression fails old layout with 110 assertions; full suite **394/0**,
+Debug/Release builds and signature pass. `GaugePrototypeCPUEqual` launched and identity verified;
+see current session handoff. Dense CPU appearance/hover recheck awaits owner; no native pass claimed.
+
+### Equal-width CPU appearance — 2026-11-16 — PASS
+
+Owner explicitly accepted the rebuilt dense CPU arc appearance (“pass”), following screenshot
+`gauge-gap-review-2026-11-15/20-equal-cpu-accepted.png`: even segments within each group, wider
+group gaps retained, readable “S6 75%” hover caption. Closes the D-039 visual correction for the
+Medium dense fixture on GaugePrototypeCPUEqual. Does not close all E1 or infer additional
+interaction checks from the screenshot.
+
+### Minimal-parts review — 2026-11-16 — B4 PASS
+
+Owner supplied three screenshots, then explicitly confirmed CPU opens both an arc and a
+card, while Disk, Network and Temperature open cards only, with no empty arc. B4 passes
+for the requested Medium/eight/minimal configuration on GaugePrototypeCPUEqual. The
+executable and debug dylib hashes matched the current handoff during preparation; process
+inspection was sandbox-blocked, so launch arguments were not independently verified.
+No build, test rerun or app control performed. E1 and unresolved design decisions remain open.
+Next: real-data B5 and the outstanding Disk I/O rim clarity verdict; preserve saved display choices.
+
+### Real-data review — 2026-11-16 — B5 PASS
+
+Owner confirmed CPU, Disk, Network and Temperature open cards only, with no arcs,
+after the requested real-data Medium launch. B5 passes for those wedges. Disk's rim
+is visible at idle, but the owner observed no activity, so its response and clarity
+under load remain unverified. No active-I/O pass inferred. Process/configuration not
+independently verified; no agent app control, build or test run.
+Next: C2, use a period or graph-mode control on a hover-previewed real-data card and
+confirm it becomes held. E1 remains open.
+
+### C2 report and configuration correction — 2026-11-16
+
+Owner confirms the Network card stays held after using the period control and moving
+over another wedge. History still did not load after waiting. C2 hold behavior passes
+on the fixture; real-data C2 remains untested. Screenshots show changing period selection,
+stuck hour/day loading and missing labels/rows; rendering completeness remains unresolved.
+
+Read-only process inspection identified PID 65973 running GaugePrototypeCPUEqual with
+`--ring-prototype --ring-fixture=eight --ring-parts=minimal --ring-size=medium`. This
+supersedes the inferred real-data attribution above: **B5 real-data is not yet verified**.
+B4 remains passed. No app was quit or launched by the agent.
+
+Source diagnosis: makeRingFixtureStore disables automatic history scheduling and seeds
+no retained transfer samples. Initial load publishes the empty minute view. selectPeriod
+requests a presentation, but requestPresentation does not schedule it when automatic
+scheduling is disabled. Thus hour/day remain loading in this fixture. This explains
+missing history, not the disappearing static labels. No source correction made.
+Next: verify a real-data launch before repeating B5 and real-data C2/history rendering.
+
+### Real-data Network retest — 2026-11-16 — C2 PASS
+
+Owner reports “works” after the real-data launch and repeat Network period-control
+check (history loads, labels remain visible, card stays held). Read-only process
+inspection verified PID 77497 at GaugePrototypeCPUEqual with only
+`--ring-prototype --ring-size=medium`; no fixture arguments. C2 passes for Network
+period controls and the reported rendering/loading problem does not recur in this
+real-data check. Fixture scheduling limitation and fixture missing-label cause remain
+unfixed. No app control, source change, build or test run.
+
+Next: B5 real-data cards-only behavior for CPU, Disk and Temperature (Network checked),
+and C1 content fit for CPU, Memory, Disk and Network. Do not repeat C2. E1 remains open;
+Disk rim activity response remains unverified.
+
+### Real-data card fit and cards-only review — 2026-11-16 — C1/B5 PASS
+
+Owner replied “pass and pass”: CPU, Memory, Disk and Network card content fits or
+scrolls without clipping (C1, superseded Close requirement excluded); CPU, Disk and
+Temperature open cards only, with no outer arcs. Together with the preceding Network
+check, B5 passes on real-data Medium. Same requested CPUEqual setup; no new process
+inspection, app control, build or test run.
+Next: C4 with macOS Show scroll bars set to Always, covering Fans, Battery, Memory,
+CPU, Load and Power. This specific setting and remaining cards were not covered by C1.
+E1 stays open; Disk rim activity response and fixture issues remain unresolved.
+
+### Always-visible scrollbars — 2026-11-16 — C4 PASS
+
+Owner reports “all pass” for Fans, Battery, Memory, CPU, Load and Power with macOS
+Show scroll bars set to Always: no clipping, wrapped values or unnecessary scrollbars;
+content reachable if scrolling is needed. C4 passes with the superseded Close-button
+requirement excluded. Whether any card actually needed scrolling was not separately
+reported; no too-tall fallback claim inferred. Restoration of the prior system setting
+was requested but not independently verified. No app control, build or tests performed.
+Next: C7 real-data Medium CPU text/rim spacing with saved Usage + temperature display.
+The separately deferred secondary-temperature contrast issue stays deferred. E1 open.
+
+### C7 correction — 2026-11-16 — implemented, visual recheck pending
+
+Owner screenshot `gauge-gap-review-2026-11-15/21-cpu-peak-label-overlap.png` shows
+the CPU peak line striking through its label. Owner authorized continuing the correction.
+The line is a live peak marker, not the fixed outer rim; moving the text would not
+prevent crossing at other peak values. RingGaugeWedgeView now passes its frozen text
+frame plus 3 pt clearance into RingGaugeFill. An even-odd mask removes only reference,
+peak and accessibility fill-edge lines inside that frame. Fill, Disk rim, selection
+outline, text positioning, geometry and hit targets are unchanged. Main-wedge content
+gets the same protection at every rung; arc callers retain their existing drawing.
+
+Validation: Debug build `TextClearance-B-run02.log` and Release
+`TextClearance-R-run01.log` pass; deep strict signature verification passes outside
+the sandbox. Release has zero ring-flag strings (Debug control four). `git diff --check`
+passes. Initial Debug run01 failed on sandbox cache access; generation initially ran
+from the repository root, then succeeded from 01_Project. No hostless tests rerun:
+this change is only SwiftUI drawing, outside the hostless model target; prior 394/0
+remains historical evidence, not a new result. Native mask appearance is not yet verified.
+
+Candidate: `/Users/sim/ProgrammingProjects/1-macOS/QuickStatsPanel/01_Project/build/GaugePrototypeTextClearance/Build/Products/Debug/QuickStatsPanel.app`,
+version 1.2.1 (1201), arm64, team FDMSRXXN73; signature timestamp November 16 09:41:30.
+Executable SHA-256 `31e6b10f2cf5a16e01bfb1a1abbdaa5503cca0554f436ca154a1cf8959d635dd`;
+dylib `b0cf2b432540416a8ad51341351e6f934204000977d383421f7b50c0a03b28e4`.
+Not launched; current keep-running handoff preserved. Next: owner quits prior review
+app normally and launches this candidate with `--ring-prototype --ring-size=medium`.
+C7 recheck: CPU label, percentage and temperature stay clear of the peak line as
+readings change; line remains visible outside the content area. Inspect other visible
+wedges for unintended blank fill patches. E1 remains open; no unrelated checks reopened.
+
+### C7 text clearance — 2026-11-16 — ACCEPTED
+
+Owner supplied `gauge-gap-review-2026-11-15/22-cpu-text-clearance-accepted.png` and
+answered “acceptable” to the corrected clearance and line-gap appearance. C7 visual
+correction accepted on the requested real-data Medium TextClearance candidate. Screenshot
+shows CPU label/value clearance and continuous gauge fill, with corresponding gaps at
+GPU text and Network icon. No broader dynamic, preset or accessibility pass inferred.
+No new process inspection, app control, build or test run. Deferred temperature contrast
+remains separate. Next: C5 Power wedge/card on battery power with the saved paired
+display; E1 and other unperformed cases/design questions stay open.
+
+### C5 Power on battery — 2026-11-16 — screenshot evidence PASS
+
+Six owner screenshots preserved as images 23–28 in gauge-gap-review-2026-11-15.
+Battery card explicitly says “On battery”. Power wedge shows one wattage; the Power
+card shows System 32.4 W and DC In 0.0 W. Later plugged-in screenshots show the plug
+mark and System 32.0 W / DC In 41.1 W. C5's visible one-value wedge / two-value card
+behavior is satisfied by screenshot evidence; no separate owner verdict or timing/
+accuracy claim inferred. Screenshots are separate moments, so wedge/card numbers
+need not match. E1 remains open. Next: C6 Temperature Status + CPU temperature and
+Load relative-to-cores wedge presentation; restore only temporary test preferences.
+No source edits, build/tests, process inspection or app control.
+
+### C6 compact Temperature/Load readings — 2026-11-16 — PASS
+
+Owner replied “pass” to Temperature in Status + CPU temperature mode and Load in
+1-minute average / cores mode each showing one compact reading without overlap.
+C6 passes for the current real-data review. No new process inspection or app control;
+restoration of temporary preferences not independently verified. E1 remains open.
+Next: explicit Q1 decision on one outer arc centred on the selected parent wedge,
+with its detail card open alongside. Prior acceptance is not inferred as Q1 approval.

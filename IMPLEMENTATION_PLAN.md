@@ -7,6 +7,8 @@ complete with required evidence. This file owns task status and evidence; `docs/
 here without duplicating completion boxes. Task identity is this plan path plus ID.
 Execute with `/Users/sim/ProgrammingProjects/0-DIRECTIONS/__DIRECTIONS/commands/execute.md`.
 
+**2026-11-22 priority update (D-040):** Owner wants to focus on tiles for a while. Ring review is parked, not accepted or cancelled; Q1 and all remaining E1 gates stay open. Preserve this plan and its evidence. Next pickup is [floating-tile spec](docs/sessions/2026-11-22.md#resume--spec-next-session); no ring implementation scope is expanded.
+
 ## Goal and bounded scope
 
 Rebuild the Debug-only native ring as the gauge ring of D-035/D-036, so the owner can judge gauge
@@ -673,6 +675,22 @@ Validation: Debug and Release builds and 391 hostless tests pass; Release exclud
 Native rechecks, including repeated Strip gestures, remain pending; see the finite
 [fix pass 2 evidence and recheck](docs/evidence/gauge-ring-fix-pass-2.md).
 
+## E1 follow-up — constant-width separators
+
+Owner authorized 2026-11-15 after reviewing Fix2 screenshots. Implemented parallel 4-point
+separators in main wedges and outer arcs; wider group separators remain 12 points. Drawing,
+fill slices, text containment and hit geometry share the correction. Debug/Release builds and
+signature verification pass; full test run 392/0 plus final focused sector/arc run 33/0.
+This bounded correction does not close E1 or reopen a new wave. Scoped owner passes for gaps,
+dragging, caption behavior and heat fill are recorded in the [current handoff](docs/sessions/2026-11-16.md#resume--pre-clear-cpu-correction-accepted); unperformed rows remain open.
+
+## E1 follow-up — equal CPU segment widths
+
+Owner authorized 2026-11-15 after dense-data review: equal widths within each CPU group,
+inline labels only when they fit, full hover captions retained. Preserve group spans/gaps and
+other stats' allocation. Final 394/0 tests, Debug/Release builds and signature pass. Owner
+accepted Medium dense CPU appearance on November 16; [handoff](docs/sessions/2026-11-16.md#resume--pre-clear-cpu-correction-accepted). E1 remains open.
+
 ## After E1 — deferred follow-up, not executable tasks
 
 - Per-part sampling plan: per-core CPU with core class from `cluster-type`, volume enumeration by
@@ -731,3 +749,13 @@ Planning performed no source change, build, test run, app launch or product acce
 ---
 *Keep active while required work or acceptance is incomplete. On completion, archive with its
 evidence and update incoming links before retiring the active copy.*
+
+## E1 follow-up — C7 text clearance (November 16)
+
+Bounded owner-authorized drawing correction, implemented; C7 visual correction accepted November 16.
+Main-wedge peak/reference/accessibility lines avoid the frozen content frame by 3 pt.
+Serial implementation (one coupled view); no agent delegation needed. Debug/Release
+builds, signature and Release flag exclusion pass. No model test rerun for view-only
+change. [Evidence](docs/evidence/gauge-ring-prototype.md#c7-correction--2026-11-16--implemented-visual-recheck-pending).
+Existing uncommitted changes preserved; no commit/push for this standalone correction.
+Owner accepted the line-clearance appearance on GaugePrototypeTextClearance; see subsequent C7 acceptance in owner evidence. Next: C5 battery-power display check; E1 stays open, no production wave authorized.

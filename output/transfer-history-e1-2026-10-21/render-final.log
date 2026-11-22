@@ -1,0 +1,18 @@
+neon-light-normal: NSSegmentedControl NSAppearanceNameDarkAqua
+neon-light-normal: NSButton NSAppearanceNameDarkAqua
+neon-light-normal: 284.0 × 561.0
+neon-light-confirm: NSSegmentedControl NSAppearanceNameDarkAqua
+neon-light-confirm: NSButton NSAppearanceNameDarkAqua
+neon-light-confirm: NSButton NSAppearanceNameDarkAqua
+neon-light-confirm: NSButton NSAppearanceNameDarkAqua
+neon-light-confirm: 284.0 × 561.0
+default-light-normal: NSSegmentedControl NSAppearanceNameAqua
+default-light-normal: NSButton NSAppearanceNameAqua
+default-light-normal: 284.0 × 561.0
+default-dark-normal: NSSegmentedControl NSAppearanceNameDarkAqua
+default-dark-normal: NSButton NSAppearanceNameDarkAqua
+default-dark-normal: 284.0 × 561.0
+mono-light-normal: NSSegmentedControl NSAppearanceNameAqua
+mono-light-normal: NSButton NSAppearanceNameAqua
+mono-light-normal: 284.0 × 561.0
+Stable confirmation size verified. Disposable namespace: QSPUIProbeRun07
