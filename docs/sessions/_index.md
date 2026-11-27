@@ -2,7 +2,7 @@
 
 | Date | Session | Summary |
 |------|---------|---------|
-| [2026-11-27](2026-11-27.md) | Repo restore + tile Waves 1–5; E1 B feedback; pre-clear | Tiles 1.1–4.1 done (462/0). E1 B failed; 5.1 keeps overview, opens card outward (469/0, local commit). Owner clarified: other primaries hide, detail opens inward; graph in CPU primary. Design talk next. |
+| [2026-11-27](2026-11-27.md) | Repo restore + tile Waves 1–5; E1 B feedback; pre-clear + D-044 interview, 5.2 | Tiles 1.1–4.1 done (462/0). E1 B failed; 5.1 keeps overview, opens card outward (469/0, local commit). Owner clarified: other primaries hide, detail opens inward; graph in CPU primary. Design talk next. Interview → D-044; 5.2 built (473/0), native look outstanding. |
 | [2026-11-22](2026-11-22.md) | Floating tiles spec/plan; pre-clear | Floating mockup led to spec and four-task native plan (0/4). Defaults provisional; next /execute starts isolated CPU/Network loop. Ring E1 parked/open. Documentation checks passed; no native build or app control. Recovery carried forward; Backlog 22, Inbox 4. Later: all Nov 15–22 work committed in three groups and pushed. |
 | [2026-11-17](2026-11-17.md) | Pre-clear owner-review handoff | B4/B5/C1/C2/C4/C6 and C7 correction accepted; C5 screenshot pass. Artifact hashes reverified. Q1 unanswered; E1 open. Dirty work preserved, no build/app control/commit/push. |
 | [2026-11-16](2026-11-16.md) | Owner review; C7 correction | CPU/B4/B5/C1/C2/C4 accepted. Fixture history issue diagnosed; real-data retest passed. C7 peak-line clearance accepted; Debug/Release/signature pass. C5 battery-power screenshots and C6 pass; Q1 decision next. E1 open; uncommitted, no push or app control. |
