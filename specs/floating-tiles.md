@@ -1,6 +1,6 @@
 # Floating Tiles Specification
 
-**Status:** Prototype planned — direction confirmed by D-041; defaults remain provisional for native review
+**Status:** Prototype implemented; D-044 revision pending build — direction confirmed by D-041; defaults remain provisional for native review
 **Created / updated:** 2026-11-22
 **Scope:** Bounded native prototype, after spec review and a separate implementation plan
 
@@ -28,7 +28,22 @@ a content-sized detail surface and a stationary, separate stat switcher.
 - The switcher stays at the overview footprint's top-right edge, independent of detail width.
 - Usage colour accompanies readable values, labels and meters (D-041).
 
-### Revision after E1 case B (2026-11-27, D-043)
+### Revision after owner interview (2026-11-27, D-044) — current
+
+Supersedes D-043 below and any switcher, detail-anchoring or placement rows that conflict.
+
+- **Primary / secondary.** Clicking a primary hides the other primaries; the clicked primary stays
+  where it was, with no "open" outline (keyboard focus ring only when using the keyboard).
+- **Side:** detail opens sideways toward the larger part of the old overview footprint (left half →
+  right, right half → left), aligned with the primary's top edge (bottom row: bottom edge). If it
+  does not fit on the display, the opposite side; if neither fits, the side with more room and the
+  detail scrolls. The primary never moves.
+- **No switcher.** Click the primary again or press Escape to return to all primaries; a second
+  Escape dismisses. Clicking empty space is click-away under the existing pin rules.
+- **Height** fits content. **Transition:** ~0.15 s fade, instant with Reduce Motion; no sliding.
+- Parked: a history graph inside the CPU primary (backlog).
+
+### Revision after E1 case B (2026-11-27, D-043) — superseded by D-044
 
 Supersedes the Detail, Switcher-position and Placement rows below where they conflict.
 

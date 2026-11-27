@@ -1,7 +1,7 @@
 # Floating Tiles — Native Prototype Plan
 
 **Created:** 2026-11-22 · **Status:** implementation complete 2026-11-27; awaiting owner review (E1)
-**Progress:** 5/5 implementation tasks complete (5.1 added after E1 case B failed); external acceptance **E1 open** — B and C to re-run on the 5.1 build ([review packet](evidence/floating-tiles-prototype.md#e1-owner-review-packet)).
+**Progress:** 5/6 implementation tasks complete (5.1 added after E1 case B failed; 5.2 added for D-044); external acceptance **E1 open** — B and C to re-run on the 5.1 build ([review packet](evidence/floating-tiles-prototype.md#e1-owner-review-packet)).
 Unchecked tasks are pending unless explicitly marked blocked or implemented-unverified.
 This file owns task status/evidence. The [ring plan](../IMPLEMENTATION_PLAN.md) remains parked,
 12/12 implemented with its own E1 open; it is not archived or superseded as evidence.
@@ -168,6 +168,17 @@ existing dirty Ring changes. New paths below are relative to
     up with its tile, never over the core; open tile outlined; same tile again closes; switcher
     kept as a reserved column; geometry frozen at summon.
   - Backpressure: focused + full hostless T, B, R, codesign, Release exclusion.
+
+- [ ] **5.2: Primary stays, others hide, detail opens inward (D-044)**
+  - Depends on: 5.1 and the owner interview (2026-11-27).
+  - Files: `FloatingTileLayout.swift`, `FloatingTileState.swift`, `FloatingTilePanelController.swift`,
+    `FloatingTilesView.swift`, `FloatingTileLayoutTests.swift`, `FloatingTileStateTests.swift`.
+  - Success: clicking a primary hides the others and leaves it unmoved; detail opens toward the
+    larger part of the old footprint (top/bottom edge aligned by row), flips if it does not fit,
+    scrolls only if neither side fits; switcher and open outline removed; height fits content;
+    same primary or Escape returns, second Escape dismisses; ~0.15 s fade honouring Reduce Motion.
+  - Backpressure: focused + full hostless T, B, R, codesign, Release exclusion; Atlas look at
+    CPU (left), a middle tile and a right/bottom tile.
 
 ## Backpressure commands and execution prerequisites
 

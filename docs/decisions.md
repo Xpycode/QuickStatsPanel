@@ -573,3 +573,28 @@ is decided. Cases B and C need a fresh owner look.
 (detail) opens on the side where the others were — CPU (left) → details to its right. This
 contradicts "keep the overview on screen" and "open outward" above. Revisit D-043 next session.
 
+
+### 2026-11-27 - D-044: Clicked primary stays, others hide, detail opens inward
+**Context:** The owner's clarification after 5.1 (D-043 update) and a structured design interview.
+Terms: **primary panels** are the overview tiles; a **secondary panel** is the detail shown when a
+primary is clicked.
+**Decision:**
+- Clicking a primary hides every other primary; the clicked primary **stays exactly where it was**.
+- Its detail opens **sideways toward the larger part of the old overview footprint** (left half →
+  right, right half → left), into the space the hidden primaries left. Bottom-row primaries use the
+  same sideways rule, bottom edges aligned; top-row primaries align top edges.
+- If the preferred side does not fit on the display, flip to the opposite side; the primary still
+  never moves. Only if neither side fits, use the side with more room and scroll the detail.
+- **No switcher.** To change stat, close the detail (click the primary again, or Escape) and pick
+  another. A second Escape dismisses. Clicking the empty space is click-away (existing pin rules).
+- **No "open" outline** on the remaining primary; keyboard focus ring only when using the keyboard.
+- Detail height **fits its content** (no padding to primary height or a fixed height).
+- Transition: others fade out / detail fades in (~0.15 s), instant with Reduce Motion; no sliding.
+**Alternatives:** Moving the clicked primary to a fixed spot; detail replacing the primary;
+upward opening for bottom row; keeping the switcher or arrow-key switching; shifting the group at
+screen edges.
+**Rationale:** Matches the owner's mental model — focus on one stat, read its detail where the
+others were — while keeping the no-moving-targets rule: what you just clicked never moves.
+**Consequences:** Supersedes D-043 (overview stays, outward opening, switcher column, open outline)
+and the spec's switcher rows. The graph-in-CPU-primary idea is parked in the backlog as a separate
+task. E1 cases B and C need a fresh owner look on the new build.
