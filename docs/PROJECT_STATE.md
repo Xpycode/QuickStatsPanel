@@ -13,15 +13,16 @@
 - **Funnel:** build · **Phase:** Floating tiles — prototype implemented, owner review (E1) <!-- Phase changed: 2026-11-27 -->
 - **Focus:** bounded native floating-tile prototype; [spec defaults](../specs/floating-tiles.md) remain provisional until owner review. Circle review remains parked (D-040).
 - **Blockers:** tile E1 needs the owner. Parked ring E1 open. Separate release gates: Strongbox backup, remaining updater controls and real upgrade acceptance.
-- **Execution:** [Floating-tile prototype plan](IMPLEMENTATION_PLAN-floating-tiles.md) — 5.2 (D-044: clicked primary stays, others hide, detail opens inward) implemented, 473/0, not yet seen natively; E1 open.
+- **Execution:** [Floating-tile prototype plan](IMPLEMENTATION_PLAN-floating-tiles.md) — 7/7 implemented; 5.3 (D-045: trimmed details, one top line, 6 pt gap) awaiting owner look; E1 open.
 - **Feature definition:** [Floating tiles](../specs/floating-tiles.md), with provisional native defaults. [Earlier layouts/ring spec](../specs/panel-layouts-and-appearance.md) and remaining ring E1 decisions stay parked.
 - **Current handoff:** [After 5.2](sessions/2026-11-27.md#resume--after-52-d-044) — pushed.
 - **Validation:** W4: full hostless suite 462/0 (0 skipped), Debug/Release build, codesign, Release exclusion clean; Atlas Release Strip launch and Ring render pass. Ad-hoc Release cannot launch on the M4 Pro (hardened runtime vs Sparkle) — use a Developer ID local build. [Evidence](evidence/floating-tiles-prototype.md).
-- **Next:** native look at 5.2 (owner E1 B/C on the fresh Debug build, or helper when no other session is active).
+- **Next:** owner looks at the 5.3 build; then decide whether E1 can close.
 - **Release:** public v1.2.0; prepared v1.2.1 remains unpublished and separate from prototype work. [Release preparation](evidence/release-1.2.1.md).
 - **Last updated:** 2026-11-27
 
 ## Recent
+- **2026-11-27** — Owner saw 5.2 (sides right); D-045 trims details, aligns all to the overview top, 6 pt gap. 5.3 built and checked in the helper; one flaky persistence memory test logged.
 - **2026-11-27** — Interviewed owner → D-044 (clicked primary stays, others hide, detail opens inward, no switcher). 5.2 built: 473/0; native look blocked by a busy shared helper.
 - **2026-11-27** — E1 case B failed; built a version keeping the overview with cards opening outward, then the owner clarified they want other tiles hidden and detail opening inward. Design talk next.
 - **2026-11-27** — Tile 4.1 done: full suite 462/0, Release exclusion clean, Strip/Ring smoke in the helper, E1 review packet written. Tile plan 4/4; E1 open.

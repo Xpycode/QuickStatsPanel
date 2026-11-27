@@ -132,6 +132,7 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 - [ ] `cornerRadius` 12pt reads fine at the snug width — revisit if it ever feels too round.
 
 ## Inbox
+- 2026-11-27 — Flaky: `TransferPersistenceTests.testActualWorstDayDiskMemoryAndIncrementalCheckpointSize` memory budget (75.7/77.8 MB vs 64 MB) fails on some runs, passes on others; unrelated to tiles.
 - 2026-11-27 — Shared Atlas helper: other sessions' clicks dismiss the non-activating tile panel within seconds; consider a Debug `--floating-tiles-pinned` launch flag for helper checks.
 - [ ] **Primary/secondary tile model (owner, 2026-11-27).** Clicking a primary keeps it, hides the other primaries, opens the secondary inward (CPU → right). Discuss next session; see `sessions/2026-11-27.md` and D-043 update.
 - [ ] **Graph inside the CPU primary panel (owner idea, 2026-11-27).** Fill the large tile's empty space.
