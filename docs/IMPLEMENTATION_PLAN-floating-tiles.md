@@ -1,7 +1,7 @@
 # Floating Tiles — Native Prototype Plan
 
 **Created:** 2026-11-22 · **Status:** implementation complete 2026-11-27; awaiting owner review (E1)
-**Progress:** 8/8 implementation tasks complete (5.4 awaiting owner look) (5.1 added after E1 case B failed; 5.2 added for D-044); external acceptance **E1 open** — B and C to re-run on the 5.1 build ([review packet](evidence/floating-tiles-prototype.md#e1-owner-review-packet)).
+**Progress:** 8/8 implementation tasks complete (5.4 and drag-edge fix owner-passed 2026-11-27) (5.1 added after E1 case B failed; 5.2 added for D-044); external acceptance **E1 open** — B and C to re-run on the 5.1 build ([review packet](evidence/floating-tiles-prototype.md#e1-owner-review-packet)).
 Unchecked tasks are pending unless explicitly marked blocked or implemented-unverified.
 This file owns task status/evidence. The [ring plan](../IMPLEMENTATION_PLAN.md) remains parked,
 12/12 implemented with its own E1 open; it is not archived or superseded as evidence.
@@ -190,7 +190,7 @@ existing dirty Ring changes. New paths below are relative to
     Ring/Strip unchanged; primary never moves.
   - Backpressure: focused + full hostless T, B, R, codesign, Release exclusion.
 
-- [x] **5.4: Detail beside its tile; bigger, fuller, longer graph (D-046)** — implemented; owner look pending
+- [x] **5.4: Detail beside its tile; bigger, fuller, longer graph (D-046)** — owner look 2026-11-27: pass; follow-up drag-edge fix (group can reach every screen edge) owner-passed
   - Depends on: 5.3 and the owner's look at it (2026-11-27).
   - Files: `FloatingTileLayout.swift`, `FloatingTilePanelController.swift`, `StatDetailView.swift`
     (floating-tile graph size only), `ActivityGraphView.swift` (fill width, average into slots),
