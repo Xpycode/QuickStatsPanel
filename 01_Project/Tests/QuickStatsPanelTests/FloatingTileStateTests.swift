@@ -5,10 +5,7 @@ import XCTest
 /// return via the same primary or Escape, a second Escape dismisses. There is no switcher.
 final class FloatingTileStateTests: XCTestCase {
 
-    private let plan = FloatingTilePlan.make(kinds: [.cpu, .network],
-                                             detailSizes: [.cpu: CGSize(width: 244, height: 330),
-                                                           .network: CGSize(width: 284, height: 560)],
-                                             available: CGSize(width: 1400, height: 860))
+    private let plan = FloatingTilePlan.make(kinds: [.cpu, .network], available: CGSize(width: 1400, height: 860))
 
     func testSummonShowsOverviewWithoutTakingKeyboardFocus() {
         var s = FloatingTileState()
@@ -38,8 +35,7 @@ final class FloatingTileStateTests: XCTestCase {
     }
 
     func testHidingListsEveryOtherPrimaryInSavedOrder() {
-        let wide = FloatingTilePlan.make(kinds: [.disk, .cpu, .gpu, .memory], detailSizes: [:],
-                                         available: CGSize(width: 1400, height: 860))
+        let wide = FloatingTilePlan.make(kinds: [.disk, .cpu, .gpu, .memory], available: CGSize(width: 1400, height: 860))
         var s = FloatingTileState()
         _ = s.summon()
         XCTAssertEqual(s.select(.gpu, from: .tile(.gpu), plan: wide),
@@ -123,7 +119,7 @@ final class FloatingTileStateTests: XCTestCase {
         var s = FloatingTileState()
         _ = s.summon()
         XCTAssertEqual(s.entryTarget(kinds: []), .settings, "nothing enabled: Settings and Quit stay reachable")
-        let empty = FloatingTilePlan.make(kinds: [], detailSizes: [:], available: CGSize(width: 1400, height: 860))
+        let empty = FloatingTilePlan.make(kinds: [], available: CGSize(width: 1400, height: 860))
         XCTAssertNil(s.moveFocus(.left, plan: empty), "no focus yet, no movement")
         s.focus(.settings)
         XCTAssertEqual(s.moveFocus(.right, plan: empty), .quit)

@@ -2,7 +2,8 @@ import SwiftUI
 
 /// Who hosts a detail card. `.standard` covers the Strip and Ring (Ring is still identified by
 /// its `onClose` callback, unchanged); `.floatingTile` is the Debug floating-tile prototype, whose
-/// card sits in a frame frozen at summon and may scroll when, and only when, it is taller.
+/// card is measured when it opens with only the rows it has then (no reserved blank rows, D-045),
+/// sits in that frozen frame and scrolls when, and only when, its content is taller.
 enum StatDetailPresentation: Sendable {
     case standard
     case floatingTile
@@ -41,6 +42,9 @@ struct StatDetailView: View {
     private var usesReservedFrame: Bool { onClose != nil || presentation == .floatingTile }
     /// Floating tiles only: a scrolling card whose width is fixed inside its ScrollView.
     private var floatingScroll: Bool { presentation == .floatingTile && scrollsBody }
+    /// Floating tiles only (D-045): lay out just the rows and lines that exist now. Ring and Strip
+    /// keep their reserved slots so their once-measured cards never grow.
+    private var trimsToContent: Bool { presentation == .floatingTile }
 
     /// Card graph geometry. Wide enough for roughly a minute of 2pt bars — the
     /// same buffer the 34pt strip slot shows only the tail of.
@@ -63,7 +67,7 @@ struct StatDetailView: View {
         // Tolerate the stat vanishing while open (e.g. battery unplugged) by
         // collapsing to an empty card rather than crashing on a stale lookup.
         let descriptor = showsUnavailableState
-            ? store.resolvedDescriptor(for: kind, reservingProcessRows: true)
+            ? store.resolvedDescriptor(for: kind, reservingProcessRows: !trimsToContent)
             : store.visibleStats.first { $0.kind == kind }
         let card = Group {
             if let descriptor {
@@ -178,7 +182,8 @@ struct StatDetailView: View {
                 // the active-app count varies tick-to-tick. Real rows render; empty
                 // slots render an invisible row of identical height. Cookbook 67,
                 // applied vertically.
-                ForEach(0..<section.reservedRows, id: \.self) { i in
+                // Floating tiles show only the rows that exist (D-045); later rows scroll.
+                ForEach(0..<(trimsToContent ? section.rows.count : section.reservedRows), id: \.self) { i in
                     let row: (String, String)? = i < section.rows.count ? section.rows[i] : nil
                     HStack {
                         Text(row?.0 ?? " ")                      // process name leads
@@ -214,8 +219,10 @@ struct StatDetailView: View {
     /// row even then, so reconnecting cannot grow a card measured while offline.
     /// An unavailable row has no visible or accessible label/value.
     private func networkLegacyRows(_ descriptor: StatDescriptor, theme: Theme) -> some View {
-        let labels = kind.configurableDetailRows.filter {
-            AppSettings.shared.isDetailRowVisible(kind, $0)
+        let labels = kind.configurableDetailRows.filter { label in
+            AppSettings.shared.isDetailRowVisible(kind, label)
+                // Floating tiles: only rows that exist now (D-045).
+                && (!trimsToContent || descriptor.detail.contains { $0.0 == label })
         }
         return ForEach(labels, id: \.self) { label in
             let row = descriptor.detail.first { $0.0 == label }
@@ -329,13 +336,20 @@ struct StatDetailView: View {
                 }
             }
 
-            transferTextSlot(selected?.coverageText ?? "Loading measured coverage…", lines: 3, height: 46,
+            // Floating tiles (D-045) size these status lines to their current text and omit an empty
+            // warning; Strip and Ring keep fixed slots. The cumulative section above keeps its
+            // slot in every presentation: the reset confirmation draws into that space.
+            transferTextSlot(selected?.coverageText ?? "Loading measured coverage…", lines: 3,
+                height: trimsToContent ? nil : 46,
                 help: "\(selected?.coverageText ?? "Coverage is loading.") Partial time includes only readable sources. Missing time is unobserved. Totals include measured activity only. \(selected?.boundaryEstimateHelp ?? "")",
                 theme: theme)
             transferTextSlot(state.isResetPending ? "Reset pending · waiting for durable save…" :
-                (presentation?.saveText ?? "Loading saved history…"), lines: 2, height: 32, theme: theme)
-            // Retain a compact two-line warning slot so errors never clip later rows.
-            transferTextSlot(warning, lines: 2, height: 32, theme: theme)
+                (presentation?.saveText ?? "Loading saved history…"), lines: 2,
+                height: trimsToContent ? nil : 32, theme: theme)
+            // Retain a compact two-line warning slot so errors never clip later rows (Strip, Ring).
+            if !trimsToContent || !warning.isEmpty {
+                transferTextSlot(warning, lines: 2, height: trimsToContent ? nil : 32, theme: theme)
+            }
         }
         .frame(width: Self.transferWidth)
         .accessibilityElement(children: .contain)
@@ -375,7 +389,8 @@ struct StatDetailView: View {
         .accessibilityLabel("\(section), \(label), \(value). \(detail)")
     }
 
-    private func transferTextSlot(_ text: String, lines: Int, height: CGFloat,
+    /// A nil `height` sizes the slot to its text (floating tiles, D-045).
+    private func transferTextSlot(_ text: String, lines: Int, height: CGFloat?,
                                   help: String? = nil, theme: Theme) -> some View {
         Text(text.isEmpty ? " " : text)
             .font(theme.fonts.detailValue)

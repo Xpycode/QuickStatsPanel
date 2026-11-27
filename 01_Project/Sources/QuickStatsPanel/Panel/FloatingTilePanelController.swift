@@ -8,10 +8,11 @@ import SwiftUI
 /// **Panel arrangement:** one borderless, non-activating, fully transparent host panel sized to
 /// the summon's frozen footprint. Primaries (tiles), the detail card and the group bar are
 /// separate surfaces inside it with transparent gaps between them. The panel covers the core
-/// (group bar, overview) plus every stat's frozen detail frame, so opening a detail never moves or
-/// resizes anything: the clicked primary stays put, the others fade out and its detail fades in
-/// beside it, toward where the others were (D-044). Unused space is transparent and passes
-/// clicks through. One window keeps keyboard
+/// (group bar, overview) plus a detail envelope chosen at summon (room beside the core and down to
+/// the display's bottom), so opening a detail never moves or resizes the window: the detail is
+/// measured when its primary is opened (D-045), placed inside the envelope, the clicked primary
+/// stays put, the others fade out and the detail fades in beside it, toward where the others were
+/// (D-044). Unused space is transparent and passes clicks through. One window keeps keyboard
 /// focus, dismissal and group dragging trivially coordinated (there is nothing to keep in sync),
 /// while the window server passes clicks on fully transparent pixels through to the window below,
 /// where the existing global monitor treats them as click-away. Separate detail panels
@@ -39,6 +40,10 @@ final class FloatingTilePanelController {
     private var tileValue: ((StatKind) -> String)?
     private var detailHost: NSView?
     private var detailContent: ((StatKind, CGSize, Bool) -> AnyView)?
+    /// Measures a stat's detail card as it is now (only its current rows, D-045).
+    private var measureDetail: ((StatKind) -> CGSize)?
+    /// The open detail's placement, frozen while it stays open.
+    private(set) var openDetail: FloatingTileDetailPlacement?
     /// Focus rings show only while the HUD is driven from the keyboard (D-044: no outline after a
     /// click). Mouse input turns them off again.
     private var keyboardCues = false
@@ -62,12 +67,13 @@ final class FloatingTilePanelController {
     // MARK: Show / hide
 
     /// - Parameters:
-    ///   - detailSizes: every enabled stat's measured detail card, taken once now so the whole
-    ///     footprint (and every detail frame) is chosen before any input.
+    ///   - measureDetail: a stat's detail card measured as it is now; called when its primary is
+    ///     opened, so the card is sized to the rows it has then (D-045).
     ///   - tile: overview tile content for a stat (`true` for the large first tile).
     ///   - tileValue: the tile's live accessibility value (its readings and usage basis).
-    ///   - detail: detail card content for a stat at its frozen frame size; `true` when it scrolls.
-    func show(kinds: [StatKind], detailSizes: [StatKind: CGSize], anchor: PanelAnchor,
+    ///   - detail: detail card content for a stat at its frozen frame size; `true` when it was
+    ///     measured taller than its frame (scrolls from the start).
+    func show(kinds: [StatKind], measureDetail: @escaping (StatKind) -> CGSize, anchor: PanelAnchor,
               tile: (StatKind, Bool) -> AnyView,
               tileValue: @escaping (StatKind) -> String,
               detail: @escaping (StatKind, CGSize, Bool) -> AnyView) {
@@ -82,23 +88,23 @@ final class FloatingTilePanelController {
         // "Always show scroll bars": scrolling content gets the legacy scroller's width beside it.
         let reserve = NSScroller.preferredScrollerStyle == .legacy
             ? NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy) : 0
-        // Two steps: place the core (bar, overview), then give each stat's detail a frozen frame
-        // beside its primary, on the side toward the overview's larger part that fits this display.
-        let core = FloatingTilePlan.make(kinds: kinds, detailSizes: detailSizes, available: available,
-                                         scrollerReserve: reserve)
+        // Two steps: place the core (bar, overview), then size the host to the core plus the
+        // detail envelope on this display. Detail frames are computed when a primary is opened.
+        let core = FloatingTilePlan.make(kinds: kinds, available: available, scrollerReserve: reserve)
         let coreOrigin = FloatingTilePlacement.origin(size: core.coreFrame.size, anchor: anchor, cursor: cursor,
                                                       visible: visible, edge: options?.edge)
         let bounds = FloatingTilePlacement.bounds(coreOrigin: coreOrigin, coreSize: core.coreFrame.size,
                                                   visible: visible)
-        let plan = FloatingTilePlan.make(kinds: kinds, detailSizes: detailSizes, available: available,
-                                         bounds: bounds, scrollerReserve: reserve)
-        logger.info("summon region \(Int(visible.width))x\(Int(visible.height)) simulated=\(options?.simulatedFrame != nil) plan \(Int(plan.size.width))x\(Int(plan.size.height)) columns=\(plan.columns) fits=\(plan.fits) scrollingDetails=\(plan.scrollingDetails.map(\.displayName).sorted().joined(separator: ","), privacy: .public) overviewScrolls=\(plan.overviewViewport != nil) reserve=\(Int(reserve))")
+        let plan = FloatingTilePlan.make(kinds: kinds, available: available, bounds: bounds,
+                                         scrollerReserve: reserve)
+        logger.info("summon region \(Int(visible.width))x\(Int(visible.height)) simulated=\(options?.simulatedFrame != nil) host \(Int(plan.size.width))x\(Int(plan.size.height)) columns=\(plan.columns) fits=\(plan.fits) overviewScrolls=\(plan.overviewViewport != nil) reserve=\(Int(reserve))")
         if !plan.fits {
             NSLog("Floating tiles: footprint %.0fx%.0f exceeds the available %.0fx%.0f; navigation may clip",
                   plan.size.width, plan.size.height, available.width, available.height)
         }
         self.plan = plan
         detailContent = detail
+        self.measureDetail = measureDetail
         self.tileValue = tileValue
 
         let host = FloatingTileHostView(frame: NSRect(origin: .zero, size: plan.size))
@@ -112,7 +118,6 @@ final class FloatingTilePanelController {
         panel.contentView = host
         panel.autorecalculatesKeyViewLoop = true
         panel.setFrame(FloatingTilePlacement.hostFrame(coreOrigin: coreOrigin, plan: plan), display: true)
-        logger.info("detail sides \(plan.kinds.map { "\($0.displayName)=\(plan.detailSides[$0].map { "\($0)" } ?? "-")/\(plan.detailAlignments[$0].map { "\($0)" } ?? "-")" }.joined(separator: ","), privacy: .public)")
         self.panel = panel
         self.host = host
         keyObserver = NotificationCenter.default.addObserver(
@@ -161,6 +166,8 @@ final class FloatingTilePanelController {
         buttons = [:]
         detailHost = nil
         detailContent = nil
+        measureDetail = nil
+        openDetail = nil
         tileValue = nil
         plan = nil
         keyboardCues = false
@@ -339,19 +346,29 @@ final class FloatingTilePanelController {
             }
             let card = detailHost
             detailHost = nil
+            openDetail = nil
             fade(in: returning, out: card.map { [$0] } ?? []) { card?.removeFromSuperview() }
             host?.setAccessibilityLabel("Statistics overview")
             if let host { NSAccessibility.post(element: host, notification: .layoutChanged) }
             onDetailChanged?(nil)
             if let focus, panel?.isKeyWindow == true { focusButton(focus) }
         case .showDetail(let kind, let hiding, let focus):
-            guard let plan, let host, let frame = plan.detailFrames[kind], let detailContent else { return }
+            guard let plan, let host, let detailContent, let measureDetail else { return }
             transitionGeneration += 1
             let generation = transitionGeneration
             detailHost?.removeFromSuperview()
+            // The owner resets transfer-detail state first, so the card is measured as it opens.
+            onDetailChanged?(kind)
+            // Measured now, with only the rows it has (D-045), and placed inside the envelope the
+            // host was sized to at summon: the window never resizes, so nothing on screen moves.
+            let measured = measureDetail(kind)
+            let placement = plan.detailPlacement(for: kind, measured: measured, display: currentDisplayRegion())
+            openDetail = placement
+            let frame = placement.frame
+            logger.info("open \(kind.displayName, privacy: .public): measured \(Int(measured.width))x\(Int(measured.height)) frame \(Int(frame.minX)),\(Int(frame.minY)) \(Int(frame.width))x\(Int(frame.height)) side=\(String(describing: placement.side), privacy: .public) scrolls=\(placement.scrolls)")
             let card = FloatingTileInteractiveHostingView(
-                rootView: detailContent(kind, frame.size, plan.scrollingDetails.contains(kind)))
-            // The frozen frame is authoritative; content changes never resize or move the card.
+                rootView: detailContent(kind, frame.size, placement.scrolls))
+            // The frame is frozen while open; content that grows later scrolls inside it.
             card.sizingOptions = []
             card.frame = frame
             card.alphaValue = 0
@@ -367,7 +384,6 @@ final class FloatingTilePanelController {
             host.setAccessibilityLabel("\(kind.displayName) with detail")
             NSAccessibility.post(element: host, notification: .layoutChanged)
             if let item = buttons[.tile(kind)] { NSAccessibility.post(element: item, notification: .valueChanged) }
-            onDetailChanged?(kind)
             if panel?.isKeyWindow == true { focusButton(focus) }
         case .dismiss:
             hide()
@@ -395,6 +411,16 @@ final class FloatingTilePanelController {
     }
 
     // MARK: Panel and placement
+
+    /// The display region details may use, in host coordinates, for where the group is now (it
+    /// may have been dragged since summon). Nil falls back to the region planned at summon.
+    private func currentDisplayRegion() -> CGRect? {
+        guard let panel, let real = panel.screen?.visibleFrame else { return nil }
+        let visible = FloatingTilePlacement.region(visible: real,
+                                                   simulated: FloatingTilePrototypeOptions.current?.simulatedFrame)
+        return FloatingTilePlacement.bounds(coreOrigin: panel.frame.origin, coreSize: panel.frame.size,
+                                            visible: visible)
+    }
 
     private func makePanel(size: NSSize) -> FloatingTileHUDPanel {
         let panel = FloatingTileHUDPanel(contentRect: NSRect(origin: .zero, size: size),

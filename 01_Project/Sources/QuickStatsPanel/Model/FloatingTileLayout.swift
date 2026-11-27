@@ -13,7 +13,13 @@ struct FloatingTileMetrics: Equatable, Sendable {
     /// Column reduction floor on narrow displays: the 2×2 first tile still fits.
     var minimumColumns = 2
     var rowHeight: CGFloat = 100
+    /// Between primaries (and below the group bar).
     var gap: CGFloat = 12
+    /// Between an open primary and its detail (D-045).
+    var detailGap: CGFloat = 6
+    /// The widest detail the host reserves room for on each side of the core (the envelope sized
+    /// at summon, so details measured at open never resize the host).
+    var detailEnvelopeWidth: CGFloat = 480
     /// The group bar (move handle, Settings, Quit) above the overview's right edge.
     var barWidth: CGFloat = 106
     var barHeight: CGFloat = 28
@@ -39,24 +45,29 @@ enum FloatingTileSide: Sendable, CaseIterable {
     var opposite: FloatingTileSide { self == .left ? .right : .left }
 }
 
-/// Which edge of its primary a detail lines up with: top-half primaries align top edges,
-/// bottom-half (bottom-row) primaries align bottom edges.
-enum FloatingTileAlignment: Sendable, CaseIterable {
-    case top, bottom
+/// One opened detail's frame, computed when its primary is opened from the size measured then
+/// (D-045), and frozen while that detail stays open.
+struct FloatingTileDetailPlacement: Equatable, Sendable {
+    /// In the host's top-left coordinates.
+    let frame: CGRect
+    let side: FloatingTileSide
+    /// The measured content is taller than `frame`; the card scrolls.
+    let scrolls: Bool
 }
 
 /// The frozen geometry of one summon, in a top-left-origin space of size `size` (the host
 /// window). The core — group bar and overview — never moves. Clicking a primary hides the other
 /// primaries; the clicked one stays exactly where it is and its detail opens sideways beside it,
-/// toward the larger part of the old overview footprint (D-044). Each stat's detail frame is
-/// frozen at summon from the enabled identities, the measured detail sizes and the display
-/// region; sample updates never rebuild it, so nothing can move during a summon.
+/// toward the larger part of the old overview footprint (D-044). The host is sized once at summon
+/// to a generous envelope (the core, plus up to `detailEnvelopeWidth` on each side and down to the
+/// display's bottom, clamped to the display), so a detail measured at open (D-045) always fits
+/// inside it and the host never resizes or moves. Sample updates never rebuild the plan.
 struct FloatingTilePlan: Equatable, Sendable {
     let kinds: [StatKind]
     let metrics: FloatingTileMetrics
     /// Overview columns actually used (reduced on narrow displays).
     let columns: Int
-    /// The whole footprint (core plus every detail frame), which is also the host window's size.
+    /// The host window's size: the core plus the detail envelope.
     let size: CGSize
     /// Group bar and overview, inside `size`.
     let coreFrame: CGRect
@@ -65,14 +76,8 @@ struct FloatingTilePlan: Equatable, Sendable {
     let barFrame: CGRect
     let barItemFrames: [FloatingTileTarget: CGRect]
     let tileFrames: [StatKind: CGRect]
-    /// Each stat's detail frame beside its primary, height-limited to the display region.
-    let detailFrames: [StatKind: CGRect]
-    /// The side of its primary each stat's detail opens on.
-    let detailSides: [StatKind: FloatingTileSide]
-    /// The primary edge each stat's detail lines up with.
-    let detailAlignments: [StatKind: FloatingTileAlignment]
-    /// Stats whose measured detail is taller than its frame; only these scroll.
-    let scrollingDetails: Set<StatKind>
+    /// The display region (as planned at summon) inside the host, where details may go.
+    let detailRegion: CGRect
     /// The visible overview region when the overview is taller than the available space (it then
     /// scrolls inside this frame; tile frames stay in unscrolled footprint coordinates). Nil when
     /// the whole overview fits, which is the normal case.
@@ -93,24 +98,23 @@ struct FloatingTilePlan: Equatable, Sendable {
     /// `available`.
     /// - Parameter bounds: the display region details must stay inside, in the core's own
     ///   top-left coordinates (core origin at 0,0). Nil centres the core in `available`.
-    static func make(kinds: [StatKind], detailSizes: [StatKind: CGSize], available: CGSize,
-                     bounds: CGRect? = nil, scrollerReserve: CGFloat = 0,
+    static func make(kinds: [StatKind], available: CGSize, bounds: CGRect? = nil, scrollerReserve: CGFloat = 0,
                      metrics: FloatingTileMetrics = FloatingTileMetrics()) -> FloatingTilePlan {
         var columns = metrics.columns
-        var plan = layout(kinds: kinds, detailSizes: detailSizes, available: available, bounds: bounds,
+        var plan = layout(kinds: kinds, available: available, bounds: bounds,
                           scrollerReserve: scrollerReserve, metrics: metrics, columns: columns)
         // Reduce columns at summon (never on selection) while the core is too wide.
         while plan.coreFrame.width > available.width, columns > metrics.minimumColumns {
             columns = max(metrics.minimumColumns, columns - 2)
-            plan = layout(kinds: kinds, detailSizes: detailSizes, available: available, bounds: bounds,
+            plan = layout(kinds: kinds, available: available, bounds: bounds,
                           scrollerReserve: scrollerReserve, metrics: metrics, columns: columns)
         }
         return plan
     }
 
-    private static func layout(kinds: [StatKind], detailSizes: [StatKind: CGSize], available: CGSize,
-                               bounds requestedBounds: CGRect?, scrollerReserve reserve: CGFloat,
-                               metrics m: FloatingTileMetrics, columns: Int) -> FloatingTilePlan {
+    private static func layout(kinds: [StatKind], available: CGSize, bounds requestedBounds: CGRect?,
+                               scrollerReserve reserve: CGFloat, metrics m: FloatingTileMetrics,
+                               columns: Int) -> FloatingTilePlan {
         let top = m.barHeight + m.gap
         let maxContentHeight = max(0, available.height - top)
         let tiles = packTiles(kinds: kinds, columns: columns, metrics: m)
@@ -142,39 +146,26 @@ struct FloatingTilePlan: Equatable, Sendable {
                                                y: (core.height - available.height) / 2,
                                                width: available.width, height: available.height)
 
-        // Details: content-sized, beside their primary, toward the old overview's larger part.
-        var scrolling = Set<StatKind>()
-        var details: [StatKind: CGRect] = [:]
-        var sides: [StatKind: FloatingTileSide] = [:]
-        var alignments: [StatKind: FloatingTileAlignment] = [:]
-        for kind in kinds {
-            let measured = detailSizes[kind] ?? CGSize(width: overviewWidth / 2, height: m.rowHeight)
-            let tile = tiles[kind] ?? overviewRect
-            var placed = placeDetail(size: measured, tile: tile, overview: overviewRect, bar: bar,
-                                     bounds: bounds, gap: m.gap)
-            // A scrolling detail gets a legacy scroll bar's width beside its measured content.
-            if placed.scrolls, reserve > 0 {
-                placed = placeDetail(size: CGSize(width: measured.width + reserve, height: measured.height),
-                                     tile: tile, overview: overviewRect, bar: bar, bounds: bounds, gap: m.gap)
-            }
-            if placed.scrolls { scrolling.insert(kind) }
-            details[kind] = placed.frame
-            sides[kind] = placed.side
-            alignments[kind] = placed.alignment
-        }
+        // The detail envelope: beside the core on both sides and from the core's top down to the
+        // display's bottom (every detail's top is the overview's top, D-045), clamped to the
+        // display but never smaller than the core itself.
+        let reach = m.detailGap + m.detailEnvelopeWidth + reserve
+        let hostMinX = min(core.minX, max(bounds.minX, core.minX - reach))
+        let hostMaxX = max(core.maxX, min(bounds.maxX, core.maxX + reach))
+        let hostMaxY = max(core.maxY, bounds.maxY)
+        let host = CGRect(x: hostMinX, y: core.minY, width: hostMaxX - hostMinX, height: hostMaxY - core.minY)
+        let region = bounds.intersection(host)
 
-        // The host covers the core and every detail; shift everything so it starts at 0,0.
-        let union = details.values.reduce(core) { $0.union($1) }
-        let dx = -union.minX, dy = -union.minY
+        // Shift everything so the host starts at 0,0.
+        let dx = -host.minX, dy = -host.minY
         func shift(_ r: CGRect) -> CGRect { r.offsetBy(dx: dx, dy: dy) }
 
         let fits = core.width <= available.width + 0.5
             && top + min(overviewHeight, m.rowHeight) <= available.height + 0.5
-        return FloatingTilePlan(kinds: kinds, metrics: m, columns: columns, size: union.size,
+        return FloatingTilePlan(kinds: kinds, metrics: m, columns: columns, size: host.size,
                                 coreFrame: shift(core), overviewFrame: shift(overviewRect), barFrame: shift(bar),
                                 barItemFrames: barItems.mapValues(shift), tileFrames: tiles.mapValues(shift),
-                                detailFrames: details.mapValues(shift), detailSides: sides,
-                                detailAlignments: alignments, scrollingDetails: scrolling,
+                                detailRegion: region.isNull ? shift(core) : shift(region),
                                 overviewViewport: overviewViewport.map(shift), scrollerReserve: reserve,
                                 emptyStateFrame: emptyState.map(shift), fits: fits)
     }
@@ -186,21 +177,33 @@ struct FloatingTilePlan: Equatable, Sendable {
         tile.midX <= overview.midX + 0.5 ? .right : .left
     }
 
-    /// Top-half primaries line up top edges; bottom-half (bottom-row) primaries line up bottom
-    /// edges. A primary spanning the whole height aligns top.
-    static func alignment(tile: CGRect, overview: CGRect) -> FloatingTileAlignment {
-        tile.midY <= overview.midY + 0.5 ? .top : .bottom
+    /// The frame for `kind`'s detail, from the size measured now (when it is opened, D-045).
+    /// - Parameter display: the current display region in host coordinates (the group may have
+    ///   been dragged since summon); nil uses the region planned at summon. Always limited to the
+    ///   host, which never resizes.
+    func detailPlacement(for kind: StatKind, measured: CGSize, display: CGRect? = nil) -> FloatingTileDetailPlacement {
+        let host = CGRect(origin: .zero, size: size)
+        var region = (display ?? detailRegion).intersection(host)
+        if region.isNull || region.isEmpty { region = host }
+        let tile = tileFrames[kind] ?? overviewFrame
+        var placed = Self.placeDetail(size: measured, tile: tile, overview: overviewFrame, bounds: region,
+                                      gap: metrics.detailGap)
+        // A scrolling detail gets a legacy scroll bar's width beside its measured content.
+        if placed.scrolls, scrollerReserve > 0 {
+            placed = Self.placeDetail(size: CGSize(width: measured.width + scrollerReserve, height: measured.height),
+                                      tile: tile, overview: overviewFrame, bounds: region, gap: metrics.detailGap)
+        }
+        return placed
     }
 
     /// Places one detail beside its primary, which never moves:
-    /// - side: the preferred side (`preferredSide`) if the detail fits the display there, else the
+    /// - side: the preferred side (`preferredSide`) if the detail fits the region there, else the
     ///   opposite side; if neither fits, the side with more room, clamped into `bounds` (only on
     ///   displays too narrow for the detail — the measured width never shrinks, so text does not);
-    /// - vertical: top or bottom edge level with the primary (`alignment`), clamped into `bounds`,
-    ///   kept clear of the group bar, and height-limited; a limited detail scrolls.
-    static func placeDetail(size: CGSize, tile: CGRect, overview: CGRect, bar: CGRect, bounds: CGRect,
-                            gap: CGFloat) -> (frame: CGRect, side: FloatingTileSide,
-                                              alignment: FloatingTileAlignment, scrolls: Bool) {
+    /// - vertical: the top edge is the overview's top (one line for every detail, D-045); the
+    ///   height is limited to the region's bottom, and a limited detail scrolls.
+    static func placeDetail(size: CGSize, tile: CGRect, overview: CGRect, bounds: CGRect,
+                            gap: CGFloat) -> FloatingTileDetailPlacement {
         let width = min(size.width, bounds.width)
         func x(_ side: FloatingTileSide) -> CGFloat { side == .right ? tile.maxX + gap : tile.minX - gap - width }
         func room(_ side: FloatingTileSide) -> CGFloat {
@@ -218,17 +221,10 @@ struct FloatingTilePlan: Equatable, Sendable {
         }
         fx = fx.rounded()
 
-        let align = alignment(tile: tile, overview: overview)
-        var height = min(size.height, bounds.height)
-        var fy = align == .top ? tile.minY : tile.maxY - height
-        fy = min(max(fy, bounds.minY), bounds.maxY - height)
-        // The group bar stays reachable: a detail that would reach it starts below it instead.
-        let barZone = bar.insetBy(dx: -gap + 0.5, dy: -gap + 0.5)
-        if barZone.intersects(CGRect(x: fx, y: fy, width: width, height: height)) {
-            fy = max(fy, bar.maxY + gap)
-            height = min(height, max(0, bounds.maxY - fy))
-        }
-        return (CGRect(x: fx, y: fy, width: width, height: height), side, align, size.height > height + 0.5)
+        let fy = max(overview.minY, bounds.minY)
+        let height = min(size.height, max(0, bounds.maxY - fy))
+        return FloatingTileDetailPlacement(frame: CGRect(x: fx, y: fy, width: width, height: height), side: side,
+                                           scrolls: size.height > height + 0.5)
     }
 
     /// First enabled stat spans 2×2 cells, the next two span 2×1, the rest 1×1; packed in saved

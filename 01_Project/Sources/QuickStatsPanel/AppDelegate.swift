@@ -311,18 +311,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func toggleTiles() {
         if tilePanel.isVisible { tilePanel.hide(); return }
         let kinds = store.enabledStatKinds
-        // Every enabled stat's card is measured once now, so the footprint and the switcher
-        // position are frozen before any input.
-        let sizes = Dictionary(uniqueKeysWithValues: kinds.map { kind in
-            (kind, NSHostingView(rootView: tileDetailCard(for: kind)).fittingSize)
-        })
+        // The host is sized at summon; each detail card is measured when its primary is opened,
+        // with only the rows it has then (D-045), and its frame stays frozen while it is open.
         let store = self.store
-        tilePanel.show(kinds: kinds, detailSizes: sizes, anchor: AppSettings.shared.anchor,
+        tilePanel.show(kinds: kinds,
+                       measureDetail: { [weak self] kind in
+                           guard let self else { return .zero }
+                           return NSHostingView(rootView: self.tileDetailCard(for: kind)).fittingSize
+                       },
+                       anchor: AppSettings.shared.anchor,
                        tile: { kind, large in AnyView(FloatingTileCardView(store: store, kind: kind, isLarge: large)) },
                        tileValue: { store.floatingTileReading(for: $0).accessibilityValue },
-                       detail: { [weak self] kind, size, scrolls in
+                       detail: { [weak self] kind, size, _ in
                            guard let self else { return AnyView(EmptyView()) }
-                           return AnyView(self.tileDetailCard(for: kind, scrollsBody: scrolls)
+                           // Always on the fit-or-scroll path: a card that fits lays out exactly as
+                           // measured; one that grows after opening scrolls instead of resizing.
+                           return AnyView(self.tileDetailCard(for: kind, scrollsBody: true)
                                .frame(width: size.width, height: size.height, alignment: .topLeading))
                        })
     }
