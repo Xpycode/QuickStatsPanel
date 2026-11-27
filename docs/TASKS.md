@@ -132,6 +132,7 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 - [ ] `cornerRadius` 12pt reads fine at the snug width — revisit if it ever feels too round.
 
 ## Inbox
+- 2026-11-27 — 5.3 look notes (D-046 open items): small tiles Fans/Temperature/Power/Load/Uptime show a blank middle between value and caption; Fan detail row isn't label-left/value-right like other cards; boot date mixes locales ("24. Nov 2026 at 15:30"); fixture Battery temp 31 °C vs 72 °C in Temperatures, Temperature tile "Nominal" under all-hot.
 - 2026-11-27 — Flaky: `TransferPersistenceTests.testActualWorstDayDiskMemoryAndIncrementalCheckpointSize` memory budget (75.7/77.8 MB vs 64 MB) fails on some runs, passes on others; unrelated to tiles.
 - 2026-11-27 — Shared Atlas helper: other sessions' clicks dismiss the non-activating tile panel within seconds; consider a Debug `--floating-tiles-pinned` launch flag for helper checks.
 - [ ] **Primary/secondary tile model (owner, 2026-11-27).** Clicking a primary keeps it, hides the other primaries, opens the secondary inward (CPU → right). Discuss next session; see `sessions/2026-11-27.md` and D-043 update.

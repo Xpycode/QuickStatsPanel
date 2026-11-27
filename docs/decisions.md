@@ -616,3 +616,26 @@ the tile top and extend down; keep the bar-clearance fallback.
 **Consequences:** Supersedes D-044's row-based top/bottom alignment and its bar-clearance fallback.
 Measurement at open (not at summon) means detail frames are computed per open; the primary still
 never moves.
+
+### 2026-11-27 - D-046: Details sit beside their tile; bigger, fuller, longer graph
+**Context:** Owner's look at the 5.3 build (Battery, GPU, Fans, Temperature, Power, Load, Uptime).
+With D-045's single top line, bottom-row details floated 120–330 pt above their tile, so the card
+no longer read as belonging to it. The GPU graph was a small 220 × 44 pt strip, part-empty while
+history fills.
+**Decision:** Amends D-045 (trim and 6 pt gap stay).
+- **Beside the tile:** top-row primary → detail top = primary top, grows down. Bottom-row primary →
+  detail bottom = primary bottom, grows up. Middle rows → starts at primary top, shifts up only as
+  far as needed to stay inside the group/display. Never above the group bar; still too tall → scrolls.
+- **Bigger graph (floating tiles only):** the detail graph spans the card's content width and is
+  taller (~72 pt instead of 44). Ring and Strip cards keep 220 × 44.
+- **Always fill the width:** until the buffer is full, the existing bars spread across the full
+  graph width instead of leaving the left side blank.
+- **Longer history:** `historyDuration` 60 s → 5 min. Graphs wider than they have bar slots for
+  average samples into slots; the strip's small graph keeps showing only its recent tail.
+**Alternatives:** keep one top line; tops line up and nudge; centred on tile. Fixture-only fix for
+the graph.
+**Rationale:** Adjacency makes the card read as its tile's; the graph earns the space a card has.
+**Consequences:** Supersedes D-045's "one top line". History buffers grow ~5× (still small); the
+history-duration change affects every presentation's card graph, so Ring/Strip cards show a 5-minute
+graph averaged into their 220 pt. Open: other 5.3 look notes (blank middle in small tiles, Fan row
+style, mixed-language boot date, fixture battery-temperature mismatch) — Inbox, not this decision.

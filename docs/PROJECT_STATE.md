@@ -13,11 +13,11 @@
 - **Funnel:** build · **Phase:** Floating tiles — prototype implemented, owner review (E1) <!-- Phase changed: 2026-11-27 -->
 - **Focus:** bounded native floating-tile prototype; [spec defaults](../specs/floating-tiles.md) remain provisional until owner review. Circle review remains parked (D-040).
 - **Blockers:** tile E1 needs the owner. Parked ring E1 open. Separate release gates: Strongbox backup, remaining updater controls and real upgrade acceptance.
-- **Execution:** [Floating-tile prototype plan](IMPLEMENTATION_PLAN-floating-tiles.md) — 7/7 implemented; 5.3 (D-045: trimmed details, one top line, 6 pt gap) awaiting owner look; E1 open.
+- **Execution:** [Floating-tile prototype plan](IMPLEMENTATION_PLAN-floating-tiles.md) — 7/8 implemented; 5.4 ready (D-046: detail beside its tile, bigger/fuller 5-minute graph); E1 open.
 - **Feature definition:** [Floating tiles](../specs/floating-tiles.md), with provisional native defaults. [Earlier layouts/ring spec](../specs/panel-layouts-and-appearance.md) and remaining ring E1 decisions stay parked.
 - **Current handoff:** [After 5.2](sessions/2026-11-27.md#resume--after-52-d-044) — pushed.
 - **Validation:** W4: full hostless suite 462/0 (0 skipped), Debug/Release build, codesign, Release exclusion clean; Atlas Release Strip launch and Ring render pass. Ad-hoc Release cannot launch on the M4 Pro (hardened runtime vs Sparkle) — use a Developer ID local build. [Evidence](evidence/floating-tiles-prototype.md).
-- **Next:** owner looks at the 5.3 build; then decide whether E1 can close.
+- **Next:** /execute 5.4, then owner looks at it; then decide whether E1 can close.
 - **Release:** public v1.2.0; prepared v1.2.1 remains unpublished and separate from prototype work. [Release preparation](evidence/release-1.2.1.md).
 - **Last updated:** 2026-11-27
 

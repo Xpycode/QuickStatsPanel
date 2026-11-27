@@ -1,7 +1,7 @@
 # Floating Tiles — Native Prototype Plan
 
 **Created:** 2026-11-22 · **Status:** implementation complete 2026-11-27; awaiting owner review (E1)
-**Progress:** 7/7 implementation tasks complete (5.3 awaiting owner look) (5.1 added after E1 case B failed; 5.2 added for D-044); external acceptance **E1 open** — B and C to re-run on the 5.1 build ([review packet](evidence/floating-tiles-prototype.md#e1-owner-review-packet)).
+**Progress:** 7/8 implementation tasks complete (5.3 looked at 2026-11-27 → D-046; 5.4 ready) (5.1 added after E1 case B failed; 5.2 added for D-044); external acceptance **E1 open** — B and C to re-run on the 5.1 build ([review packet](evidence/floating-tiles-prototype.md#e1-owner-review-packet)).
 Unchecked tasks are pending unless explicitly marked blocked or implemented-unverified.
 This file owns task status/evidence. The [ring plan](../IMPLEMENTATION_PLAN.md) remains parked,
 12/12 implemented with its own E1 open; it is not archived or superseded as evidence.
@@ -180,7 +180,7 @@ existing dirty Ring changes. New paths below are relative to
   - Backpressure: focused + full hostless T, B, R, codesign, Release exclusion; Atlas look at
     CPU (left), a middle tile and a right/bottom tile.
 
-- [x] **5.3: Trim details, one top line, closer gap (D-045)** — implemented; owner look pending
+- [x] **5.3: Trim details, one top line, closer gap (D-045)** — owner look 2026-11-27: trim and gap right; top line replaced by D-046
   - Depends on: 5.2 and the owner's look at it (2026-11-27).
   - Files: `FloatingTileLayout.swift`, `FloatingTilePanelController.swift`, `FloatingTilesView.swift`,
     `StatDetailView.swift` (floating-tile presentation only), `AppDelegate.swift` (tile measurement only),
@@ -189,6 +189,19 @@ existing dirty Ring changes. New paths below are relative to
     frozen while open, late growth scrolls; every detail top = overview top; primary→detail gap 6 pt;
     Ring/Strip unchanged; primary never moves.
   - Backpressure: focused + full hostless T, B, R, codesign, Release exclusion.
+
+- [ ] **5.4: Detail beside its tile; bigger, fuller, longer graph (D-046)**
+  - Depends on: 5.3 and the owner's look at it (2026-11-27).
+  - Files: `FloatingTileLayout.swift`, `FloatingTilePanelController.swift`, `StatDetailView.swift`
+    (floating-tile graph size only), `ActivityGraphView.swift` (fill width, average into slots),
+    `StatsStore.swift` (`historyDuration`), fixtures if they seed history, matching tests.
+  - Success: top-row detail top = primary top; bottom-row detail bottom = primary bottom;
+    middle rows start at primary top and shift up only to fit; never above the group bar; too tall
+    scrolls; 6 pt gap and trim kept. Floating detail graph spans content width, ~72 pt tall; a
+    partly filled buffer spreads across the full width; history is 5 min, averaged into available
+    slots; strip graph still shows its recent tail; Ring/Strip cards keep 220 × 44.
+  - Backpressure: focused + full hostless T, B, R, codesign, Release exclusion; Atlas look at a
+    top-row (CPU), middle and bottom-row (Battery/Power) detail plus GPU graph.
 
 ## Backpressure commands and execution prerequisites
 
