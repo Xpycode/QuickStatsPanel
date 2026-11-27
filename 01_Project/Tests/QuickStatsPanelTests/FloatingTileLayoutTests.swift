@@ -1,8 +1,9 @@
 import XCTest
 
 #if DEBUG
-/// Frozen floating-tile geometry: packing, footprint enlargement, a switcher anchored at the
-/// footprint's right edge, detail limits, column reduction and visual-neighbour navigation.
+/// Frozen floating-tile geometry: packing, a fixed core (bar, overview, switcher column), detail
+/// cards beside the core on the side nearest their tile, column reduction and visual-neighbour
+/// navigation. Core-relative frames use `c(_:_:)` because cards to the left/top shift the core.
 final class FloatingTileLayoutTests: XCTestCase {
 
     private let roomy = CGSize(width: 1400, height: 860)
@@ -14,13 +15,18 @@ final class FloatingTileLayoutTests: XCTestCase {
         FloatingTilePlan.make(kinds: kinds, detailSizes: details ?? self.details, available: available ?? roomy)
     }
 
+    /// A frame relative to the core's top-left.
+    private func c(_ p: FloatingTilePlan, _ r: CGRect?) -> CGRect? {
+        r?.offsetBy(dx: -p.coreFrame.minX, dy: -p.coreFrame.minY)
+    }
+
     func testCPUNetworkOverviewPacksFirstLargeThenWide() {
         let p = plan()
         XCTAssertEqual(p.columns, 4)
         XCTAssertEqual(p.metrics.columnWidth, 111)
-        XCTAssertEqual(p.tileFrames[.cpu], CGRect(x: 0, y: 40, width: 234, height: 212))
-        XCTAssertEqual(p.tileFrames[.network], CGRect(x: 246, y: 40, width: 234, height: 100))
-        XCTAssertEqual(p.size.width, 480, "narrow details keep the mockup's 480-point footprint")
+        XCTAssertEqual(c(p, p.tileFrames[.cpu]), CGRect(x: 0, y: 40, width: 234, height: 212))
+        XCTAssertEqual(c(p, p.tileFrames[.network]), CGRect(x: 246, y: 40, width: 234, height: 100))
+        XCTAssertEqual(p.coreFrame.width, 480 + 12 + 106, "the 480-point overview plus the reserved switcher column")
         XCTAssertTrue(p.fits)
     }
 
@@ -35,31 +41,32 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertEqual(p.tileFrames[.network]?.size, CGSize(width: 111, height: 100), "the rest are 1×1")
     }
 
-    func testSwitcherIsAnchoredAtTheFootprintRightEdgeAndNeverOverlapsDetail() {
+    func testSwitcherSitsRightOfTheOverviewAndNoCardOverlapsTheCore() {
         let p = plan()
-        XCTAssertEqual(p.switcherFrame.maxX, p.size.width)
+        XCTAssertEqual(p.switcherFrame.maxX, p.coreFrame.maxX)
+        XCTAssertEqual(p.switcherFrame.minX, p.contentOrigin.x + 480 + 12)
         XCTAssertEqual(p.switcherFrame.width, 106)
-        XCTAssertEqual(p.barFrame.maxX, p.size.width)
+        XCTAssertEqual(p.barFrame.maxX, p.contentOrigin.x + 480, "the bar sits above the overview's right edge")
         for kind in p.kinds {
             let detail = try! XCTUnwrap(p.detailFrames[kind])
-            XCTAssertEqual(detail.origin, p.contentOrigin, "detail top-left is the overview origin")
-            XCTAssertLessThanOrEqual(detail.maxX + 12, p.switcherFrame.minX, "detail keeps the gap to the switcher")
+            XCTAssertFalse(detail.intersects(p.coreFrame.insetBy(dx: -11, dy: -11)), "\(kind) card keeps the gap to the core")
+            XCTAssertTrue(CGRect(origin: .zero, size: p.size).contains(detail))
         }
         for (target, frame) in p.switcherItemFrames {
             XCTAssertTrue(p.switcherFrame.contains(frame), "\(target) inside the switcher")
         }
     }
 
-    func testWideDetailEnlargesTheFootprintOnceAtSummon() {
+    func testWideDetailNeverResizesTheCore() {
         let p = plan(details: [.cpu: CGSize(width: 244, height: 300), .network: CGSize(width: 400, height: 300)])
-        XCTAssertEqual(p.size.width, 400 + 12 + 106)
+        XCTAssertEqual(p.coreFrame.width, 480 + 12 + 106)
         XCTAssertEqual(p.detailFrames[.network]?.width, 400)
-        XCTAssertEqual(p.switcherFrame.minX, 400 + 12, "one switcher position for every detail")
+        XCTAssertEqual(c(p, p.switcherFrame)?.minX, 480 + 12, "one switcher position for every detail")
     }
 
     func testOversizedDetailIsHeightLimitedAndOnlyItScrolls() {
         let p = plan(available: CGSize(width: 1400, height: 500))
-        XCTAssertEqual(p.detailFrames[.network]?.height, 500 - 40)
+        XCTAssertEqual(p.detailFrames[.network]?.height, 500, "limited to the display region beside the core")
         XCTAssertEqual(p.scrollingDetails, [.network])
         XCTAssertEqual(p.detailFrames[.cpu]?.height, 330, "a card that fits keeps its measured height")
         XCTAssertLessThanOrEqual(p.size.height, 500)
@@ -69,9 +76,9 @@ final class FloatingTileLayoutTests: XCTestCase {
     func testNarrowDisplayReducesColumnsAtSummon() {
         let p = plan([.cpu, .network, .memory, .disk, .gpu], details: [:], available: CGSize(width: 420, height: 900))
         XCTAssertEqual(p.columns, 2)
-        XCTAssertLessThanOrEqual(p.size.width, 420)
-        XCTAssertEqual(p.tileFrames[.cpu], CGRect(x: 0, y: 40, width: 234, height: 212))
-        XCTAssertEqual(p.tileFrames[.network], CGRect(x: 0, y: 264, width: 234, height: 100))
+        XCTAssertLessThanOrEqual(p.coreFrame.width, 420)
+        XCTAssertEqual(c(p, p.tileFrames[.cpu]), CGRect(x: 0, y: 40, width: 234, height: 212))
+        XCTAssertEqual(c(p, p.tileFrames[.network]), CGRect(x: 0, y: 264, width: 234, height: 100))
         XCTAssertTrue(p.fits)
     }
 
@@ -101,7 +108,8 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertEqual(p.neighbour(of: .switcher(.network), .left, detail: true), .switcher(.cpu))
         XCTAssertEqual(p.neighbour(of: .switcher(.cpu), .down, detail: true), .allStatistics)
         XCTAssertEqual(p.neighbour(of: .switcher(.network), .down, detail: true), .allStatistics)
-        XCTAssertNil(p.neighbour(of: .tile(.cpu), .right, detail: true), "tiles are not targets in detail")
+        XCTAssertEqual(p.neighbour(of: .tile(.cpu), .right, detail: true), .tile(.network),
+                       "the overview stays reachable while a card is open")
     }
 
     func testElevenStatOverviewNeighboursAreGeometric() {
@@ -148,7 +156,7 @@ final class FloatingTileLayoutTests: XCTestCase {
         let b = plan(StatKind.allCases.reversed(), details: [:])
         XCTAssertEqual(a.tileFrames[.cpu]?.size, CGSize(width: 234, height: 212))
         XCTAssertEqual(b.tileFrames[.uptime]?.size, CGSize(width: 234, height: 212))
-        XCTAssertEqual(a.size, b.size, "the footprint depends on the count, not the order")
+        XCTAssertEqual(a.coreFrame.size, b.coreFrame.size, "the core depends on the count, not the order")
     }
 
     func testElevenStatFootprintFitsAComfortableDisplayAndStaysInsideItself() {
@@ -202,7 +210,7 @@ final class FloatingTileLayoutTests: XCTestCase {
     func testFootprintHeightIsBarPlusTallestContent() {
         let p = plan(StatKind.allCases, details: [:])
         // Four 100-point rows with three 12-point gaps below the 28-point bar and its gap.
-        XCTAssertEqual(p.size.height, 40 + 436, "no transparent band below the overview")
+        XCTAssertEqual(p.coreFrame.height, 40 + 436, "no transparent band below the overview")
         XCTAssertNil(p.overviewViewport, "a comfortable display never scrolls the overview")
     }
 
@@ -228,11 +236,12 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertEqual(overlay.detailFrames[.network]?.width, 284)
         XCTAssertEqual(legacy.detailFrames[.network]?.width, 284 + 15, "the scrolling card gets the scroll bar's width")
         XCTAssertEqual(legacy.detailFrames[.cpu]?.width, 244, "a card that fits keeps its measured width")
-        XCTAssertEqual(legacy.switcherFrame.maxX, legacy.size.width, "one switcher position, chosen at summon")
-        XCTAssertLessThanOrEqual(try! XCTUnwrap(legacy.detailFrames[.network]).maxX + 12, legacy.switcherFrame.minX)
+        XCTAssertEqual(legacy.switcherFrame.maxX, legacy.coreFrame.maxX, "one switcher position, chosen at summon")
+        XCTAssertFalse(try! XCTUnwrap(legacy.detailFrames[.network]).intersects(legacy.coreFrame))
         let wide = FloatingTilePlan.make(kinds: [.cpu, .network], detailSizes: [.network: CGSize(width: 400, height: 560)],
                                          available: short, scrollerReserve: 15)
-        XCTAssertEqual(wide.size.width, 400 + 15 + 12 + 106, "the reserve joins the footprint enlargement once")
+        XCTAssertEqual(wide.detailFrames[.network]?.width, 400 + 15, "the reserve widens only the scrolling card")
+        XCTAssertEqual(wide.coreFrame.width, 480 + 12 + 106, "and never the core")
         XCTAssertEqual(legacy.scrollingDetails, [.network])
         let roomyLegacy = FloatingTilePlan.make(kinds: [.cpu, .network], detailSizes: details, available: roomy,
                                                 scrollerReserve: 15)
@@ -247,7 +256,7 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertEqual(p.scrollingDetails, [.network], "only the oversized card scrolls")
         XCTAssertEqual(p.detailFrames[.uptime]?.height, 90, "a short card stays content-sized")
         for kind in [StatKind.cpu, .network, .uptime] {
-            XCTAssertLessThanOrEqual(try! XCTUnwrap(p.detailFrames[kind]).maxX + 12, p.switcherFrame.minX)
+            XCTAssertFalse(try! XCTUnwrap(p.detailFrames[kind]).intersects(p.coreFrame), "\(kind) never covers the core")
         }
     }
 
@@ -302,23 +311,105 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertNil(FloatingTilePlacement.reclamp(frame: frame, visibleFrames: []))
     }
 
-    func testDetailArrowsReachTheGroupBarAndNeverATile() {
+    func testDetailArrowsReachBarTilesAndSwitcher() {
         let p = plan(StatKind.allCases, details: details)
         let up = p.neighbour(of: .switcher(.cpu), .up, detail: true)
         XCTAssertTrue([FloatingTileTarget.handle, .settings, .quit].contains(up), "above the switcher is the bar")
-        for target in p.targetFrames(detail: true).keys {
-            if case .tile = target { XCTFail("tiles are hidden in detail") }
+        let targets = p.targetFrames(detail: true).keys
+        for kind in StatKind.allCases {
+            XCTAssertTrue(targets.contains(.tile(kind)), "\(kind) tile stays a target")
+            XCTAssertTrue(targets.contains(.switcher(kind)), "\(kind) switcher item is a target")
         }
-        XCTAssertEqual(p.neighbour(of: .settings, .down, detail: true).map { p.switcherFrame.contains(p.targetFrames(detail: true)[$0]!) }, true)
+        XCTAssertFalse(p.targetFrames(detail: false).keys.contains(.switcher(.cpu)), "the switcher is hidden in the overview")
+        XCTAssertEqual(p.neighbour(of: .tile(.fan), .right, detail: true).map { p.switcherFrame.contains(p.targetFrames(detail: true)[$0]!) }, true,
+                       "right of the overview is the switcher")
+    }
+
+    // MARK: Detail beside the overview (E1 case B revision)
+
+    private let even: [StatKind: CGSize] = Dictionary(uniqueKeysWithValues: StatKind.allCases.map { ($0, CGSize(width: 250, height: 150)) })
+
+    func testCardOpensOnTheSideNearestItsTile() {
+        let p = plan(StatKind.allCases, details: even)
+        XCTAssertEqual(p.detailSides[.cpu], .left)
+        XCTAssertEqual(p.detailSides[.memory], .top)
+        XCTAssertEqual(p.detailSides[.disk], .right)
+        XCTAssertEqual(p.detailSides[.network], .left)
+        XCTAssertEqual(p.detailSides[.fan], .right)
+        XCTAssertEqual(p.detailSides[.temps], .bottom)
+        XCTAssertEqual(p.detailSides[.loadAverage], .bottom)
+        XCTAssertEqual(p.detailSides[.uptime], .right, "a near-tie at a corner opens sideways")
+        for kind in StatKind.allCases {
+            let card = try! XCTUnwrap(p.detailFrames[kind])
+            XCTAssertFalse(card.intersects(p.coreFrame), "\(kind) card is beside, not over, the overview")
+        }
+    }
+
+    func testCardLinesUpWithItsTile() {
+        let p = plan(StatKind.allCases, details: even)
+        let cpu = try! XCTUnwrap(p.detailFrames[.cpu]), cpuTile = try! XCTUnwrap(p.tileFrames[.cpu])
+        XCTAssertEqual(cpu.minY, cpuTile.minY, "side card top level with the tile top")
+        XCTAssertEqual(cpu.maxX + 12, p.coreFrame.minX)
+        let memory = try! XCTUnwrap(p.detailFrames[.memory]), memoryTile = try! XCTUnwrap(p.tileFrames[.memory])
+        XCTAssertEqual(memory.minX, memoryTile.minX, "top card left edge level with the tile")
+        XCTAssertEqual(memory.maxY + 12, p.coreFrame.minY)
+        let disk = try! XCTUnwrap(p.detailFrames[.disk])
+        XCTAssertEqual(disk.minX, p.coreFrame.maxX + 12, "right cards open past the switcher column")
+    }
+
+    func testCardFallsBackToTheOppositeSideWithoutRoom() {
+        // Core pinned to the region's top-left corner: no room left or above.
+        let bounds = CGRect(x: 0, y: 0, width: 1400, height: 860)
+        let p = FloatingTilePlan.make(kinds: StatKind.allCases, detailSizes: even, available: roomy, bounds: bounds)
+        XCTAssertEqual(p.detailSides[.cpu], .right)
+        XCTAssertEqual(p.detailSides[.memory], .bottom)
+        let region = bounds.offsetBy(dx: p.coreFrame.minX, dy: p.coreFrame.minY)
+        for kind in StatKind.allCases {
+            XCTAssertTrue(region.contains(try! XCTUnwrap(p.detailFrames[kind])), "\(kind) card stays on the display")
+        }
+        XCTAssertEqual(p.coreFrame.origin, .zero, "nothing extends left of or above the core")
+    }
+
+    func testTallCardIsClampedAndScrollsWithinTheRegion() {
+        let bounds = CGRect(x: -600, y: -300, width: 1800, height: 700)
+        let p = FloatingTilePlan.make(kinds: [.cpu, .network], detailSizes: [.cpu: CGSize(width: 244, height: 900)],
+                                      available: roomy, bounds: bounds)
+        XCTAssertEqual(p.scrollingDetails, [.cpu])
+        let region = bounds.offsetBy(dx: p.coreFrame.minX, dy: p.coreFrame.minY)
+        XCTAssertTrue(region.contains(try! XCTUnwrap(p.detailFrames[.cpu])))
+        XCTAssertEqual(p.detailFrames[.cpu]?.height, 700)
+    }
+
+    func testTheCoreIsTheSameWhereverCardsGo() {
+        let centred = plan(StatKind.allCases, details: even)
+        let corner = FloatingTilePlan.make(kinds: StatKind.allCases, detailSizes: even, available: roomy,
+                                           bounds: CGRect(x: 0, y: 0, width: 1400, height: 860))
+        for kind in StatKind.allCases {
+            XCTAssertEqual(c(centred, centred.tileFrames[kind]), c(corner, corner.tileFrames[kind]))
+        }
+        XCTAssertEqual(c(centred, centred.switcherFrame), c(corner, corner.switcherFrame))
+        XCTAssertEqual(c(centred, centred.barFrame), c(corner, corner.barFrame))
+    }
+
+    func testBoundsAndHostFrameConvertBetweenScreenAndCore() {
+        let visible = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let coreOrigin = CGPoint(x: 100, y: 200), coreSize = CGSize(width: 598, height: 476)
+        XCTAssertEqual(FloatingTilePlacement.bounds(coreOrigin: coreOrigin, coreSize: coreSize, visible: visible),
+                       CGRect(x: -92, y: 200 + 476 - 892, width: 1424, height: 884))
+        let p = plan(StatKind.allCases, details: even)
+        let host = FloatingTilePlacement.hostFrame(coreOrigin: coreOrigin, plan: p)
+        XCTAssertEqual(host.minX + p.coreFrame.minX, coreOrigin.x, "core lands where it was placed")
+        XCTAssertEqual(host.maxY - p.coreFrame.minY, coreOrigin.y + p.coreFrame.height)
+        XCTAssertEqual(host.size, p.size)
     }
 }
 
 private extension FloatingTilePlan {
     /// The same plan with only the reserve value changed (frames equal when nothing scrolls).
     func withReserve(_ reserve: CGFloat) -> FloatingTilePlan {
-        FloatingTilePlan(kinds: kinds, metrics: metrics, columns: columns, size: size, barFrame: barFrame,
-                         barItemFrames: barItemFrames, tileFrames: tileFrames, detailFrames: detailFrames,
-                         scrollingDetails: scrollingDetails, overviewViewport: overviewViewport,
+        FloatingTilePlan(kinds: kinds, metrics: metrics, columns: columns, size: size, coreFrame: coreFrame,
+                         barFrame: barFrame, barItemFrames: barItemFrames, tileFrames: tileFrames,
+                         detailFrames: detailFrames, detailSides: detailSides, scrollingDetails: scrollingDetails, overviewViewport: overviewViewport,
                          scrollerReserve: reserve, emptyStateFrame: emptyStateFrame, switcherFrame: switcherFrame,
                          switcherItemFrames: switcherItemFrames, fits: fits)
     }

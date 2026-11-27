@@ -550,3 +550,22 @@ focus, dismissal and drag synchronisation); a named `UserDefaults` suite (left e
 extra windows bought nothing and would add synchronisation risk.
 **Consequences:** Provisional for E1. Known gap for 3.1: if the app is already active at summon,
 keyboard entry still needs a first click. Group drag not yet verified natively.
+
+### 2026-11-27 - D-043: Detail opens beside a stationary overview
+**Context:** E1 case B. The owner found that replacing the overview with detail plus switcher
+(D-041) loses the overview, and asked for the overview to stay with the detail opening to the
+side — left, right, top or bottom depending on where the clicked tile sits.
+**Decision:** Keep the overview on screen; open each stat's card on the overview edge nearest
+its tile (horizontal wins near-ties), falling back to the opposite side and then the other axis
+when the display has no room. Cards line up with their tile. The open tile is outlined; clicking
+it again closes the card. The switcher stays for now as a reserved column right of the overview
+(owner deferred its removal). One transparent host panel (D-042) is kept, now sized at summon to
+the core plus every frozen card frame.
+**Alternatives:** Always open to the right; left/right only by overview half; a separate child
+panel per card (more focus/drag synchronisation for no visible gain).
+**Rationale:** Matches the owner's mental model (glance stays, detail is an add-on) and keeps the
+no-moving-targets rule: the overview and switcher never move when a card opens.
+**Consequences:** Supersedes D-041's "other tiles disappear" and the spec's detail anchoring at
+the overview origin. Right-side cards sit beyond the switcher column until the switcher's future
+is decided. Cases B and C need a fresh owner look.
+

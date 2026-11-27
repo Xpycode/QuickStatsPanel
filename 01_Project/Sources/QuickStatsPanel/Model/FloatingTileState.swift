@@ -14,7 +14,7 @@ enum FloatingTileEffect: Equatable, Sendable {
     case none
     /// Show the overview; restore keyboard focus to `focus` when keyboard focus is in the HUD.
     case showOverview(focus: FloatingTileTarget?)
-    /// Replace the overview (or the current detail) with this stat's detail.
+    /// Open this stat's card beside the overview (replacing any open card).
     case showDetail(StatKind, focus: FloatingTileTarget)
     case dismiss
 }
@@ -39,16 +39,22 @@ struct FloatingTileState: Equatable, Sendable {
         return .showOverview(focus: nil)
     }
 
-    /// Click/Return on a tile or switcher item. Selecting the stat already open is inert.
-    mutating func select(_ kind: StatKind, plan: FloatingTilePlan) -> FloatingTileEffect {
-        guard mode != .hidden, plan.kinds.contains(kind), detailKind != kind else { return .none }
+    /// Click/Return on a tile or switcher item (`source`). The overview stays; the card opens
+    /// beside it and focus stays on the control used. Selecting the open stat's tile again closes
+    /// its card; selecting the open stat in the switcher is inert.
+    mutating func select(_ kind: StatKind, from source: FloatingTileTarget, plan: FloatingTilePlan) -> FloatingTileEffect {
+        guard mode != .hidden, plan.kinds.contains(kind) else { return .none }
+        if detailKind == kind {
+            if case .tile = source { return returnToOverview() }
+            return .none
+        }
         mode = .detail(kind)
         lastSelected = kind
-        focus = .switcher(kind)
-        return .showDetail(kind, focus: .switcher(kind))
+        focus = source
+        return .showDetail(kind, focus: source)
     }
 
-    /// "All statistics": back to the same overview geometry, focus on the selected tile.
+    /// "All statistics", Escape or the open tile again: close the card, focus on the selected tile.
     mutating func returnToOverview() -> FloatingTileEffect {
         guard case .detail(let kind) = mode else { return .none }
         mode = .overview
@@ -96,7 +102,7 @@ struct FloatingTileState: Equatable, Sendable {
         case .overview:
             // With nothing enabled the only controls are Settings and Quit.
             return (lastSelected ?? kinds.first).map { .tile($0) } ?? .settings
-        case .detail(let kind): return .switcher(kind)
+        case .detail(let kind): return .tile(kind)
         }
     }
 }

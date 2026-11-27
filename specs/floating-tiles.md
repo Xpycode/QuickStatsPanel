@@ -22,10 +22,29 @@ a content-sized detail surface and a stationary, separate stat switcher.
 ### Confirmed direction
 
 - Independent tile backgrounds, without an enclosing panel background.
-- One expanded stat at a time; other overview tiles disappear.
+- One expanded stat at a time. ~~Other overview tiles disappear.~~ **Revised 2026-11-27 (E1 case B,
+  D-043):** the overview stays on screen and the card opens beside it — see below.
 - Detail uses only the space its content needs; returning restores the overview.
 - The switcher stays at the overview footprint's top-right edge, independent of detail width.
 - Usage colour accompanies readable values, labels and meters (D-041).
+
+### Revision after E1 case B (2026-11-27, D-043)
+
+Supersedes the Detail, Switcher-position and Placement rows below where they conflict.
+
+- **Overview stays.** Clicking a tile keeps every tile where it is, outlines the selected tile
+  and opens its card beside the overview. Clicking the open tile again, All statistics or
+  Escape closes the card; a second Escape dismisses.
+- **Side:** the overview edge nearest the clicked tile's centre (left/right win near-ties within
+  3%, so corner tiles open sideways). If the display has no room there: the opposite side, then
+  the other axis, nearest first; if no side fits, the side with most room, clamped on screen.
+- **Alignment:** side cards line up with the tile's top; top/bottom cards with its left edge;
+  clamped into the display. Too-tall cards scroll; text never shrinks.
+- **Switcher kept for now** (owner: "not yet" on removal): a reserved column right of the
+  overview, shown only while a card is open; right-side cards open past it. The group bar stays
+  above the overview's right edge.
+- **Geometry** is still frozen at summon: the core (bar, overview, switcher column) is placed
+  first, then each stat's card frame is fixed beside it. Nothing moves on selection.
 
 ### Proposed prototype defaults — evaluate in the bounded prototype
 

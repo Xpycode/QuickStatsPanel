@@ -228,6 +228,25 @@ final class FloatingTileSelectionModel {
     var current: StatKind?
 }
 
+/// An overview tile with the open-detail cue: a solid outline (not colour alone) while its card
+/// is open beside the overview. Drawn inside the tile, so nothing moves.
+struct FloatingTileSelectableTile: View {
+    let kind: StatKind
+    let selection: FloatingTileSelectionModel
+    let cornerRadius: CGFloat
+    let content: AnyView
+
+    var body: some View {
+        let theme = AppSettings.shared.theme
+        content.overlay(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .strokeBorder(theme.colors.primaryText.opacity(0.85), lineWidth: 2)
+                .opacity(selection.current == kind ? 1 : 0)
+                .allowsHitTesting(false)
+        )
+    }
+}
+
 /// Switcher item bound to the selection model.
 struct FloatingTileSwitcherItem: View {
     let kind: StatKind
