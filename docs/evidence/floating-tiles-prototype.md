@@ -92,7 +92,7 @@ Waves 1–3, so their evidence stands (see the plan's execution log for screensh
 | Case | Fixture | Do | Judge | Result |
 |---|---|---|---|---|
 | A | `all-hot`, then `all-live` | Summon; look for about five seconds | Are eleven stats, their order and the large/wide/small sizes quick to read? Do values change without anything moving? | |
-| B | `all` | Click CPU, then Network in the switcher, then a short card such as Uptime, then return | Does the switcher stay still, and does the detail size feel right? | **Fail (2026-11-27, owner):** detail replaced the overview; owner wants the overview to stay and the card to open beside the clicked tile. Revised per D-043; re-run B and C on the new build. |
+| B | `all` | Click CPU, then Network in the switcher, then a short card such as Uptime, then return | Does the switcher stay still, and does the detail size feel right? | **Fail (2026-11-27, owner):** detail replaced the overview; owner wants the overview to stay and the card to open beside the clicked tile. Revised per D-043 (5.1). Owner then clarified: other primaries should disappear and the detail open inward (CPU → right); 5.1 does not match — discuss next session. |
 | C | `all` with `--floating-tiles-edge=bottom-right` | Open Network (long card), scroll it, change its period | Is scrolling only where needed, and are controls reachable? | |
 | D | `all` | Tab, Shift-Tab, arrows, Return, Space, Escape; click a gap pinned (Control-Option-Command-P) and unpinned; drag the group bar | Is the keyboard and dismissal behaviour what you expect? | |
 | E | `all-hot`, `unavailable`, `empty`; then the Mono theme in Settings, in Light and Dark | Look at colours, words and unavailable tiles | Readable without relying on colour? No false zeros? | |

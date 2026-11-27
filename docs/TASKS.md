@@ -132,6 +132,9 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 - [ ] `cornerRadius` 12pt reads fine at the snug width — revisit if it ever feels too round.
 
 ## Inbox
+- [ ] **Primary/secondary tile model (owner, 2026-11-27).** Clicking a primary keeps it, hides the other primaries, opens the secondary inward (CPU → right). Discuss next session; see `sessions/2026-11-27.md` and D-043 update.
+- [ ] **Graph inside the CPU primary panel (owner idea, 2026-11-27).** Fill the large tile's empty space.
+- [ ] **Double outline on the open tile (2026-11-27, 5.1).** Clicked tile shows the blue focus ring and the white open outline together.
 - [ ] **First tile hotkey press after launch sometimes ignored (2026-11-27).** In the Atlas helper the first press after launch did nothing; a second press 1–2 s later worked (seen twice in tile Wave 2). Cause unknown; may be helper-specific.
 - [ ] **Ring fixture test leaves TMPDIR folders (2026-11-27).** A hostless Ring test leaves `QuickStatsPanel-ring-fixture-*` folders in `$TMPDIR` (seen during tile Wave 1). Not changed.
 - [ ] **Tile transfer controls outside Tab loop (2026-11-27, tile 3.1).** Period/reset controls in tile detail cards work by mouse and VoiceOver but `refusesFirstResponder` keeps them out of Tab traversal (existing behaviour). Decide at tile E1.

@@ -13,21 +13,20 @@
 - **Funnel:** build · **Phase:** Floating tiles — prototype implemented, owner review (E1) <!-- Phase changed: 2026-11-27 -->
 - **Focus:** bounded native floating-tile prototype; [spec defaults](../specs/floating-tiles.md) remain provisional until owner review. Circle review remains parked (D-040).
 - **Blockers:** tile E1 needs the owner. Parked ring E1 open. Separate release gates: Strongbox backup, remaining updater controls and real upgrade acceptance.
-- **Execution:** [Floating-tile prototype plan](IMPLEMENTATION_PLAN-floating-tiles.md) — 5/5 complete (5.1 = E1 case B revision, D-043); awaiting owner re-run of E1 B/C ([review packet](evidence/floating-tiles-prototype.md#e1-owner-review-packet)). [Ring plan](../IMPLEMENTATION_PLAN.md) remains 12/12 implemented, E1 open and parked.
+- **Execution:** [Floating-tile prototype plan](IMPLEMENTATION_PLAN-floating-tiles.md) — 5/5 implemented; E1 open. 5.1 (D-043) partly superseded by the owner's primary/secondary clarification; awaiting design discussion before a new task.
 - **Feature definition:** [Floating tiles](../specs/floating-tiles.md), with provisional native defaults. [Earlier layouts/ring spec](../specs/panel-layouts-and-appearance.md) and remaining ring E1 decisions stay parked.
-- **Current handoff:** [Pre-clear after tile Wave 4](sessions/2026-11-27.md#resume--pre-clear-after-tile-wave-4) — pushed, in sync; next: owner E1.
+- **Current handoff:** [Pre-clear after E1 case B feedback](sessions/2026-11-27.md#resume--pre-clear-after-e1-case-b-feedback) — 5.1 committed locally, not pushed.
 - **Validation:** W4: full hostless suite 462/0 (0 skipped), Debug/Release build, codesign, Release exclusion clean; Atlas Release Strip launch and Ring render pass. Ad-hoc Release cannot launch on the M4 Pro (hardened runtime vs Sparkle) — use a Developer ID local build. [Evidence](evidence/floating-tiles-prototype.md).
-- **Next:** owner quits the running prototype, relaunches the rebuilt Debug artifact, re-runs E1 B and C (and the rest of A–F).
+- **Next:** discuss the owner's primary/secondary panel model (other primaries hide, detail opens inward; graph in CPU primary), then revise D-043/spec and plan.
 - **Release:** public v1.2.0; prepared v1.2.1 remains unpublished and separate from prototype work. [Release preparation](evidence/release-1.2.1.md).
 - **Last updated:** 2026-11-27
 
 ## Recent
-- **2026-11-27** — E1 case B failed (overview disappeared). 5.1: card now opens beside a stationary overview on the side nearest the tile (D-043); switcher kept for now. Full suite 469/0.
+- **2026-11-27** — E1 case B failed; built a version keeping the overview with cards opening outward, then the owner clarified they want other tiles hidden and detail opening inward. Design talk next.
 - **2026-11-27** — Tile 4.1 done: full suite 462/0, Release exclusion clean, Strip/Ring smoke in the helper, E1 review packet written. Tile plan 4/4; E1 open.
 - **2026-11-27** — Tile 3.1 done: all detail cards, constrained/edge displays, keyboard (incl. already-active summon), group drag/dismiss/quit, VoiceOver tree; 86/0 focused. Tile plan 3/4; 4.1 ready.
 - **2026-11-27** — Pushed; 2.1 dark check passed via helper System Settings → Dark (a global `defaults write` does not work there). Tile plan 2/4; 3.1 ready.
 - **2026-11-27** — Tile Wave 2 implemented: all eleven stats in saved-order hierarchy with readings and usage colours; checks pass except dark mode, which the helper can't show yet.
-- **2026-11-27** — Tile Wave 1 done on M4 Pro: isolated CPU/Network prototype (`--floating-tiles-prototype`) passes open/switch/return/dismiss, focus and click-through in Atlas. Xcode 26.3 type-check fix committed separately.
 
 ## What we're building
 Press a global hotkey → a **thin** wide strip appears near the cursor showing live stats as compact

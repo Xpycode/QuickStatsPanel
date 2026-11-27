@@ -568,4 +568,8 @@ no-moving-targets rule: the overview and switcher never move when a card opens.
 **Consequences:** Supersedes D-041's "other tiles disappear" and the spec's detail anchoring at
 the overview origin. Right-side cards sit beyond the switcher column until the switcher's future
 is decided. Cases B and C need a fresh owner look.
+**Update 2026-11-27 (owner clarification, pending discussion):** the owner intended that the
+*other* primary panels (overview tiles) disappear, the clicked primary stays, and its secondary
+(detail) opens on the side where the others were — CPU (left) → details to its right. This
+contradicts "keep the overview on screen" and "open outward" above. Revisit D-043 next session.
 
