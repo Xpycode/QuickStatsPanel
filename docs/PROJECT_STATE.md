@@ -15,7 +15,7 @@
 - **Blockers:** tile E1 needs the owner. Parked ring E1 open. Separate release gates: Strongbox backup, remaining updater controls and real upgrade acceptance.
 - **Execution:** [Floating-tile prototype plan](IMPLEMENTATION_PLAN-floating-tiles.md) — 4/4 complete; awaiting owner review E1 ([review packet](evidence/floating-tiles-prototype.md#e1-owner-review-packet)). [Ring plan](../IMPLEMENTATION_PLAN.md) remains 12/12 implemented, E1 open and parked.
 - **Feature definition:** [Floating tiles](../specs/floating-tiles.md), with provisional native defaults. [Earlier layouts/ring spec](../specs/panel-layouts-and-appearance.md) and remaining ring E1 decisions stay parked.
-- **Current handoff:** [Pre-clear after tile Wave 4](sessions/2026-11-27.md#resume--pre-clear-after-tile-wave-4) — unpushed commits; next: owner E1.
+- **Current handoff:** [Pre-clear after tile Wave 4](sessions/2026-11-27.md#resume--pre-clear-after-tile-wave-4) — pushed, in sync; next: owner E1.
 - **Validation:** W4: full hostless suite 462/0 (0 skipped), Debug/Release build, codesign, Release exclusion clean; Atlas Release Strip launch and Ring render pass. Ad-hoc Release cannot launch on the M4 Pro (hardened runtime vs Sparkle) — use a Developer ID local build. [Evidence](evidence/floating-tiles-prototype.md).
 - **Next:** owner runs the E1 packet (cases A–F) on the Debug artifact and records results.
 - **Release:** public v1.2.0; prepared v1.2.1 remains unpublished and separate from prototype work. [Release preparation](evidence/release-1.2.1.md).
