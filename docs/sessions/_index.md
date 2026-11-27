@@ -2,7 +2,7 @@
 
 | Date | Session | Summary |
 |------|---------|---------|
-| [2026-11-27](2026-11-27.md) | Repo restore + tile Wave 1; pre-clear | Cloned repo onto M4 Pro; Xcode 26.3 type-check fix. Tile 1.1 done: isolated CPU/Network prototype passes build, 88/0 focused tests, Release exclusion and Atlas focus/click-through checks (1/4). Two local commits unpushed. Next /execute 2.1. Backlog 22, Inbox 6. |
+| [2026-11-27](2026-11-27.md) | Repo restore + tile Waves 1–2; pre-clear | Cloned repo onto M4 Pro; Xcode 26.3 type-check fix. Tile 1.1 done (88/0). Tile 2.1 implemented: eleven-stat hierarchy, readings, usage bands; 55/0 focused, Release exclusion, Atlas checks pass; dark unverified, so 1/4. Five commits unpushed. Next: dark check, then 3.1. Backlog 22, Inbox 7. |
 | [2026-11-22](2026-11-22.md) | Floating tiles spec/plan; pre-clear | Floating mockup led to spec and four-task native plan (0/4). Defaults provisional; next /execute starts isolated CPU/Network loop. Ring E1 parked/open. Documentation checks passed; no native build or app control. Recovery carried forward; Backlog 22, Inbox 4. Later: all Nov 15–22 work committed in three groups and pushed. |
 | [2026-11-17](2026-11-17.md) | Pre-clear owner-review handoff | B4/B5/C1/C2/C4/C6 and C7 correction accepted; C5 screenshot pass. Artifact hashes reverified. Q1 unanswered; E1 open. Dirty work preserved, no build/app control/commit/push. |
 | [2026-11-16](2026-11-16.md) | Owner review; C7 correction | CPU/B4/B5/C1/C2/C4 accepted. Fixture history issue diagnosed; real-data retest passed. C7 peak-line clearance accepted; Debug/Release/signature pass. C5 battery-power screenshots and C6 pass; Q1 decision next. E1 open; uncommitted, no push or app control. |
