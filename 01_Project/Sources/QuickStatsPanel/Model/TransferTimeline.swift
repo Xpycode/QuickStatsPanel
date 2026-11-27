@@ -310,9 +310,11 @@ struct TransferTimeline: Sendable {
         let mappedEnd = now.continuousTime + axisOffset
         let end = now.isValid && now.bootID == bootID && mappedEnd.isFinite ? mappedEnd : 0
         let start = end - duration, count = duration > 0 ? min(120, max(1, proposedCount)) : 0
-        var slots = (0..<count).map { index in
-            TransferPeriodSlot(start: start + duration * Double(index) / Double(count),
-                end: index + 1 == count ? end : start + duration * Double(index + 1) / Double(count),
+        var slots = (0..<count).map { (index: Int) -> TransferPeriodSlot in
+            let slotStart: Double = start + duration * Double(index) / Double(count)
+            let slotEnd: Double = index + 1 == count ? end : start + duration * Double(index + 1) / Double(count)
+            return TransferPeriodSlot(start: slotStart,
+                end: slotEnd,
                 bytes: .zero, fullyMeasuredDuration: 0, partialDuration: 0, accountingOverflow: false)
         }
         var total = TransferBytes.zero, complete: Double = 0, partial: Double = 0

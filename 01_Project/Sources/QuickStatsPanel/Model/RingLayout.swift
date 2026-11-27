@@ -172,12 +172,13 @@ struct RingLayout: Equatable, Sendable {
             if hasMore {
                 let moreSlot = Self.moreSpan + gap
                 let slot = (2 * .pi - moreSlot) / Double(n)
-                geometric = (0..<n).map { i in
-                    (.pi + moreSlot / 2 + (Double(i) + 0.5) * slot, slot / 2 - gap / 2)
+                geometric = (0..<n).map { (i: Int) -> (center: Double, halfSpan: Double) in
+                    let center: Double = Double.pi + moreSlot / 2 + (Double(i) + 0.5) * slot
+                    return (center, slot / 2 - gap / 2)
                 }
             } else {
                 let slot = 2 * .pi / Double(n)
-                geometric = (0..<n).map { i in (Double(i) * slot, slot / 2 - gap / 2) }
+                geometric = (0..<n).map { (i: Int) -> (center: Double, halfSpan: Double) in (Double(i) * slot, slot / 2 - gap / 2) }
             }
         }
         var firstIndex = 0

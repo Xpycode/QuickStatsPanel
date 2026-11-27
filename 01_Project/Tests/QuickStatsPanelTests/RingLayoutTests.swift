@@ -141,7 +141,7 @@ final class RingLayoutTests: XCTestCase {
         if !more { return (0..<n).map { 360 / Double(n) * Double($0) } }
         let moreSlot = 24 + gap
         let slot = (360 - moreSlot) / Double(n)
-        let unwrapped = (0..<n).map { 180 + moreSlot / 2 + (Double($0) + 0.5) * slot }
+        let unwrapped = (0..<n).map { (i: Int) -> Double in 180 + moreSlot / 2 + (Double(i) + 0.5) * slot }
         let first = unwrapped.firstIndex { $0 >= 360 - 1e-6 }!
         return (0..<n).map { unwrapped[(first + $0) % n].truncatingRemainder(dividingBy: 360) }
     }
