@@ -1,5 +1,13 @@
 import SwiftUI
 
+/// Who hosts a detail card. `.standard` covers the Strip and Ring (Ring is still identified by
+/// its `onClose` callback, unchanged); `.floatingTile` is the Debug floating-tile prototype, whose
+/// card sits in a frame frozen at summon and may scroll when, and only when, it is taller.
+enum StatDetailPresentation: Sendable {
+    case standard
+    case floatingTile
+}
+
 /// The detail card shown when a stat tile is tapped. Drawn with the panel's own
 /// `Theme` — flat dark fill and the *same* small continuous corner radius as the
 /// strip (`Theme.Metrics.cornerRadius`), no arrow — so it reads as part of the
@@ -26,6 +34,11 @@ struct StatDetailView: View {
     /// and only when, it is taller than the frame. Measurement leaves it false so
     /// `fittingSize` reports natural height.
     var scrollsBody = false
+    /// Explicit host of the card. The default keeps every existing caller's behaviour.
+    var presentation: StatDetailPresentation = .standard
+
+    /// Ring and floating tiles lay out in a reserved frame; only they may fall through to scrolling.
+    private var usesReservedFrame: Bool { onClose != nil || presentation == .floatingTile }
 
     /// Card graph geometry. Wide enough for roughly a minute of 2pt bars — the
     /// same buffer the 34pt strip slot shows only the tail of.
@@ -58,8 +71,8 @@ struct StatDetailView: View {
             }
         }
         Group {
-            if onClose != nil {
-                // Ring: a card that fits is laid out exactly as measured, with no ScrollView at
+            if usesReservedFrame {
+                // Ring and floating tiles: a card that fits is laid out exactly as measured, with no ScrollView at
                 // all: a ScrollView under the "Always show scroll bars" setting reserves a legacy
                 // scroller's width, which wraps text the measurement never wrapped. Only a card
                 // taller than its frame falls through to scrolling.

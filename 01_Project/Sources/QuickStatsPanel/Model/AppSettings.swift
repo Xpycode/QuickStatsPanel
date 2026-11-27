@@ -23,7 +23,21 @@ import AppKit
 final class AppSettings {
 
     /// Shared instance. Created on first access on the main actor.
-    static let shared = AppSettings()
+    ///
+    /// Its defaults are chosen inside this initializer, so every path that reads the singleton
+    /// first (AppDelegate, a view, Settings) gets the same domain: the standard domain for normal
+    /// launches and tests, or the floating-tile prototype's isolated suite (Debug only).
+    static let shared = AppSettings(defaults: launchDefaults())
+
+    /// The defaults domain of the shared instance. Standard unless a Debug floating-tile
+    /// prototype launch is given, which always gets its own isolated suite.
+    static func launchDefaults() -> UserDefaults {
+        #if DEBUG
+        return launchDefaults(prototype: FloatingTilePrototypeOptions.current)
+        #else
+        return .standard
+        #endif
+    }
 
     // MARK: - Stat selection & order
 
@@ -446,6 +460,28 @@ final class AppSettings {
             result[kind] = value
         }
     }
+
+    #if DEBUG
+    static func launchDefaults(prototype: FloatingTilePrototypeOptions?) -> UserDefaults {
+        guard let prototype else { return .standard }
+        // Never fall back to standard defaults: a prototype that cannot isolate must not run.
+        guard let isolated = FloatingTileFixtures.isolatedDefaults(for: prototype) else {
+            fatalError("Floating-tile prototype could not create its isolated defaults suite")
+        }
+        return isolated
+    }
+
+    /// Writes a prototype fixture's stat choices into `defaults` before an `AppSettings` reads it.
+    /// The first-run hint counts as seen, so it never writes `hasSeenHint` on a fixture launch.
+    nonisolated static func seedPrototypeDefaults(_ defaults: UserDefaults, statOrder: [StatKind],
+                                      enabled: [StatKind], anchor: PanelAnchor) {
+        defaults.set(statOrder.map(\.rawValue), forKey: Keys.statOrder)
+        defaults.set(enabled.map(\.rawValue), forKey: Keys.enabledStats)
+        defaults.set(StatKind.allCases.map(\.rawValue), forKey: Keys.knownStats)
+        defaults.set(anchor.rawValue, forKey: Keys.anchor)
+        defaults.set(true, forKey: Keys.hasSeenHint)
+    }
+    #endif
 
     private enum Keys {
         static let statOrder      = "statOrder"

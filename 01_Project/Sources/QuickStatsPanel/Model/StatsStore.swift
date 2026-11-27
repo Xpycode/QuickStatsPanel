@@ -35,6 +35,9 @@ final class StatsStore {
     @ObservationIgnored private let transferClock: (any TransferClock)?
     @ObservationIgnored private let transferHistoryAutomaticallySchedules: Bool
     @ObservationIgnored private let transferBoundaryReset: (@Sendable (TransferStat, UUID) -> Bool)?
+    /// Without automatic scheduling the controller never runs a deferred query, so a period
+    /// change would stay on "Loading…". Opt-in stores publish the selected period at once.
+    @ObservationIgnored private let publishesTransferQueriesOnSelection: Bool
     @ObservationIgnored private var transferPublicationRevisions: [TransferStat: UInt64] = [:]
     @ObservationIgnored private var transferResetRequests: [TransferStat: UUID] = [:]
     @ObservationIgnored private var liveTransferSequences: [TransferStat: UInt64] = [:]
@@ -49,12 +52,17 @@ final class StatsStore {
     /// 60-second peak windows behind the peak ticks. Bookkeeping only, never observed state.
     @ObservationIgnored var ringPowerCeilingWatts = RingGaugeMapper.defaultPowerCeilingWatts
     @ObservationIgnored var ringPeakWindows: [RingPeakKey: RingPeakWindow] = [:]
+    /// Floating-tile fixture mode: a temporary history root that is removed once the
+    /// termination flush has completed. Nil for every other store.
+    @ObservationIgnored var disposableTransferHistoryRoot: URL?
     #endif
 
     init(transferHistoryRoot: URL? = nil, transferClock: (any TransferClock)? = nil,
          transferHistoryAutomaticallySchedules: Bool = true,
-         transferBoundaryReset: (@Sendable (TransferStat, UUID) -> Bool)? = nil) {
+         transferBoundaryReset: (@Sendable (TransferStat, UUID) -> Bool)? = nil,
+         publishesTransferQueriesOnSelection: Bool = false) {
         self.transferHistoryRoot = transferHistoryRoot
+        self.publishesTransferQueriesOnSelection = publishesTransferQueriesOnSelection
         self.transferClock = transferClock
         self.transferHistoryAutomaticallySchedules = transferHistoryAutomaticallySchedules
         self.transferBoundaryReset = transferBoundaryReset
@@ -92,6 +100,9 @@ final class StatsStore {
     func selectTransferPeriod(_ period: TransferHistoryPeriod, for stat: TransferStat) {
         transferDetailStates[stat]?.select(period)
         transferHistoryController?.selectPeriod(period, for: stat)
+        if publishesTransferQueriesOnSelection {
+            transferHistoryController?.synchronize(publishPresentations: true) {}
+        }
     }
 
     func requestTransferReset(for stat: TransferStat) { transferDetailStates[stat]?.requestReset() }
@@ -148,10 +159,23 @@ final class StatsStore {
         networkSampler = nil; diskSampler = nil
         networkGeneration = nil; diskGeneration = nil
         stop()
+        var finish = completion
+        #if DEBUG
+        if let root = disposableTransferHistoryRoot {
+            // Keep the disposable root until the final flush has finished writing, then remove it.
+            finish = { flushError in
+                do { try FileManager.default.removeItem(at: root) }
+                catch CocoaError.fileNoSuchFile {}
+                catch { NSLog("Disposable transfer history root not removed: %@", error.localizedDescription) }
+                completion(flushError)
+            }
+        }
+        #endif
+        let done = finish
         DispatchQueue.global(qos: .utility).async {
             net?.stop(); disk?.stop()
-            if let controller { controller.flush(completion: completion) }
-            else { completion(nil) }
+            if let controller { controller.flush(completion: done) }
+            else { done(nil) }
         }
     }
 

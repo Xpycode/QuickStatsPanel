@@ -4,9 +4,8 @@
 
 ## Active plan
 
-[Floating-tile prototype](IMPLEMENTATION_PLAN-floating-tiles.md) — selected, 0/4 tasks across four
-serial waves. First ready task 1.1 proves an isolated native interaction loop; execution not yet
-requested. Provisional defaults are evaluated at tile E1; no production rollout.
+[Floating-tile prototype](IMPLEMENTATION_PLAN-floating-tiles.md) — executing, 1/4 tasks across four
+serial waves. 1.1 complete 2026-11-27; next ready task 2.1. Provisional defaults are evaluated at tile E1; no production rollout.
 
 ## Parked plan
 
@@ -133,6 +132,8 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 - [ ] `cornerRadius` 12pt reads fine at the snug width — revisit if it ever feels too round.
 
 ## Inbox
+- [ ] **Ring fixture test leaves TMPDIR folders (2026-11-27).** A hostless Ring test leaves `QuickStatsPanel-ring-fixture-*` folders in `$TMPDIR` (seen during tile Wave 1). Not changed.
+- [ ] **Tile keyboard entry when app already active (2026-11-27).** If QuickStatsPanel is already active at summon (e.g. just after closing Settings), the tile HUD needs a click before keys work. Belongs to tile 3.1 keyboard work.
 - [ ] **Fixture transfer-card labels disappear during period changes** — November 16 screenshots; did not recur after verified real-data launch. Cause unconfirmed; distinct from the diagnosed fixture history-query stall.
 - [ ] **Text orientation setting (owner request, 2026-11-14).** As in MousePlus (`LabelOrientation`:
       upright / radial / tangential, auto-flipped). Conflicts with the spec's horizontal-text rule

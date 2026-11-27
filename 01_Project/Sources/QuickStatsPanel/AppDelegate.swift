@@ -12,9 +12,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     #if DEBUG
     /// Ring prototype (Debug only): nil unless launched with `--ring-prototype`
     /// (see `RingPrototypeLaunch` and `RingPrototypeOptions` for the arguments).
-    private let ringLaunch = RingPrototypeLaunch.current
+    private let ringLaunch = FloatingTilePrototypeOptions.current == nil ? RingPrototypeLaunch.current : nil
     private let ringPanel = RingPanelController()
     private var ringFixtureMode: Bool { ringLaunch?.fixture != nil }
+    /// Floating-tile prototype (Debug only): nil unless launched with `--floating-tiles-prototype`
+    /// (and without `--ring-prototype`). Always fixture-backed with isolated preferences/history.
+    private let tileLaunch = FloatingTilePrototypeOptions.current
+    private let tilePanel = FloatingTilePanelController()
+    private var tileFixtureMode: Bool { tileLaunch != nil }
     #endif
     /// The flat detail card shown beneath the strip when a tile is tapped. A
     /// separate borderless panel we draw ourselves, replacing the system popover
@@ -67,7 +72,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     override init() {
         #if DEBUG
-        if let launch = RingPrototypeLaunch.current, let fixture = launch.fixture {
+        if let tiles = FloatingTilePrototypeOptions.current {
+            store = FloatingTileFixtures.makeStore(options: tiles)
+        } else if let launch = RingPrototypeLaunch.current, let fixture = launch.fixture {
             store = StatsStore.makeRingFixtureStore(unavailable: fixture.unavailableKinds,
                                                     parts: RingPartFixtures.make(launch.options.parts))
         } else {
@@ -85,7 +92,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if DEBUG
         // Fixture mode keeps the disposable store inert: no samplers, no retained
         // transfer history, no updater.
-        let startsServices = !ringFixtureMode
+        let startsServices = !ringFixtureMode && !tileFixtureMode
         #else
         let startsServices = true
         #endif
@@ -95,14 +102,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         installEscToDismiss()
         installPanelInteractions()
         installMainMenu()
-        UpdaterController.shared.beforeCheck = { [weak self] in self?.hideHUD() }
+        #if DEBUG
+        let usesUpdater = !tileFixtureMode
+        #else
+        let usesUpdater = true
+        #endif
+        if usesUpdater { UpdaterController.shared.beforeCheck = { [weak self] in self?.hideHUD() } }
         if startsServices { UpdaterController.shared.start() }
 
         // First-run discoverability: an agent app with no Dock/menu-bar presence
         // is invisible until summoned, so show the panel once on launch.
         togglePanel()
         #if DEBUG
-        if ringLaunch != nil { return }   // the hint card anchors to the strip
+        if ringLaunch != nil || tileLaunch != nil { return }   // the hint card anchors to the strip
         #endif
         showFirstRunHintIfNeeded()
     }
@@ -141,7 +153,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.onIntervalChanged = { [weak self] in
             #if DEBUG
             // A fixture store must never start samplers.
-            if self?.ringFixtureMode == true { return }
+            if self?.ringFixtureMode == true || self?.tileFixtureMode == true { return }
             #endif
             self?.store.restart()
         }
@@ -184,6 +196,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !terminationReplied else { return }
         terminationReplied = true
         if let error { NSLog("Transfer history quit save: %@", error) }
+        #if DEBUG
+        if let tileLaunch { FloatingTileFixtures.removeIsolatedDefaults(for: tileLaunch) }
+        #endif
         NSApp.reply(toApplicationShouldTerminate: true)
     }
 
@@ -201,6 +216,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func togglePanel() {
         #if DEBUG
+        if tileLaunch != nil { toggleTiles(); return }
         if ringLaunch != nil { toggleRing(); return }
         #endif
         // Width is content-driven (PanelWindowController measures the SwiftUI
@@ -234,6 +250,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.hideHUD()
         }
         ringPanel.contextMenuProvider = { [weak self] in self?.makeRingMenu() ?? NSMenu() }
+        tilePanel.onOpenSettings = { [weak self] in self?.openSettings() }
+        tilePanel.onQuit = { NSApp.terminate(nil) }
+        tilePanel.onDetailChanged = { [weak self] kind in
+            self?.store.dismissTransferDetails()
+            self?.store.setTransferDetailVisible(kind)
+        }
+        // Same menu as Ring: Keep on Screen, Settings, Quit; no persistent Reset Position.
+        tilePanel.contextMenuProvider = { [weak self] in self?.makeRingMenu() ?? NSMenu() }
         #endif
         panel.contextMenuProvider = { [weak self] in
             self?.makePanelMenu() ?? NSMenu()
@@ -277,6 +301,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     #if DEBUG
+    // MARK: - Floating-tile prototype (Debug only)
+
+    private func toggleTiles() {
+        if tilePanel.isVisible { tilePanel.hide(); return }
+        let kinds = store.enabledStatKinds
+        // Every enabled stat's card is measured once now, so the footprint and the switcher
+        // position are frozen before any input.
+        let sizes = Dictionary(uniqueKeysWithValues: kinds.map { kind in
+            (kind, NSHostingView(rootView: tileDetailCard(for: kind)).fittingSize)
+        })
+        let store = self.store
+        tilePanel.show(kinds: kinds, detailSizes: sizes, anchor: AppSettings.shared.anchor,
+                       tile: { kind, large in AnyView(FloatingTileCardView(store: store, kind: kind, isLarge: large)) },
+                       detail: { [weak self] kind, size, scrolls in
+                           guard let self else { return AnyView(EmptyView()) }
+                           return AnyView(self.tileDetailCard(for: kind, scrollsBody: scrolls)
+                               .frame(width: size.width, height: size.height, alignment: .topLeading))
+                       })
+    }
+
+    private func tileDetailCard(for kind: StatKind, scrollsBody: Bool = false) -> StatDetailView {
+        StatDetailView(store: store, kind: kind, showsUnavailableState: true,
+                       scrollsBody: scrollsBody, presentation: .floatingTile)
+    }
+
     // MARK: - Ring prototype (Debug only)
 
     private func toggleRing() {
@@ -406,6 +455,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.onVisibilityChanged = visibilityChanged
         #if DEBUG
         ringPanel.onVisibilityChanged = visibilityChanged
+        tilePanel.onVisibilityChanged = visibilityChanged
         #endif
     }
 
@@ -414,12 +464,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.hide()
         #if DEBUG
         ringPanel.hide()
+        tilePanel.hide()
         #endif
     }
 
     private var hudIsVisible: Bool {
         #if DEBUG
-        if ringPanel.isVisible { return true }
+        if ringPanel.isVisible || tilePanel.isVisible { return true }
         #endif
         return panel.isVisible
     }
@@ -429,6 +480,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if DEBUG
         if ringPanel.isVisible {
             ringPanel.handleEscape()
+            return
+        }
+        if tilePanel.isVisible {
+            tilePanel.handleEscape()
             return
         }
         #endif

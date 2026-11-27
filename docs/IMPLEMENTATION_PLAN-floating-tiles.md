@@ -1,7 +1,7 @@
 # Floating Tiles — Native Prototype Plan
 
-**Created:** 2026-11-22 · **Status:** planned; execution not requested
-**Progress:** 0/4 implementation tasks complete; external acceptance **E1 open**.
+**Created:** 2026-11-22 · **Status:** executing — Wave 1 complete 2026-11-27; Wave 2 (2.1) ready
+**Progress:** 1/4 implementation tasks complete; external acceptance **E1 open**.
 Unchecked tasks are pending unless explicitly marked blocked or implemented-unverified.
 This file owns task status/evidence. The [ring plan](../IMPLEMENTATION_PLAN.md) remains parked,
 12/12 implemented with its own E1 open; it is not archived or superseded as evidence.
@@ -75,7 +75,7 @@ existing dirty Ring changes. New paths below are relative to
 
 ### Wave 1 — prove one native interaction loop
 
-- [ ] **1.1: CPU/Network overview, detail switch and return with isolated startup**
+- [x] **1.1: CPU/Network overview, detail switch and return with isolated startup**
   - Depends on: none. External gates: none; starts only after execution is requested.
   - Owns: new `Model/FloatingTilePrototypeOptions.swift`, `Model/FloatingTileFixtures.swift`,
     `Model/FloatingTileLayout.swift`, `Model/FloatingTileState.swift`,
@@ -204,5 +204,4 @@ explicit stop boundary. Ring E1 and 1.2.1 release gates are independent and rema
 
 | Wave / task | Assignment | Validation / evidence | Commit / exception | Next / stop reason |
 |---|---|---|---|---|
-
-No implementation, builds, tests, app launch or acceptance performed during planning.
+| W1 / 1.1 (2026-11-27, M4 Pro) | One fresh-context agent (single task, serial plan). Coordinator reassigned AppDelegate integration and `xcodegen generate` to it for this wave; no parallel writers. Coordinator reviewed diffs and re-ran checks in the repo. | B Debug/Release exit 0 (ad-hoc: `CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=`); focused hostless T `build/FloatingTiles-tests-coord02.xcresult` 88/0 (four new suites, 33 tests, + RingLayout, TransferTimeline, TransferPresentation, TransferDetailState, RingFixtureTransferHistory, RingPrototypeOptions); `codesign --verify --deep --strict` both; Release `strings`/`nm` 0 floating hits, Debug control 4. Atlas helper (agent run): summon without focus theft, open CPU, switch to Network with stationary switcher, period change settles, return, keyboard (arrows/Tab/Space/Return/Escape), pinned/unpinned gap click-through, Settings/Quit, coordinated dismissal — all pass; screenshots in `~/Library/Application Support/Atlas/runs/` (e.g. `1795792545968261000-capture.png`). Isolation: owner plist/history untouched; fixture writes only in a `$TMPDIR` file-backed suite, removed on quit. Not run: group drag (Atlas refuses a desktop drag end), VoiceOver, light/Mono (Waves 2–3). No independent review beyond coordinator diff review. | `48b9548` (Xcode 26.3 type-check annotations — prerequisite blocker found in W1, separate commit); task commit follows | Arrangement: one transparent non-activating NSPanel; tiles/detail/switcher/group bar are surfaces inside it (native click-through works, so no multi-window sync). Known gap → 3.1: when the app is already active at summon, keyboard entry needs a first click. Next: 2.1 ready. |
