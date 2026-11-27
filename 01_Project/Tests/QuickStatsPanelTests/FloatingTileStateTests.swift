@@ -77,5 +77,23 @@ final class FloatingTileStateTests: XCTestCase {
         XCTAssertNil(s.focus)
         XCTAssertNil(s.entryTarget(kinds: plan.kinds))
     }
+
+    func testEmptyOverviewKeyboardEntryLandsOnSettings() {
+        var s = FloatingTileState()
+        _ = s.summon()
+        XCTAssertEqual(s.entryTarget(kinds: []), .settings, "nothing enabled: Settings and Quit stay reachable")
+        let empty = FloatingTilePlan.make(kinds: [], detailSizes: [:], available: CGSize(width: 1400, height: 860))
+        XCTAssertNil(s.moveFocus(.left, plan: empty), "no focus yet, no movement")
+        s.focus(.settings)
+        XCTAssertEqual(s.moveFocus(.right, plan: empty), .quit)
+        XCTAssertEqual(s.escape(), .dismiss, "Escape in the empty overview dismisses")
+    }
+
+    func testSelectingAnUnknownStatIsInert() {
+        var s = FloatingTileState()
+        _ = s.summon()
+        XCTAssertEqual(s.select(.gpu, plan: plan), .none, "only enabled identities can be selected")
+        XCTAssertEqual(s.mode, .overview)
+    }
 }
 #endif

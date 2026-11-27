@@ -142,6 +142,14 @@ final class FloatingTilePanelController {
             tileViews.append(button)
         }
 
+        if let emptyFrame = plan.emptyStateFrame {
+            let empty = FloatingTileDrawingView(rootView: FloatingTileEmptyStateView())
+            empty.frame = emptyFrame
+            empty.setAccessibilityLabel("No statistics enabled. Choose statistics in Settings.")
+            host.addSubview(empty)
+            tileViews.append(empty)
+        }
+
         let switcherBackground = FloatingTileDrawingView(rootView: FloatingTileSwitcherBackground())
         switcherBackground.frame = plan.switcherFrame
         host.addSubview(switcherBackground)

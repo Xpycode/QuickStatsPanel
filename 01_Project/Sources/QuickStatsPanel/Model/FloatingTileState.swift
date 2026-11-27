@@ -93,7 +93,9 @@ struct FloatingTileState: Equatable, Sendable {
         if let focus { return focus }
         switch mode {
         case .hidden: return nil
-        case .overview: return (lastSelected ?? kinds.first).map { .tile($0) }
+        case .overview:
+            // With nothing enabled the only controls are Settings and Quit.
+            return (lastSelected ?? kinds.first).map { .tile($0) } ?? .settings
         case .detail(let kind): return .switcher(kind)
         }
     }

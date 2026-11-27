@@ -3,8 +3,9 @@ import Foundation
 
 #if DEBUG
 
-/// Provisional floating-tile prototype dimensions (spec "Proposed prototype defaults"). These are
-/// starting values for native review, not accepted sizing.
+/// Floating-tile prototype dimensions (spec "Proposed prototype defaults"). Frozen for the
+/// prototype as of task 2.1 (a test pins them); they are starting values for native review, not
+/// accepted sizing, and there is no production settings UI to change them.
 struct FloatingTileMetrics: Equatable, Sendable {
     /// Width of the four-column overview, as in the reviewed HTML mockup.
     var baseWidth: CGFloat = 480
@@ -53,6 +54,8 @@ struct FloatingTilePlan: Equatable, Sendable {
     let detailFrames: [StatKind: CGRect]
     /// Stats whose measured detail is taller than its frame; only these scroll.
     let scrollingDetails: Set<StatKind>
+    /// The compact empty state shown instead of tiles when no stat is enabled; nil otherwise.
+    let emptyStateFrame: CGRect?
     let switcherFrame: CGRect
     let switcherItemFrames: [FloatingTileTarget: CGRect]
     /// False when even the reduced layout exceeds the available space (the prototype's stop
@@ -83,7 +86,9 @@ struct FloatingTilePlan: Equatable, Sendable {
         let top = m.barHeight + m.gap
         let tiles = packTiles(kinds: kinds, columns: columns, metrics: m)
         let overviewWidth = CGFloat(columns) * m.columnWidth + CGFloat(columns - 1) * m.gap
-        let overviewHeight = tiles.values.map(\.maxY).max() ?? 0
+        let emptyState: CGRect? = kinds.isEmpty
+            ? CGRect(x: 0, y: top, width: overviewWidth, height: m.rowHeight) : nil
+        let overviewHeight = emptyState?.maxY ?? tiles.values.map(\.maxY).max() ?? 0
 
         // Footprint: enlarge once to the widest measured detail plus gap and switcher.
         let widestDetail = kinds.compactMap { detailSizes[$0]?.width }.max() ?? 0
@@ -138,7 +143,7 @@ struct FloatingTilePlan: Equatable, Sendable {
                                 size: CGSize(width: width, height: height),
                                 barFrame: bar, barItemFrames: barItems, tileFrames: tiles,
                                 detailFrames: details, scrollingDetails: scrolling,
-                                switcherFrame: switcher, switcherItemFrames: items, fits: fits)
+                                emptyStateFrame: emptyState, switcherFrame: switcher, switcherItemFrames: items, fits: fits)
     }
 
     /// First enabled stat spans 2×2 cells, the next two span 2×1, the rest 1×1; packed in saved

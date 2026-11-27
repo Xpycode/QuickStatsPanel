@@ -112,5 +112,89 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertEqual(p.neighbour(of: .tile(.network), .up, detail: false), .tile(.cpu))
         XCTAssertEqual(p.neighbour(of: .tile(.gpu), .up, detail: false), .tile(.disk))
     }
+
+    // MARK: Task 2.1 — hierarchy, identity counts and frozen constants
+
+    func testPrototypeConstantsAreFrozen() {
+        let m = FloatingTileMetrics()
+        XCTAssertEqual(m.baseWidth, 480)
+        XCTAssertEqual(m.columns, 4)
+        XCTAssertEqual(m.rowHeight, 100)
+        XCTAssertEqual(m.gap, 12)
+        XCTAssertEqual(m.switcherWidth, 106)
+        XCTAssertEqual(m.minimumColumns, 2)
+    }
+
+    func testSavedOrderDrivesHierarchyAndSwitcher() {
+        let order: [StatKind] = [.uptime, .gpu, .memory, .cpu, .fan]
+        let p = plan(order, details: [:])
+        XCTAssertEqual(p.tileFrames[.uptime]?.size, CGSize(width: 234, height: 212), "first is the large tile")
+        XCTAssertEqual(p.tileFrames[.gpu]?.size, CGSize(width: 234, height: 100))
+        XCTAssertEqual(p.tileFrames[.memory]?.size, CGSize(width: 234, height: 100))
+        XCTAssertEqual(p.tileFrames[.cpu]?.size, CGSize(width: 111, height: 100), "the rest are 1×1")
+        XCTAssertEqual(p.tileFrames[.cpu]?.origin.y, p.tileFrames[.fan]?.origin.y)
+        XCTAssertLessThan(try! XCTUnwrap(p.tileFrames[.cpu]).minX, try! XCTUnwrap(p.tileFrames[.fan]).minX)
+        // The switcher lists the same saved order, two per row, row-major.
+        let items = order.map { try! XCTUnwrap(p.switcherItemFrames[.switcher($0)]) }
+        XCTAssertEqual(items[0].minY, items[1].minY)
+        XCTAssertLessThan(items[0].minX, items[1].minX)
+        XCTAssertEqual(items[2].minY, items[3].minY)
+        XCTAssertGreaterThan(items[2].minY, items[0].minY)
+        XCTAssertGreaterThan(items[4].minY, items[2].minY)
+    }
+
+    func testReorderingChangesTheLargeTileButNothingElseDependsOnReadings() {
+        let a = plan(StatKind.allCases, details: [:])
+        let b = plan(StatKind.allCases.reversed(), details: [:])
+        XCTAssertEqual(a.tileFrames[.cpu]?.size, CGSize(width: 234, height: 212))
+        XCTAssertEqual(b.tileFrames[.uptime]?.size, CGSize(width: 234, height: 212))
+        XCTAssertEqual(a.size, b.size, "the footprint depends on the count, not the order")
+    }
+
+    func testElevenStatFootprintFitsAComfortableDisplayAndStaysInsideItself() {
+        let p = plan(StatKind.allCases, details: [:], available: CGSize(width: 1400, height: 860))
+        XCTAssertTrue(p.fits)
+        let all = Array(p.tileFrames.values) + [p.switcherFrame, p.barFrame]
+        let bounds = CGRect(origin: .zero, size: p.size)
+        for frame in all { XCTAssertTrue(bounds.contains(frame), "\(frame) inside \(bounds)") }
+        for kind in StatKind.allCases {
+            XCTAssertNotNil(p.switcherItemFrames[.switcher(kind)], "\(kind) reachable in the switcher")
+            XCTAssertNotNil(p.tileFrames[kind], "\(kind) has a tile")
+        }
+        XCTAssertNil(p.emptyStateFrame)
+    }
+
+    func testOneStatKeepsTheLargeTileAndTheSwitcher() {
+        let p = plan([.memory], details: [:])
+        XCTAssertEqual(p.tileFrames[.memory]?.size, CGSize(width: 234, height: 212))
+        XCTAssertEqual(p.tileFrames.count, 1)
+        XCTAssertNotNil(p.switcherItemFrames[.switcher(.memory)])
+        XCTAssertNotNil(p.switcherItemFrames[.allStatistics])
+        XCTAssertTrue(p.fits)
+    }
+
+    func testEmptyPlanHasACompactEmptyStateAndReachableBar() {
+        let p = plan([], details: [:])
+        XCTAssertTrue(p.tileFrames.isEmpty)
+        let empty = try! XCTUnwrap(p.emptyStateFrame)
+        XCTAssertEqual(empty.height, 100, "compact: one row")
+        XCTAssertEqual(empty.origin, p.contentOrigin)
+        XCTAssertTrue(p.fits)
+        for target in [FloatingTileTarget.handle, .settings, .quit] {
+            let frame = try! XCTUnwrap(p.barItemFrames[target], "\(target)")
+            XCTAssertTrue(CGRect(origin: .zero, size: p.size).contains(frame))
+            XCTAssertFalse(frame.intersects(empty), "\(target) is not covered by the empty state")
+        }
+    }
+
+    func testSubsetStatsPackWithoutGaps() {
+        let p = plan([.disk, .battery, .uptime, .memory, .temps], details: [:])
+        XCTAssertEqual(p.tileFrames.count, 5)
+        XCTAssertEqual(p.tileFrames[.disk]?.size, CGSize(width: 234, height: 212))
+        let frames = Array(p.tileFrames.values)
+        for (i, a) in frames.enumerated() {
+            for b in frames[(i + 1)...] { XCTAssertFalse(a.intersects(b)) }
+        }
+    }
 }
 #endif
