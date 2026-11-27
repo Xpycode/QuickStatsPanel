@@ -534,3 +534,19 @@ Native window architecture, content limits, edge placement, order/sizing, keyboa
 still need the spec. This is visual/interaction direction, not native implementation acceptance.
 Reference: [floating mockup](../output/tile-exploration/floating-tiles.html); standalone browser
 preview beside it. Original fixed-square mock remains for comparison. Ring stays parked (D-040).
+
+### 2026-11-27 - D-042: One transparent host panel for the floating-tile prototype
+**Context:** Tile 1.1 had to prove separate-looking tiles, a stationary switcher, transparent
+gaps and coordinated dismissal natively, choosing the smallest working window arrangement.
+**Decision:** Use one transparent, non-activating `NSPanel` sized to the footprint frozen at
+summon; tiles, detail, switcher and the group bar (move/Settings/Quit) are surfaces inside it.
+Summon never makes the panel key; keyboard entry starts after a click into the HUD or explicit
+app activation. Isolated prototype defaults are a `$TMPDIR` file-backed suite chosen inside
+`AppSettings.shared`, so no read can reach the standard domain first.
+**Alternatives:** One window per stat or separate detail/switcher panels (needs cross-window
+focus, dismissal and drag synchronisation); a named `UserDefaults` suite (left empty plists in
+`~/Library/Preferences` after removal).
+**Rationale:** Clicks on transparent pixels passed through natively in the Atlas helper, so
+extra windows bought nothing and would add synchronisation risk.
+**Consequences:** Provisional for E1. Known gap for 3.1: if the app is already active at summon,
+keyboard entry still needs a first click. Group drag not yet verified natively.
