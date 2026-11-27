@@ -252,8 +252,11 @@ final class FloatingTilePanelController {
             }
             if target == .handle {
                 button.onDragStart = { [weak self] _ in
-                    guard let panel = self?.panel else { return }
-                    PanelDragTracker.track(panel)   // moves every surface together; saves nothing
+                    guard let self, let panel = self.panel else { return }
+                    // Moves every surface together; saves nothing. Only the visible group (bar and
+                    // overview) must stay on screen: the transparent detail envelope around it may
+                    // run off the display, or the group could never reach the screen's edges.
+                    PanelDragTracker.track(panel, keepVisible: self.coreWindowRect())
                 }
             }
         }
@@ -412,10 +415,27 @@ final class FloatingTilePanelController {
 
     // MARK: Panel and placement
 
+    /// The group bar and overview in window coordinates (AppKit, bottom-left origin).
+    private func coreWindowRect() -> NSRect? {
+        guard let plan else { return nil }
+        let core = plan.coreFrame
+        return NSRect(x: core.minX, y: plan.size.height - core.maxY, width: core.width, height: core.height)
+    }
+
+    /// The visible group on screen.
+    private func coreScreenRect() -> NSRect? {
+        guard let panel, let core = coreWindowRect() else { return nil }
+        return core.offsetBy(dx: panel.frame.minX, dy: panel.frame.minY)
+    }
+
     /// The display region details may use, in host coordinates, for where the group is now (it
     /// may have been dragged since summon). Nil falls back to the region planned at summon.
     private func currentDisplayRegion() -> CGRect? {
-        guard let panel, let real = panel.screen?.visibleFrame else { return nil }
+        // The display holding the visible group, not the (possibly off-screen) envelope.
+        let groupScreen = coreScreenRect().flatMap { core in
+            NSScreen.screens.first { $0.frame.contains(NSPoint(x: core.midX, y: core.midY)) }
+        }
+        guard let panel, let real = (groupScreen ?? panel.screen)?.visibleFrame else { return nil }
         let visible = FloatingTilePlacement.region(visible: real,
                                                    simulated: FloatingTilePrototypeOptions.current?.simulatedFrame)
         return FloatingTilePlacement.bounds(coreOrigin: panel.frame.origin, coreSize: panel.frame.size,
@@ -448,7 +468,11 @@ final class FloatingTilePanelController {
     private func displayChanged() {
         guard let panel else { return }
         let frames = NSScreen.screens.map(\.visibleFrame)
-        if let origin = FloatingTilePlacement.reclamp(frame: panel.frame, visibleFrames: frames) {
+        // Re-clamp the visible group (bar and overview); the transparent envelope may run off.
+        let group = coreScreenRect() ?? panel.frame
+        if let groupOrigin = FloatingTilePlacement.reclamp(frame: group, visibleFrames: frames) {
+            let origin = NSPoint(x: panel.frame.minX + groupOrigin.x - group.minX,
+                                 y: panel.frame.minY + groupOrigin.y - group.minY)
             if origin != panel.frame.origin { panel.setFrameOrigin(origin) }
             logger.info("display change: group re-clamped to \(Int(origin.x)),\(Int(origin.y))")
         } else {

@@ -450,8 +450,8 @@ final class FloatingTileLayoutTests: XCTestCase {
         // A display exactly as wide as the overview.
         let bounds = CGRect(x: 0, y: -200, width: 480, height: 1000)
         let p = plan(StatKind.allCases, bounds: bounds)
-        XCTAssertEqual(p.coreFrame.minX, 0, "nothing extends past the display")
-        XCTAssertEqual(p.size.width, 480, "the envelope is clamped to the display")
+        XCTAssertEqual(p.coreFrame.minX, 6 + 480, "the envelope is never clamped (the group may be dragged)")
+        XCTAssertEqual(p.size.width, 480 + 2 * (6 + 480))
         XCTAssertEqual(open(p, .cpu).side, .right, "240 points on the right beats none on the left")
         XCTAssertEqual(open(p, .memory).side, .left)
         let region = bounds.offsetBy(dx: p.coreFrame.minX, dy: p.coreFrame.minY)
@@ -506,6 +506,18 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertEqual(cpu.side, .left, "no room on the right of the current display: flips")
         XCTAssertTrue(display.contains(cpu.frame))
     }
+    func testSummonedAtTheLeftEdgeThenDraggedToTheRightEdgeStillOpensDetails() {
+        // Summoned with the display starting at the core's left edge: no room on the left then.
+        let p = plan(StatKind.allCases, bounds: CGRect(x: 0, y: -200, width: 1440, height: 900))
+        XCTAssertEqual(p.coreFrame.minX, 6 + 480, "the left envelope exists even off the display")
+        // Dragged so the display now ends at the overview's right edge (host coordinates).
+        let display = CGRect(x: p.overviewFrame.maxX - 1440, y: 0, width: 1440, height: p.size.height)
+        for kind in StatKind.allCases {
+            let placed = p.detailPlacement(for: kind, measured: CGSize(width: 250, height: 150), display: display)
+            XCTAssertTrue(display.contains(placed.frame), "\(kind) on the display")
+            XCTAssertTrue(CGRect(origin: .zero, size: p.size).contains(placed.frame), "\(kind) inside the host")
+        }
+    }
     func testHostIsTheCorePlusTheEnvelopeAndCoversEveryDetail() {
         // A display with more than the envelope's room on both sides.
         let p = plan(StatKind.allCases, bounds: CGRect(x: -1000, y: -200, width: 2480, height: 1200))
@@ -514,7 +526,7 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertEqual(p.coreFrame.minX, 6 + 480, "room for the widest detail on the left")
         XCTAssertEqual(host.maxX - p.coreFrame.maxX, 6 + 480, "and on the right")
         XCTAssertEqual(p.coreFrame.minY, 0, "nothing opens above the overview's top")
-        XCTAssertEqual(host.maxY, p.detailRegion.maxY, "down to the display's bottom")
+        XCTAssertEqual(host.height, 1200, "one display height below the overview's top")
         for kind in StatKind.allCases {
             XCTAssertTrue(host.contains(open(p, kind).frame))
             XCTAssertTrue(host.contains(open(p, kind, CGSize(width: 480, height: 2000)).frame), "\(kind) widest")

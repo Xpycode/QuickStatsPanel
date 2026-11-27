@@ -146,13 +146,15 @@ struct FloatingTilePlan: Equatable, Sendable {
                                                y: (core.height - available.height) / 2,
                                                width: available.width, height: available.height)
 
-        // The detail envelope: beside the core on both sides and from the core's top down to the
-        // display's bottom (no detail rises above the overview's top, D-046), clamped to the
-        // display but never smaller than the core itself.
+        // The detail envelope: the full reach beside the core on both sides, and from the core's
+        // top down one display height (no detail rises above the overview's top, D-046). It is
+        // not clamped to the display: the group may be dragged anywhere (only the core must stay
+        // on screen), so the transparent envelope may run off the display, and details are
+        // placed inside the display region current when they open.
         let reach = m.detailGap + m.detailEnvelopeWidth + reserve
-        let hostMinX = min(core.minX, max(bounds.minX, core.minX - reach))
-        let hostMaxX = max(core.maxX, min(bounds.maxX, core.maxX + reach))
-        let hostMaxY = max(core.maxY, bounds.maxY)
+        let hostMinX = core.minX - reach
+        let hostMaxX = core.maxX + reach
+        let hostMaxY = max(core.maxY, core.minY + bounds.height)
         let host = CGRect(x: hostMinX, y: core.minY, width: hostMaxX - hostMinX, height: hostMaxY - core.minY)
         let region = bounds.intersection(host)
 
