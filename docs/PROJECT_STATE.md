@@ -12,21 +12,21 @@
 ## Now
 - **Funnel:** build · **Phase:** Floating tiles — prototype implemented, owner review (E1) <!-- Phase changed: 2026-11-27 -->
 - **Focus:** bounded native floating-tile prototype; [spec defaults](../specs/floating-tiles.md) remain provisional until owner review. Circle review remains parked (D-040).
-- **Blockers:** tile E1 needs the owner. Parked ring E1 open. Separate release gates: Strongbox backup, remaining updater controls and real upgrade acceptance.
-- **Execution:** [Floating-tile prototype plan](IMPLEMENTATION_PLAN-floating-tiles.md) — 8/8 implemented; 5.4 (D-046) and the drag-edge fix owner-passed; E1 still open — decide whether it can close.
+- **Blockers:** tile E1 needs the owner (A, C, D, E; F run or defer). Parked ring E1 open. Separate release gates: Strongbox backup, remaining updater controls and real upgrade acceptance.
+- **Execution:** [Floating-tile prototype plan](IMPLEMENTATION_PLAN-floating-tiles.md) — 8/8 implemented; E1 open, awaiting owner: B passed, A/C/D/E not run, F pending ([refreshed packet](evidence/floating-tiles-prototype.md#e1-owner-review-packet)).
 - **Feature definition:** [Floating tiles](../specs/floating-tiles.md), with provisional native defaults. [Earlier layouts/ring spec](../specs/panel-layouts-and-appearance.md) and remaining ring E1 decisions stay parked.
-- **Current handoff:** [After drag fix](sessions/2026-11-27.md#resume--after-drag-fix) — pushed; Atlas helper cleanup pending.
+- **Current handoff:** [E1 owner walkthrough](sessions/2026-11-27.md#resume--e1-owner-walkthrough) — pushed; Atlas helper cleanup is owner-operated (no Atlas use by Claude, owner instruction).
 - **Validation:** 5.4: full hostless suite 486/0, Debug/Release build, codesign, Release exclusion clean; Atlas Release Strip launch and Ring render pass. Ad-hoc Release cannot launch on the M4 Pro (hardened runtime vs Sparkle) — use a Developer ID local build. [Evidence](evidence/floating-tiles-prototype.md).
-- **Next:** decide whether E1 can close (walk the remaining E1 cases against the 5.4 build), or pick the Inbox 5.3 look notes.
+- **Next:** owner walks E1 A, C, D, E (~10 min) and decides F deferral and detail Tab order; then close E1 or revise.
 - **Release:** public v1.2.0; prepared v1.2.1 remains unpublished and separate from prototype work. [Release preparation](evidence/release-1.2.1.md).
 - **Last updated:** 2026-11-27
 
 ## Recent
+- **2026-11-27** — E1 can't close yet: only case B has a result (pass). Review steps rewritten for the current tile model; Claude stops using the Atlas helper.
 - **2026-11-27** — Owner passed 5.4 and a fix letting the group be dragged to every screen edge (the invisible card space had pinned it mid-screen).
 - **2026-11-27** — Owner saw 5.3; D-046 puts each detail beside its tile and makes the graph bigger, fuller and 5 minutes long. 5.4 built, all tests pass, running on the desktop; helper check partial.
 - **2026-11-27** — Owner saw 5.2 (sides right); D-045 trims details, aligns all to the overview top, 6 pt gap. 5.3 built and checked in the helper; one flaky persistence memory test logged.
 - **2026-11-27** — Interviewed owner → D-044 (clicked primary stays, others hide, detail opens inward, no switcher). 5.2 built: 473/0; native look blocked by a busy shared helper.
-- **2026-11-27** — E1 case B failed; built a version keeping the overview with cards opening outward, then the owner clarified they want other tiles hidden and detail opening inward. Design talk next.
 
 ## What we're building
 Press a global hotkey → a **thin** wide strip appears near the cursor showing live stats as compact

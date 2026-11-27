@@ -134,13 +134,13 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 ## Inbox
 - 2026-11-27 — 5.3 look notes (D-046 open items): small tiles Fans/Temperature/Power/Load/Uptime show a blank middle between value and caption; Fan detail row isn't label-left/value-right like other cards; boot date mixes locales ("24. Nov 2026 at 15:30"); fixture Battery temp 31 °C vs 72 °C in Temperatures, Temperature tile "Nominal" under all-hot.
 - 2026-11-27 — Flaky: `TransferPersistenceTests.testActualWorstDayDiskMemoryAndIncrementalCheckpointSize` memory budget (75.7/77.8 MB vs 64 MB) fails on some runs, passes on others; unrelated to tiles.
-- 2026-11-27 — Shared Atlas helper: other sessions' clicks dismiss the non-activating tile panel within seconds; consider a Debug `--floating-tiles-pinned` launch flag for helper checks.
-- [ ] **Primary/secondary tile model (owner, 2026-11-27).** Clicking a primary keeps it, hides the other primaries, opens the secondary inward (CPU → right). Discuss next session; see `sessions/2026-11-27.md` and D-043 update.
+- 2026-11-27 — Shared Atlas helper: other sessions' clicks dismiss the non-activating tile panel within seconds; consider a Debug `--floating-tiles-pinned` launch flag for helper checks. Moot while the owner has stopped Atlas use (2026-11-27).
+- [x] **Primary/secondary tile model (owner, 2026-11-27).** Resolved by D-044 (5.2); kept for history. Clicking a primary keeps it, hides the other primaries, opens the secondary inward (CPU → right). Discuss next session; see `sessions/2026-11-27.md` and D-043 update.
 - [ ] **Graph inside the CPU primary panel (owner idea, 2026-11-27).** Fill the large tile's empty space.
-- [ ] **Double outline on the open tile (2026-11-27, 5.1).** Clicked tile shows the blue focus ring and the white open outline together.
+- [ ] **Double outline on the open tile (2026-11-27, 5.1).** Clicked tile shows the blue focus ring and the white open outline together. Probably gone since D-044 removed the open outline; confirm during E1 D.
 - [ ] **First tile hotkey press after launch sometimes ignored (2026-11-27).** In the Atlas helper the first press after launch did nothing; a second press 1–2 s later worked (seen twice in tile Wave 2). Cause unknown; may be helper-specific.
 - [ ] **Ring fixture test leaves TMPDIR folders (2026-11-27).** A hostless Ring test leaves `QuickStatsPanel-ring-fixture-*` folders in `$TMPDIR` (seen during tile Wave 1). Not changed.
-- [ ] **Tile transfer controls outside Tab loop (2026-11-27, tile 3.1).** Period/reset controls in tile detail cards work by mouse and VoiceOver but `refusesFirstResponder` keeps them out of Tab traversal (existing behaviour). Decide at tile E1.
+- [ ] **Tile transfer controls outside Tab loop (2026-11-27, tile 3.1).** Period/reset controls in tile detail cards work by mouse and VoiceOver but `refusesFirstResponder` keeps them out of Tab traversal (existing behaviour). Decide at tile E1 (now in the packet, case D).
 - [ ] **Overlay scroller overlaps card values while scrolling (2026-11-27, tile 3.1).** In scrolling tile detail cards the overlay scroller briefly covers right-hand values; legacy scroll bars are fine.
 - [ ] **CPU tile detail card taller than content (2026-11-27, tile 3.1).** Reserved process rows inflate the measured height.
 - [ ] **Forced-kill leaves isolated defaults plist in helper TMPDIR (2026-11-27, tile 3.1).** `atlas close`/cleanup kills skip graceful teardown, leaving the prototype's temp `-defaults.plist`; graceful Quit leaves nothing.

@@ -3,7 +3,7 @@
 **Task:** 4.1 in [the floating-tile plan](../IMPLEMENTATION_PLAN-floating-tiles.md) · **Date:** 2026-11-27 · **Mac:** M4 Pro
 **Source:** `main` at `eeed0ca` (code identical to the 3.1 commit `0925d1d`; later commits are docs only).
 **Spec:** [floating-tiles.md](../../specs/floating-tiles.md) (FT-1 to FT-10, defaults provisional).
-**Status:** 4.1 complete. **E1 is open** and waits for owner review.
+**Status:** 4.1 complete; revisions 5.1–5.4 done. **E1 is open:** B passed; A, C, D, E await the owner; F pending (see packet).
 
 ## Artifacts
 
@@ -75,6 +75,13 @@ Waves 1–3, so their evidence stands (see the plan's execution log for screensh
 
 ## E1 owner review packet
 
+**Refreshed 2026-11-27 for the current model (D-044 → D-046):** clicking a tile keeps it in place,
+hides the others and opens its detail beside it (no switcher). Earlier wording that mentioned a
+switcher is superseded. **Current artifact:** same folder as the Debug row above,
+`QuickStatsPanel.app` 1.2.1 (1201), stub executable SHA-256 prefix `feea0e361218c02d`,
+`QuickStatsPanel.debug.dylib` `f878990667ea5adc` (5.4 + drag-edge fix; verified 2026-11-27, running
+on the owner's desktop as pid 54621). No helper (Atlas) checks from here on: owner instruction.
+
 **Setup (owner-operated).** The artifact is on the M4 Pro. On another Mac, build Debug there first.
 
 1. Quit your installed QuickStatsPanel first. The prototype has the same bundle identifier and
@@ -91,14 +98,18 @@ Waves 1–3, so their evidence stands (see the plan's execution log for screensh
 
 | Case | Fixture | Do | Judge | Result |
 |---|---|---|---|---|
-| A | `all-hot`, then `all-live` | Summon; look for about five seconds | Are eleven stats, their order and the large/wide/small sizes quick to read? Do values change without anything moving? | |
-| B | `all` | Click CPU, then Network in the switcher, then a short card such as Uptime, then return | Does the switcher stay still, and does the detail size feel right? | **Fail (2026-11-27, owner):** detail replaced the overview; owner wants the overview to stay and the card to open beside the clicked tile. Revised per D-043 (5.1). Owner then clarified: other primaries should disappear and the detail open inward (CPU → right); 5.1 does not match — discuss next session. |
-| C | `all` with `--floating-tiles-edge=bottom-right` | Open Network (long card), scroll it, change its period | Is scrolling only where needed, and are controls reachable? | |
-| D | `all` | Tab, Shift-Tab, arrows, Return, Space, Escape; click a gap pinned (Control-Option-Command-P) and unpinned; drag the group bar | Is the keyboard and dismissal behaviour what you expect? | |
-| E | `all-hot`, `unavailable`, `empty`; then the Mono theme in Settings, in Light and Dark | Look at colours, words and unavailable tiles | Readable without relying on colour? No false zeros? | |
-| F | any | Only if you have them: a second display (move or unplug while shown); VoiceOver | Pending: the helper cannot test these | |
+| A | `all-hot`, then `all-live` | Summon; look for about five seconds | Are eleven stats, their order and the large/wide/small sizes quick to read? Do values change without anything moving? | not run |
+| B | `all` | Click CPU (others hide, detail opens beside it); click CPU again; click Network; Escape; click a short one such as Uptime | Does the clicked tile stay put, and does the detail sit and size right? | **Pass (2026-11-27, owner, 5.4 build):** "looks good"; drag to every edge with cards opening there also passed. History: failed on the original build (detail replaced the overview) → 5.1 (D-043) → owner model D-044 → 5.2/5.3/5.4 (D-045, D-046). |
+| C | `all` with `--floating-tiles-edge=bottom-right` | Open Network (long detail), scroll it, change its period | Does it open on the side with room, scroll only where needed, with controls reachable? | not run |
+| D | `all` | Tab, Shift-Tab, arrows, Return, Space, Escape (first closes the detail, second dismisses); click a gap pinned (Control-Option-Command-P) and unpinned | Is the keyboard and dismissal behaviour what you expect? Also decide: should a detail's period/reset controls be in the Tab order (today mouse/VoiceOver only)? | Drag part passed with B; rest not run |
+| E | `all-hot`, `unavailable`, `empty`; then the Mono theme in Settings, in Light and Dark | Look at colours, words and unavailable tiles | Readable without relying on colour? No false zeros? | not run |
+| F | any | Only if you have them: a second display (move or unplug while shown); VoiceOver | Cannot be tested in the helper. Owner either runs it or accepts it as deferred to production planning | pending |
 
 Record pass / fail / not run per row, with a note. Already established by helper evidence (no need
 to repeat): no focus theft on summon, gap click-through, temp data removed on quit, Release excludes
 the prototype. A failed critical benefit check (A or B) means simplify, replan or park; it does not
 extend into dashboard customisation.
+
+**E1 closes when** A, C, D and E have owner results with no unresolved fail, F is run or explicitly
+deferred, and the Tab-order question in D is decided. The 5.3 look notes in TASKS Inbox are polish:
+fix or defer them explicitly; they do not block closure.
