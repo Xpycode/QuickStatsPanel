@@ -598,3 +598,21 @@ others were — while keeping the no-moving-targets rule: what you just clicked 
 **Consequences:** Supersedes D-043 (overview stays, outward opening, switcher column, open outline)
 and the spec's switcher rows. The graph-in-CPU-primary idea is parked in the backlog as a separate
 task. E1 cases B and C need a fresh owner look on the new build.
+
+### 2026-11-27 - D-045: Details trim to content, share the overview's top edge, sit closer
+**Context:** Owner's look at the 5.2 build (screenshots: CPU, Memory, Disk, Network, Battery). Side
+choice, hiding and the stationary primary were right. Cards showed blank reserved rows, and tall
+Disk/Network details did not line up with their tile.
+**Decision:** Amends D-044.
+- **Trim at open:** in the floating-tile prototype each detail is measured with only the rows it has
+  when opened (no reserved process rows or reserved transfer-status lines). Size stays frozen while
+  open; content that grows later scrolls. Ring and Strip keep their reservations.
+- **One top line:** every detail's top edge sits at the old overview's top edge (just below the group
+  bar), whatever row the primary is in. Bottom alignment is dropped. Taller than the display → scrolls.
+- **Closer:** the primary→detail gap drops from 12 pt to 6 pt; gaps between primaries stay 12 pt.
+**Alternatives:** keep reservations (no gaps but visible blank space); hide late rows; line up with
+the tile top and extend down; keep the bar-clearance fallback.
+**Rationale:** Removes visible dead space and gives all details one predictable anchor.
+**Consequences:** Supersedes D-044's row-based top/bottom alignment and its bar-clearance fallback.
+Measurement at open (not at summon) means detail frames are computed per open; the primary still
+never moves.

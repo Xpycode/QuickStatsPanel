@@ -1,7 +1,7 @@
 # Floating Tiles — Native Prototype Plan
 
 **Created:** 2026-11-22 · **Status:** implementation complete 2026-11-27; awaiting owner review (E1)
-**Progress:** 5/6 implementation tasks complete (5.2 implemented-unverified) (5.1 added after E1 case B failed; 5.2 added for D-044); external acceptance **E1 open** — B and C to re-run on the 5.1 build ([review packet](evidence/floating-tiles-prototype.md#e1-owner-review-packet)).
+**Progress:** 5/7 implementation tasks complete (5.2 seen by owner, refined by 5.3) (5.1 added after E1 case B failed; 5.2 added for D-044); external acceptance **E1 open** — B and C to re-run on the 5.1 build ([review packet](evidence/floating-tiles-prototype.md#e1-owner-review-packet)).
 Unchecked tasks are pending unless explicitly marked blocked or implemented-unverified.
 This file owns task status/evidence. The [ring plan](../IMPLEMENTATION_PLAN.md) remains parked,
 12/12 implemented with its own E1 open; it is not archived or superseded as evidence.
@@ -169,7 +169,7 @@ existing dirty Ring changes. New paths below are relative to
     kept as a reserved column; geometry frozen at summon.
   - Backpressure: focused + full hostless T, B, R, codesign, Release exclusion.
 
-- [ ] **5.2: Primary stays, others hide, detail opens inward (D-044)** — implemented-unverified (native look not done; see log)
+- [x] **5.2: Primary stays, others hide, detail opens inward (D-044)** — owner look 2026-11-27: side, hiding, stationary primary correct; height/alignment refined by 5.3
   - Depends on: 5.1 and the owner interview (2026-11-27).
   - Files: `FloatingTileLayout.swift`, `FloatingTileState.swift`, `FloatingTilePanelController.swift`,
     `FloatingTilesView.swift`, `FloatingTileLayoutTests.swift`, `FloatingTileStateTests.swift`.
@@ -179,6 +179,16 @@ existing dirty Ring changes. New paths below are relative to
     same primary or Escape returns, second Escape dismisses; ~0.15 s fade honouring Reduce Motion.
   - Backpressure: focused + full hostless T, B, R, codesign, Release exclusion; Atlas look at
     CPU (left), a middle tile and a right/bottom tile.
+
+- [ ] **5.3: Trim details, one top line, closer gap (D-045)**
+  - Depends on: 5.2 and the owner's look at it (2026-11-27).
+  - Files: `FloatingTileLayout.swift`, `FloatingTilePanelController.swift`, `FloatingTilesView.swift`,
+    `StatDetailView.swift` (floating-tile presentation only), `AppDelegate.swift` (tile measurement only),
+    `FloatingTileLayoutTests.swift`, `FloatingTileStateTests.swift`.
+  - Success: floating-tile details sized to current rows when opened (no reserved blank rows/lines),
+    frozen while open, late growth scrolls; every detail top = overview top; primary→detail gap 6 pt;
+    Ring/Strip unchanged; primary never moves.
+  - Backpressure: focused + full hostless T, B, R, codesign, Release exclusion.
 
 ## Backpressure commands and execution prerequisites
 
