@@ -139,72 +139,6 @@ struct FloatingTileEmptyStateView: View {
     }
 }
 
-/// The switcher surface behind its item controls.
-struct FloatingTileSwitcherBackground: View {
-    var body: some View { FloatingTileSurface() }
-}
-
-/// A switcher item. The current stat has a distinct outline and a marker dot, visible without
-/// colour (Mono); it stays inert when selected again.
-struct FloatingTileSwitcherItemView: View {
-    let kind: StatKind
-    let isCurrent: Bool
-
-    var body: some View {
-        let theme = AppSettings.shared.theme
-        VStack(spacing: 2) {
-            Image(systemName: kind.settingsSymbol)
-                .font(.system(size: 13, weight: isCurrent ? .bold : .regular))
-            Text(Self.shortName(kind))
-                .font(.system(size: 10, weight: isCurrent ? .semibold : .regular))
-                .lineLimit(1)
-        }
-        .foregroundStyle(isCurrent ? theme.colors.primaryText : theme.colors.secondaryText)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .overlay(
-            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                .strokeBorder(theme.colors.primaryText.opacity(isCurrent ? 0.9 : 0.15),
-                              lineWidth: isCurrent ? 1.5 : 1)
-        )
-        .overlay(alignment: .topTrailing) {
-            if isCurrent {
-                Circle().fill(theme.colors.primaryText).frame(width: 5, height: 5).padding(4)
-            }
-        }
-    }
-}
-
-extension FloatingTileSwitcherItemView {
-    /// Switcher items are 44 points wide at a fixed 10-point type, so the two names that do not
-    /// fit are abbreviated rather than truncated or shrunk. The control's tooltip and VoiceOver
-    /// label keep the full name.
-    static func shortName(_ kind: StatKind) -> String {
-        switch kind {
-        case .temps: return "Temp"
-        case .loadAverage: return "Load"
-        default: return kind.displayName
-        }
-    }
-}
-
-/// The "All statistics" return control.
-struct FloatingTileAllStatisticsView: View {
-    var body: some View {
-        let theme = AppSettings.shared.theme
-        HStack(spacing: 4) {
-            Image(systemName: "square.grid.2x2")
-            Text("All statistics").lineLimit(1)
-        }
-        .font(.system(size: 10, weight: .medium))
-        .foregroundStyle(theme.colors.primaryText)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .overlay(
-            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                .strokeBorder(theme.colors.primaryText.opacity(0.15), lineWidth: 1)
-        )
-    }
-}
-
 /// A group-bar control (move handle, Settings, Quit) drawn as a small glyph.
 struct FloatingTileBarItemView: View {
     let symbol: String
@@ -215,45 +149,6 @@ struct FloatingTileBarItemView: View {
             .font(.system(size: 11, weight: .medium))
             .foregroundStyle(theme.colors.secondaryText)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-#endif
-
-#if DEBUG
-/// The stat whose detail is open, observed by the switcher items so the current-item cue updates
-/// without rebuilding (or moving) any switcher control.
-@Observable
-@MainActor
-final class FloatingTileSelectionModel {
-    var current: StatKind?
-}
-
-/// An overview tile with the open-detail cue: a solid outline (not colour alone) while its card
-/// is open beside the overview. Drawn inside the tile, so nothing moves.
-struct FloatingTileSelectableTile: View {
-    let kind: StatKind
-    let selection: FloatingTileSelectionModel
-    let cornerRadius: CGFloat
-    let content: AnyView
-
-    var body: some View {
-        let theme = AppSettings.shared.theme
-        content.overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(theme.colors.primaryText.opacity(0.85), lineWidth: 2)
-                .opacity(selection.current == kind ? 1 : 0)
-                .allowsHitTesting(false)
-        )
-    }
-}
-
-/// Switcher item bound to the selection model.
-struct FloatingTileSwitcherItem: View {
-    let kind: StatKind
-    let selection: FloatingTileSelectionModel
-
-    var body: some View {
-        FloatingTileSwitcherItemView(kind: kind, isCurrent: selection.current == kind)
     }
 }
 #endif

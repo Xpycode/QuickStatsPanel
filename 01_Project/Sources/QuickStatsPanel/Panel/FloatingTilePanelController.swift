@@ -6,14 +6,15 @@ import SwiftUI
 /// Shows the floating-tile prototype (Debug only, `--floating-tiles-prototype`).
 ///
 /// **Panel arrangement:** one borderless, non-activating, fully transparent host panel sized to
-/// the summon's frozen footprint. Tiles, the detail card, the switcher and the group bar are
+/// the summon's frozen footprint. Primaries (tiles), the detail card and the group bar are
 /// separate surfaces inside it with transparent gaps between them. The panel covers the core
-/// (group bar, overview, switcher column) plus every stat's frozen card frame beside it, so
-/// opening a card never moves or resizes anything; unused card space is transparent and passes
+/// (group bar, overview) plus every stat's frozen detail frame, so opening a detail never moves or
+/// resizes anything: the clicked primary stays put, the others fade out and its detail fades in
+/// beside it, toward where the others were (D-044). Unused space is transparent and passes
 /// clicks through. One window keeps keyboard
 /// focus, dismissal and group dragging trivially coordinated (there is nothing to keep in sync),
 /// while the window server passes clicks on fully transparent pixels through to the window below,
-/// where the existing global monitor treats them as click-away. Separate detail/switcher panels
+/// where the existing global monitor treats them as click-away. Separate detail panels
 /// would only be needed if transparent-gap delivery or focus failed natively.
 ///
 /// Geometry comes only from the frozen `FloatingTilePlan`; interaction only from
@@ -35,13 +36,16 @@ final class FloatingTilePanelController {
     private var panel: FloatingTileHUDPanel?
     private var host: FloatingTileHostView?
     private var buttons: [FloatingTileTarget: FloatingTileButton] = [:]
-    /// Overview surfaces (tiles and empty state, or the scrolling overview that holds them).
-    private var tileViews: [NSView] = []
-    private var switcherViews: [NSView] = []
     private var tileValue: ((StatKind) -> String)?
     private var detailHost: NSView?
     private var detailContent: ((StatKind, CGSize, Bool) -> AnyView)?
-    private let selection = FloatingTileSelectionModel()
+    /// Focus rings show only while the HUD is driven from the keyboard (D-044: no outline after a
+    /// click). Mouse input turns them off again.
+    private var keyboardCues = false
+    /// Bumped on every open/return so a stale fade completion never hides a returned primary.
+    private var transitionGeneration = 0
+    /// Fade length for primaries and the detail; instant with Reduce Motion.
+    static let fadeDuration: TimeInterval = 0.15
     private var keyObserver: NSObjectProtocol?
     private var activationObserver: NSObjectProtocol?
     private var screenObserver: NSObjectProtocol?
@@ -59,7 +63,7 @@ final class FloatingTilePanelController {
 
     /// - Parameters:
     ///   - detailSizes: every enabled stat's measured detail card, taken once now so the whole
-    ///     footprint (and the switcher position) is chosen before any input.
+    ///     footprint (and every detail frame) is chosen before any input.
     ///   - tile: overview tile content for a stat (`true` for the large first tile).
     ///   - tileValue: the tile's live accessibility value (its readings and usage basis).
     ///   - detail: detail card content for a stat at its frozen frame size; `true` when it scrolls.
@@ -78,8 +82,8 @@ final class FloatingTilePanelController {
         // "Always show scroll bars": scrolling content gets the legacy scroller's width beside it.
         let reserve = NSScroller.preferredScrollerStyle == .legacy
             ? NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy) : 0
-        // Two steps: place the core (bar, overview, switcher column) as before, then give each
-        // stat's card a frozen frame beside it, on the nearest side that fits this display.
+        // Two steps: place the core (bar, overview), then give each stat's detail a frozen frame
+        // beside its primary, on the side toward the overview's larger part that fits this display.
         let core = FloatingTilePlan.make(kinds: kinds, detailSizes: detailSizes, available: available,
                                          scrollerReserve: reserve)
         let coreOrigin = FloatingTilePlacement.origin(size: core.coreFrame.size, anchor: anchor, cursor: cursor,
@@ -108,7 +112,7 @@ final class FloatingTilePanelController {
         panel.contentView = host
         panel.autorecalculatesKeyViewLoop = true
         panel.setFrame(FloatingTilePlacement.hostFrame(coreOrigin: coreOrigin, plan: plan), display: true)
-        logger.info("detail sides \(plan.kinds.map { "\($0.displayName)=\(plan.detailSides[$0].map { "\($0)" } ?? "-")" }.joined(separator: ","), privacy: .public)")
+        logger.info("detail sides \(plan.kinds.map { "\($0.displayName)=\(plan.detailSides[$0].map { "\($0)" } ?? "-")/\(plan.detailAlignments[$0].map { "\($0)" } ?? "-")" }.joined(separator: ","), privacy: .public)")
         self.panel = panel
         self.host = host
         keyObserver = NotificationCenter.default.addObserver(
@@ -155,30 +159,27 @@ final class FloatingTilePanelController {
         panel = nil
         host = nil
         buttons = [:]
-        tileViews = []
-        switcherViews = []
         detailHost = nil
         detailContent = nil
         tileValue = nil
         plan = nil
-        selection.current = nil
+        keyboardCues = false
+        transitionGeneration += 1
         onDetailChanged?(nil)
         onVisibilityChanged?(false)
     }
 
-    /// Escape (scoped Carbon hotkey, also while pinned): detail → overview → dismiss.
+    /// Escape (scoped Carbon hotkey, also while pinned): detail → all primaries → dismiss.
     func handleEscape() { apply(state.escape()) }
 
     // MARK: Construction
 
     private func build(in host: FloatingTileHostView, plan: FloatingTilePlan, tile: (StatKind, Bool) -> AnyView) {
         buttons = [:]
-        tileViews = []
-        switcherViews = []
         let radius = AppSettings.shared.theme.metrics.cornerRadius
 
         // Limited space only: the overview scrolls inside its viewport; tile frames shift into the
-        // document's coordinates. The switcher column and group bar stay outside it.
+        // document's coordinates. The group bar stays outside it.
         let overviewParent: NSView
         let offset: CGPoint
         if let viewport = plan.overviewViewport {
@@ -195,7 +196,6 @@ final class FloatingTilePanelController {
             scroll.documentView = document
             scroll.setAccessibilityLabel("Statistics, scrollable")
             host.addSubview(scroll)
-            tileViews.append(scroll)
             overviewParent = document
             offset = viewport.origin
         } else {
@@ -205,17 +205,14 @@ final class FloatingTilePanelController {
 
         for (index, kind) in plan.kinds.enumerated() {
             guard let frame = plan.tileFrames[kind] else { continue }
-            let button = makeButton(.tile(kind), label: kind.displayName,
-                                    content: FloatingTileSelectableTile(kind: kind, selection: selection,
-                                                                        cornerRadius: radius,
-                                                                        content: tile(kind, index == 0)),
+            // No "open" outline (D-044): the primary looks the same with its detail open.
+            let button = makeButton(.tile(kind), label: kind.displayName, content: tile(kind, index == 0),
                                     frame: frame.offsetBy(dx: -offset.x, dy: -offset.y), in: overviewParent)
             button.cornerRadius = radius
             button.toolTip = "Show or hide \(kind.displayName) detail"
-            button.setAccessibilityHelp("Opens the \(kind.displayName) detail beside the statistics; again closes it.")
-            button.accessibilitySelectedProvider = { [weak self] in self?.selection.current == kind }
+            button.setAccessibilityHelp("Shows the \(kind.displayName) detail and hides the other statistics; again, or Escape, shows them all.")
+            button.accessibilitySelectedProvider = { [weak self] in self?.state.detailKind == kind }
             button.accessibilityValueProvider = { [weak self] in self?.tileValue?(kind) }
-            if plan.overviewViewport == nil { tileViews.append(button) }
         }
 
         if let emptyFrame = plan.emptyStateFrame {
@@ -225,30 +222,6 @@ final class FloatingTilePanelController {
             empty.setAccessibilityRole(.staticText)
             empty.setAccessibilityLabel("No statistics enabled. Choose statistics in Settings.")
             host.addSubview(empty)
-            tileViews.append(empty)
-        }
-
-        let switcherBackground = FloatingTileDrawingView(rootView: FloatingTileSwitcherBackground())
-        switcherBackground.frame = plan.switcherFrame
-        host.addSubview(switcherBackground)
-        switcherViews.append(switcherBackground)
-        for kind in plan.kinds {
-            guard let frame = plan.switcherItemFrames[.switcher(kind)] else { continue }
-            let button = makeButton(.switcher(kind), label: kind.displayName,
-                                    content: FloatingTileSwitcherItem(kind: kind, selection: selection),
-                                    frame: frame, in: host)
-            button.toolTip = "Show \(kind.displayName) detail"
-            button.setAccessibilityHelp("Shows the \(kind.displayName) detail.")
-            button.accessibilitySelectedProvider = { [weak self] in self?.selection.current == kind }
-            button.accessibilityValueProvider = { [weak self] in self?.selection.current == kind ? "Current" : "" }
-            switcherViews.append(button)
-        }
-        if let frame = plan.switcherItemFrames[.allStatistics] {
-            let button = makeButton(.allStatistics, label: "All statistics",
-                                    content: FloatingTileAllStatisticsView(), frame: frame, in: host)
-            button.toolTip = "Return to all statistics (Escape)"
-            button.setAccessibilityHelp("Returns to the statistics overview. Escape does the same.")
-            switcherViews.append(button)
         }
 
         let bar = FloatingTileDrawingView(rootView: FloatingTileSurface())
@@ -283,9 +256,13 @@ final class FloatingTilePanelController {
                                            frame: CGRect, in host: NSView) -> FloatingTileButton {
         let button = FloatingTileButton(target: target, label: label, content: content)
         button.frame = frame
+        button.focusRingType = keyboardCues ? .exterior : .none
         button.onActivate = { [weak self] in self?.activate($0) }
         button.onArrow = { [weak self] target, direction in self?.arrow(from: target, direction) }
-        button.onFocus = { [weak self] in self?.state.focus($0) }
+        button.onFocus = { [weak self] in
+            self?.noteInput()
+            self?.state.focus($0)
+        }
         host.addSubview(button)
         buttons[target] = button
         return button
@@ -295,9 +272,9 @@ final class FloatingTilePanelController {
 
     private func activate(_ target: FloatingTileTarget) {
         guard let plan else { return }
+        noteInput()
         switch target {
-        case .tile(let kind), .switcher(let kind): apply(state.select(kind, from: target, plan: plan))
-        case .allStatistics: apply(state.returnToOverview())
+        case .tile(let kind): apply(state.select(kind, from: target, plan: plan))
         case .settings: onOpenSettings?()
         case .quit:
             // Every surface and owned observer goes before the termination flush starts.
@@ -309,6 +286,7 @@ final class FloatingTilePanelController {
 
     private func arrow(from target: FloatingTileTarget, _ direction: FloatingTileDirection) {
         guard let plan else { return }
+        setKeyboardCues(true)
         state.focus(target)
         if let next = state.moveFocus(direction, plan: plan) { focusButton(next) }
     }
@@ -321,6 +299,26 @@ final class FloatingTilePanelController {
         if let target = state.entryTarget(kinds: plan.kinds) { focusButton(target) }
     }
 
+    /// Keyboard input shows focus rings; mouse input hides them (focus itself stays put).
+    private func noteInput() {
+        switch NSApp.currentEvent?.type {
+        case .keyDown?: setKeyboardCues(true)
+        case .leftMouseDown?, .leftMouseUp?, .rightMouseDown?, .rightMouseUp?, .otherMouseDown?, .otherMouseUp?:
+            setKeyboardCues(false)
+        default: break
+        }
+    }
+
+    private func setKeyboardCues(_ on: Bool) {
+        guard on != keyboardCues else { return }
+        keyboardCues = on
+        for button in buttons.values {
+            button.focusRingType = on ? .exterior : .none
+            button.noteFocusRingMaskChanged()
+            button.setKeyboardFocusRingNeedsDisplay(button.bounds)
+        }
+    }
+
     private func focusButton(_ target: FloatingTileTarget) {
         guard let panel, let button = buttons[target], !button.isHiddenOrHasHiddenAncestor else { return }
         panel.makeFirstResponder(button)
@@ -331,38 +329,69 @@ final class FloatingTilePanelController {
         case .none:
             return
         case .showOverview(let focus):
-            detailHost?.removeFromSuperview()
+            transitionGeneration += 1
+            // Every primary fades back in at its frozen frame; the detail fades out and goes.
+            let primaries = plan?.kinds.compactMap { buttons[.tile($0)] } ?? []
+            let returning = primaries.filter { $0.isHidden || $0.alphaValue < 1 }
+            for view in returning where view.isHidden {
+                view.alphaValue = 0
+                view.isHidden = false
+            }
+            let card = detailHost
             detailHost = nil
-            selection.current = nil
-            switcherViews.forEach { $0.isHidden = true }
+            fade(in: returning, out: card.map { [$0] } ?? []) { card?.removeFromSuperview() }
             host?.setAccessibilityLabel("Statistics overview")
+            if let host { NSAccessibility.post(element: host, notification: .layoutChanged) }
             onDetailChanged?(nil)
             if let focus, panel?.isKeyWindow == true { focusButton(focus) }
-        case .showDetail(let kind, let focus):
+        case .showDetail(let kind, let hiding, let focus):
             guard let plan, let host, let frame = plan.detailFrames[kind], let detailContent else { return }
+            transitionGeneration += 1
+            let generation = transitionGeneration
             detailHost?.removeFromSuperview()
             let card = FloatingTileInteractiveHostingView(
                 rootView: detailContent(kind, frame.size, plan.scrollingDetails.contains(kind)))
             // The frozen frame is authoritative; content changes never resize or move the card.
             card.sizingOptions = []
             card.frame = frame
+            card.alphaValue = 0
             host.addSubview(card)
             detailHost = card
-            selection.current = kind
             card.setAccessibilityLabel("\(kind.displayName) detail")
-            // The overview stays where it is; only the card and the switcher appear.
-            switcherViews.forEach { $0.isHidden = false }
-            host.setAccessibilityLabel("Statistics overview with \(kind.displayName) detail")
-            for k in plan.kinds {
-                for target in [FloatingTileTarget.switcher(k), .tile(k)] {
-                    if let item = buttons[target] { NSAccessibility.post(element: item, notification: .valueChanged) }
-                }
+            // The clicked primary stays exactly where it is; only the others fade out.
+            let others = hiding.compactMap { buttons[.tile($0)] }
+            fade(in: [card], out: others) { [weak self] in
+                guard let self, self.transitionGeneration == generation else { return }
+                others.forEach { $0.isHidden = true }
             }
+            host.setAccessibilityLabel("\(kind.displayName) with detail")
+            NSAccessibility.post(element: host, notification: .layoutChanged)
+            if let item = buttons[.tile(kind)] { NSAccessibility.post(element: item, notification: .valueChanged) }
             onDetailChanged?(kind)
             if panel?.isKeyWindow == true { focusButton(focus) }
         case .dismiss:
             hide()
         }
+    }
+
+    /// Opacity-only cross-fade (no frame changes, so nothing slides or moves); instant with
+    /// Reduce Motion. `completion` runs once the fade has finished.
+    private func fade(in shown: [NSView], out gone: [NSView], completion: @escaping @MainActor () -> Void) {
+        let duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : Self.fadeDuration
+        guard duration > 0, !(shown.isEmpty && gone.isEmpty) else {
+            shown.forEach { $0.alphaValue = 1 }
+            gone.forEach { $0.alphaValue = 0 }
+            completion()
+            return
+        }
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = duration
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            shown.forEach { $0.animator().alphaValue = 1 }
+            gone.forEach { $0.animator().alphaValue = 0 }
+        }, completionHandler: {
+            MainActor.assumeIsolated { completion() }
+        })
     }
 
     // MARK: Panel and placement

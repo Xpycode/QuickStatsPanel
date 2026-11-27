@@ -12,10 +12,12 @@ enum FloatingTileMode: Equatable, Sendable {
 /// What the controller must do after a state change.
 enum FloatingTileEffect: Equatable, Sendable {
     case none
-    /// Show the overview; restore keyboard focus to `focus` when keyboard focus is in the HUD.
+    /// Show every primary again (closing any detail); restore keyboard focus to `focus` when
+    /// keyboard focus is in the HUD.
     case showOverview(focus: FloatingTileTarget?)
-    /// Open this stat's card beside the overview (replacing any open card).
-    case showDetail(StatKind, focus: FloatingTileTarget)
+    /// Open this stat's detail beside its primary, which stays where it is, and hide the other
+    /// primaries (`hiding`, in saved order).
+    case showDetail(StatKind, hiding: [StatKind], focus: FloatingTileTarget)
     case dismiss
 }
 
@@ -39,22 +41,31 @@ struct FloatingTileState: Equatable, Sendable {
         return .showOverview(focus: nil)
     }
 
-    /// Click/Return on a tile or switcher item (`source`). The overview stays; the card opens
-    /// beside it and focus stays on the control used. Selecting the open stat's tile again closes
-    /// its card; selecting the open stat in the switcher is inert.
+    /// The primaries currently shown: all of them in the overview, only the clicked one while its
+    /// detail is open, none while hidden.
+    func visiblePrimaries(in kinds: [StatKind]) -> [StatKind] {
+        switch mode {
+        case .hidden: return []
+        case .overview: return kinds
+        case .detail(let kind): return kinds.filter { $0 == kind }
+        }
+    }
+
+    /// Click/Return on a primary (`source`). From the overview it opens that stat's detail and
+    /// hides the other primaries; focus stays on the primary used. The open primary again returns
+    /// to all primaries. Any other primary is hidden while a detail is open, so selecting it is
+    /// inert: changing stat means returning first (D-044, no switcher).
     mutating func select(_ kind: StatKind, from source: FloatingTileTarget, plan: FloatingTilePlan) -> FloatingTileEffect {
         guard mode != .hidden, plan.kinds.contains(kind) else { return .none }
-        if detailKind == kind {
-            if case .tile = source { return returnToOverview() }
-            return .none
-        }
+        if let open = detailKind { return open == kind ? returnToOverview() : .none }
         mode = .detail(kind)
         lastSelected = kind
         focus = source
-        return .showDetail(kind, focus: source)
+        return .showDetail(kind, hiding: plan.kinds.filter { $0 != kind }, focus: source)
     }
 
-    /// "All statistics", Escape or the open tile again: close the card, focus on the selected tile.
+    /// Escape or the open primary again: close the detail, show every primary, focus on the
+    /// primary that was open.
     mutating func returnToOverview() -> FloatingTileEffect {
         guard case .detail(let kind) = mode else { return .none }
         mode = .overview
@@ -62,7 +73,7 @@ struct FloatingTileState: Equatable, Sendable {
         return .showOverview(focus: .tile(kind))
     }
 
-    /// Escape is staged: detail returns to the overview; the overview dismisses.
+    /// Escape is staged: a detail returns to all primaries; a second Escape dismisses.
     mutating func escape() -> FloatingTileEffect {
         switch mode {
         case .hidden: return .none
@@ -89,7 +100,7 @@ struct FloatingTileState: Equatable, Sendable {
     /// nil (focus unchanged) at an edge.
     mutating func moveFocus(_ direction: FloatingTileDirection, plan: FloatingTilePlan) -> FloatingTileTarget? {
         guard mode != .hidden, let focus,
-              let next = plan.neighbour(of: focus, direction, detail: detailKind != nil) else { return nil }
+              let next = plan.neighbour(of: focus, direction, open: detailKind) else { return nil }
         self.focus = next
         return next
     }

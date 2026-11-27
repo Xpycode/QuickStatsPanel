@@ -14,21 +14,17 @@ struct FloatingTileMetrics: Equatable, Sendable {
     var minimumColumns = 2
     var rowHeight: CGFloat = 100
     var gap: CGFloat = 12
-    var switcherWidth: CGFloat = 106
-    /// The group bar (move handle, Settings, Quit) above the switcher column.
+    /// The group bar (move handle, Settings, Quit) above the overview's right edge.
+    var barWidth: CGFloat = 106
     var barHeight: CGFloat = 28
-    var switcherPadding: CGFloat = 6
-    var switcherItemHeight: CGFloat = 40
-    var switcherAllHeight: CGFloat = 28
 
     var columnWidth: CGFloat { (baseWidth - gap * CGFloat(columns - 1)) / CGFloat(columns) }
 }
 
-/// Every focusable surface control of the prototype, by identity.
+/// Every focusable surface control of the prototype, by identity. There is no switcher (D-044):
+/// a stat is changed by closing its detail and picking another primary.
 enum FloatingTileTarget: Hashable, Sendable {
     case tile(StatKind)
-    case switcher(StatKind)
-    case allStatistics
     case handle, settings, quit
 }
 
@@ -36,17 +32,25 @@ enum FloatingTileDirection: Sendable, CaseIterable {
     case left, right, up, down
 }
 
-/// The side of the overview a stat's detail card opens on.
+/// The side of its primary (overview tile) a stat's detail opens on. Always sideways (D-044).
 enum FloatingTileSide: Sendable, CaseIterable {
-    case left, right, top, bottom
+    case left, right
+
+    var opposite: FloatingTileSide { self == .left ? .right : .left }
+}
+
+/// Which edge of its primary a detail lines up with: top-half primaries align top edges,
+/// bottom-half (bottom-row) primaries align bottom edges.
+enum FloatingTileAlignment: Sendable, CaseIterable {
+    case top, bottom
 }
 
 /// The frozen geometry of one summon, in a top-left-origin space of size `size` (the host
-/// window). The core — group bar, overview and the reserved switcher column — never moves while
-/// a card is open; each stat's detail card has its own frozen frame beside the core, on the side
-/// nearest its tile (falling back when the display has no room there). Built once at summon from
-/// the enabled identities, the measured detail sizes and the display region; sample updates never
-/// rebuild it, so tiles, the switcher and its targets cannot move during a summon.
+/// window). The core — group bar and overview — never moves. Clicking a primary hides the other
+/// primaries; the clicked one stays exactly where it is and its detail opens sideways beside it,
+/// toward the larger part of the old overview footprint (D-044). Each stat's detail frame is
+/// frozen at summon from the enabled identities, the measured detail sizes and the display
+/// region; sample updates never rebuild it, so nothing can move during a summon.
 struct FloatingTilePlan: Equatable, Sendable {
     let kinds: [StatKind]
     let metrics: FloatingTileMetrics
@@ -54,15 +58,19 @@ struct FloatingTilePlan: Equatable, Sendable {
     let columns: Int
     /// The whole footprint (core plus every detail frame), which is also the host window's size.
     let size: CGSize
-    /// Group bar, overview and switcher column, inside `size`.
+    /// Group bar and overview, inside `size`.
     let coreFrame: CGRect
+    /// The overview footprint (all primaries, or their scrolling viewport) below the bar.
+    let overviewFrame: CGRect
     let barFrame: CGRect
     let barItemFrames: [FloatingTileTarget: CGRect]
     let tileFrames: [StatKind: CGRect]
-    /// Each stat's detail frame beside the core, height-limited to the display region.
+    /// Each stat's detail frame beside its primary, height-limited to the display region.
     let detailFrames: [StatKind: CGRect]
-    /// The side each stat's detail opens on.
+    /// The side of its primary each stat's detail opens on.
     let detailSides: [StatKind: FloatingTileSide]
+    /// The primary edge each stat's detail lines up with.
+    let detailAlignments: [StatKind: FloatingTileAlignment]
     /// Stats whose measured detail is taller than its frame; only these scroll.
     let scrollingDetails: Set<StatKind>
     /// The visible overview region when the overview is taller than the available space (it then
@@ -74,8 +82,6 @@ struct FloatingTilePlan: Equatable, Sendable {
     let scrollerReserve: CGFloat
     /// The compact empty state shown instead of tiles when no stat is enabled; nil otherwise.
     let emptyStateFrame: CGRect?
-    let switcherFrame: CGRect
-    let switcherItemFrames: [FloatingTileTarget: CGRect]
     /// False when even the reduced core exceeds the available space (the prototype's stop
     /// condition: navigation would not stay reachable without clipping).
     let fits: Bool
@@ -85,7 +91,7 @@ struct FloatingTilePlan: Equatable, Sendable {
 
     /// Builds the plan once per summon. Columns reduce 4 → 2 only when the core is wider than
     /// `available`.
-    /// - Parameter bounds: the display region the cards must stay inside, in the core's own
+    /// - Parameter bounds: the display region details must stay inside, in the core's own
     ///   top-left coordinates (core origin at 0,0). Nil centres the core in `available`.
     static func make(kinds: [StatKind], detailSizes: [StatKind: CGSize], available: CGSize,
                      bounds: CGRect? = nil, scrollerReserve: CGFloat = 0,
@@ -114,124 +120,115 @@ struct FloatingTilePlan: Equatable, Sendable {
         // Height of the overview content below the bar.
         let overviewHeight = (emptyState?.maxY ?? tiles.values.map(\.maxY).max() ?? top) - top
         // Limited space: an overview taller than the display scrolls inside a viewport, with the
-        // switcher column and group bar outside it (navigation always reachable); type never shrinks.
+        // group bar outside it (navigation always reachable); type never shrinks.
         let overviewViewport: CGRect? = overviewHeight > maxContentHeight + 0.5
             ? CGRect(x: 0, y: top, width: overviewWidth + reserve, height: maxContentHeight) : nil
         let overviewFootprintWidth = overviewViewport?.width ?? overviewWidth
         let overviewRect = CGRect(x: 0, y: top, width: overviewFootprintWidth,
                                   height: overviewViewport?.height ?? overviewHeight)
 
-        // Switcher: reserved column right of the overview (shown only while a card is open), two
-        // columns in saved order, then "All statistics".
-        let switcherX = overviewFootprintWidth + m.gap
-        let itemWidth = (m.switcherWidth - m.switcherPadding * 3) / 2
-        var items: [FloatingTileTarget: CGRect] = [:]
-        for (index, kind) in kinds.enumerated() {
-            let column = CGFloat(index % 2), row = CGFloat(index / 2)
-            items[.switcher(kind)] = CGRect(
-                x: switcherX + m.switcherPadding + column * (itemWidth + m.switcherPadding),
-                y: top + m.switcherPadding + row * (m.switcherItemHeight + m.switcherPadding),
-                width: itemWidth, height: m.switcherItemHeight)
-        }
-        let rows = CGFloat((kinds.count + 1) / 2)
-        let allY = top + m.switcherPadding + rows * (m.switcherItemHeight + m.switcherPadding)
-        items[.allStatistics] = CGRect(x: switcherX + m.switcherPadding, y: allY,
-                                       width: m.switcherWidth - m.switcherPadding * 2, height: m.switcherAllHeight)
-        let switcherHeight = allY + m.switcherAllHeight + m.switcherPadding - top
-        let switcher = CGRect(x: switcherX, y: top, width: m.switcherWidth, height: switcherHeight)
-
         // Group bar above the overview's right edge: move handle, Settings, Quit.
-        let barX = max(0, overviewFootprintWidth - m.switcherWidth)
-        let bar = CGRect(x: barX, y: 0, width: m.switcherWidth, height: m.barHeight)
-        let barItem = (m.switcherWidth - 4 * 2) / 3
+        let barX = max(0, overviewFootprintWidth - m.barWidth)
+        let bar = CGRect(x: barX, y: 0, width: m.barWidth, height: m.barHeight)
+        let barItem = (m.barWidth - 4 * 2) / 3
         var barItems: [FloatingTileTarget: CGRect] = [:]
         for (index, target) in [FloatingTileTarget.handle, .settings, .quit].enumerated() {
             barItems[target] = CGRect(x: barX + 2 + CGFloat(index) * (barItem + 2), y: 2,
                                       width: barItem, height: m.barHeight - 4)
         }
 
-        let core = CGRect(x: 0, y: 0, width: switcher.maxX,
-                          height: top + max(overviewRect.height, switcherHeight))
+        let core = CGRect(x: 0, y: 0, width: max(overviewFootprintWidth, bar.maxX), height: top + overviewRect.height)
         let bounds = requestedBounds ?? CGRect(x: (core.width - available.width) / 2,
                                                y: (core.height - available.height) / 2,
                                                width: available.width, height: available.height)
 
-        // Details: content-sized cards beside the core, on the side nearest their tile.
+        // Details: content-sized, beside their primary, toward the old overview's larger part.
         var scrolling = Set<StatKind>()
         var details: [StatKind: CGRect] = [:]
         var sides: [StatKind: FloatingTileSide] = [:]
+        var alignments: [StatKind: FloatingTileAlignment] = [:]
         for kind in kinds {
             let measured = detailSizes[kind] ?? CGSize(width: overviewWidth / 2, height: m.rowHeight)
-            let scrolls = measured.height > bounds.height + 0.5
-            if scrolls { scrolling.insert(kind) }
-            let size = CGSize(width: min(measured.width + (scrolls ? reserve : 0), bounds.width),
-                              height: min(measured.height, bounds.height))
             let tile = tiles[kind] ?? overviewRect
-            let placed = placeDetail(size: size, tile: tile, overview: overviewRect, core: core,
+            var placed = placeDetail(size: measured, tile: tile, overview: overviewRect, bar: bar,
                                      bounds: bounds, gap: m.gap)
+            // A scrolling detail gets a legacy scroll bar's width beside its measured content.
+            if placed.scrolls, reserve > 0 {
+                placed = placeDetail(size: CGSize(width: measured.width + reserve, height: measured.height),
+                                     tile: tile, overview: overviewRect, bar: bar, bounds: bounds, gap: m.gap)
+            }
+            if placed.scrolls { scrolling.insert(kind) }
             details[kind] = placed.frame
             sides[kind] = placed.side
+            alignments[kind] = placed.alignment
         }
 
-        // The host covers the core and every card; shift everything so it starts at 0,0.
+        // The host covers the core and every detail; shift everything so it starts at 0,0.
         let union = details.values.reduce(core) { $0.union($1) }
         let dx = -union.minX, dy = -union.minY
         func shift(_ r: CGRect) -> CGRect { r.offsetBy(dx: dx, dy: dy) }
 
-        let fits = core.width <= available.width + 0.5 && top + switcherHeight <= available.height + 0.5
+        let fits = core.width <= available.width + 0.5
+            && top + min(overviewHeight, m.rowHeight) <= available.height + 0.5
         return FloatingTilePlan(kinds: kinds, metrics: m, columns: columns, size: union.size,
-                                coreFrame: shift(core), barFrame: shift(bar),
+                                coreFrame: shift(core), overviewFrame: shift(overviewRect), barFrame: shift(bar),
                                 barItemFrames: barItems.mapValues(shift), tileFrames: tiles.mapValues(shift),
                                 detailFrames: details.mapValues(shift), detailSides: sides,
-                                scrollingDetails: scrolling, overviewViewport: overviewViewport.map(shift),
-                                scrollerReserve: reserve, emptyStateFrame: emptyState.map(shift),
-                                switcherFrame: shift(switcher), switcherItemFrames: items.mapValues(shift),
-                                fits: fits)
+                                detailAlignments: alignments, scrollingDetails: scrolling,
+                                overviewViewport: overviewViewport.map(shift), scrollerReserve: reserve,
+                                emptyStateFrame: emptyState.map(shift), fits: fits)
     }
 
-    /// Sides in order of preference for a tile: nearest overview edge to the tile's centre (left/
-    /// right win near-ties, so corner tiles open sideways), then the opposite side, then the other
-    /// axis, nearest first.
-    static func preferredSides(tile: CGRect, overview: CGRect) -> [FloatingTileSide] {
-        guard overview.width > 0, overview.height > 0 else { return [.right, .left, .bottom, .top] }
-        let left = (tile.midX - overview.minX) / overview.width
-        let right = (overview.maxX - tile.midX) / overview.width
-        let up = (tile.midY - overview.minY) / overview.height
-        let down = (overview.maxY - tile.midY) / overview.height
-        let horizontal: [FloatingTileSide] = left <= right ? [.left, .right] : [.right, .left]
-        let vertical: [FloatingTileSide] = up < down ? [.top, .bottom] : [.bottom, .top]
-        let horizontalBias: CGFloat = 0.03
-        return min(left, right) <= min(up, down) + horizontalBias ? horizontal + vertical : vertical + horizontal
+    /// Toward the larger part of the overview footprint: a primary in the left half opens its
+    /// detail to the right, one in the right half to the left. A centred (full-width) primary
+    /// opens to the right.
+    static func preferredSide(tile: CGRect, overview: CGRect) -> FloatingTileSide {
+        tile.midX <= overview.midX + 0.5 ? .right : .left
     }
 
-    /// The first preferred side whose card fits the display without crossing the core; along the
-    /// card's edge it lines up with the tile and is clamped into `bounds`. When no side fits, the
-    /// side with the most room is used and the card is clamped into `bounds`.
-    static func placeDetail(size: CGSize, tile: CGRect, overview: CGRect, core: CGRect,
-                            bounds: CGRect, gap: CGFloat) -> (frame: CGRect, side: FloatingTileSide) {
-        func clampX(_ x: CGFloat) -> CGFloat { min(max(x, bounds.minX), bounds.maxX - size.width) }
-        func clampY(_ y: CGFloat) -> CGFloat { min(max(y, bounds.minY), bounds.maxY - size.height) }
-        func frame(_ side: FloatingTileSide) -> CGRect {
-            switch side {
-            case .left: return CGRect(x: core.minX - gap - size.width, y: clampY(tile.minY), width: size.width, height: size.height)
-            case .right: return CGRect(x: core.maxX + gap, y: clampY(tile.minY), width: size.width, height: size.height)
-            case .top: return CGRect(x: clampX(tile.minX), y: core.minY - gap - size.height, width: size.width, height: size.height)
-            case .bottom: return CGRect(x: clampX(tile.minX), y: core.maxY + gap, width: size.width, height: size.height)
-            }
-        }
+    /// Top-half primaries line up top edges; bottom-half (bottom-row) primaries line up bottom
+    /// edges. A primary spanning the whole height aligns top.
+    static func alignment(tile: CGRect, overview: CGRect) -> FloatingTileAlignment {
+        tile.midY <= overview.midY + 0.5 ? .top : .bottom
+    }
+
+    /// Places one detail beside its primary, which never moves:
+    /// - side: the preferred side (`preferredSide`) if the detail fits the display there, else the
+    ///   opposite side; if neither fits, the side with more room, clamped into `bounds` (only on
+    ///   displays too narrow for the detail — the measured width never shrinks, so text does not);
+    /// - vertical: top or bottom edge level with the primary (`alignment`), clamped into `bounds`,
+    ///   kept clear of the group bar, and height-limited; a limited detail scrolls.
+    static func placeDetail(size: CGSize, tile: CGRect, overview: CGRect, bar: CGRect, bounds: CGRect,
+                            gap: CGFloat) -> (frame: CGRect, side: FloatingTileSide,
+                                              alignment: FloatingTileAlignment, scrolls: Bool) {
+        let width = min(size.width, bounds.width)
+        func x(_ side: FloatingTileSide) -> CGFloat { side == .right ? tile.maxX + gap : tile.minX - gap - width }
         func room(_ side: FloatingTileSide) -> CGFloat {
-            switch side {
-            case .left: return core.minX - gap - bounds.minX - size.width
-            case .right: return bounds.maxX - core.maxX - gap - size.width
-            case .top: return core.minY - gap - bounds.minY - size.height
-            case .bottom: return bounds.maxY - core.maxY - gap - size.height
-            }
+            side == .right ? bounds.maxX - (tile.maxX + gap) : (tile.minX - gap) - bounds.minX
         }
-        let order = preferredSides(tile: tile, overview: overview)
-        if let side = order.first(where: { room($0) >= -0.5 }) { return (frame(side), side) }
-        let side = order.max { room($0) < room($1) } ?? .right
-        let f = frame(side)
-        return (CGRect(origin: CGPoint(x: clampX(f.minX), y: clampY(f.minY)), size: size), side)
+        let preferred = preferredSide(tile: tile, overview: overview)
+        let side: FloatingTileSide
+        var fx: CGFloat
+        if let fitting = [preferred, preferred.opposite].first(where: { room($0) >= width - 0.5 }) {
+            side = fitting
+            fx = x(side)
+        } else {
+            side = room(preferred.opposite) > room(preferred) + 0.5 ? preferred.opposite : preferred
+            fx = min(max(x(side), bounds.minX), bounds.maxX - width)
+        }
+        fx = fx.rounded()
+
+        let align = alignment(tile: tile, overview: overview)
+        var height = min(size.height, bounds.height)
+        var fy = align == .top ? tile.minY : tile.maxY - height
+        fy = min(max(fy, bounds.minY), bounds.maxY - height)
+        // The group bar stays reachable: a detail that would reach it starts below it instead.
+        let barZone = bar.insetBy(dx: -gap + 0.5, dy: -gap + 0.5)
+        if barZone.intersects(CGRect(x: fx, y: fy, width: width, height: height)) {
+            fy = max(fy, bar.maxY + gap)
+            height = min(height, max(0, bounds.maxY - fy))
+        }
+        return (CGRect(x: fx, y: fy, width: width, height: height), side, align, size.height > height + 0.5)
     }
 
     /// First enabled stat spans 2×2 cells, the next two span 2×1, the rest 1×1; packed in saved
@@ -263,18 +260,17 @@ struct FloatingTilePlan: Equatable, Sendable {
         return frames
     }
 
-    /// Frames of the targets reachable in the given mode, for focus traversal.
-    func targetFrames(detail: Bool) -> [FloatingTileTarget: CGRect] {
+    /// Frames of the targets reachable in the given mode, for focus traversal. With a detail open
+    /// only its primary and the group bar remain (the other primaries are hidden).
+    func targetFrames(open: StatKind?) -> [FloatingTileTarget: CGRect] {
         var frames = barItemFrames
-        for (kind, frame) in tileFrames { frames[.tile(kind)] = frame }
-        // The overview stays while a card is open; the switcher is shown (and reachable) beside it.
-        if detail { frames.merge(switcherItemFrames) { a, _ in a } }
+        for (kind, frame) in tileFrames where open == nil || open == kind { frames[.tile(kind)] = frame }
         return frames
     }
 
     /// The visual neighbour of `target` in `direction`, from actual frames (not list indices).
-    func neighbour(of target: FloatingTileTarget, _ direction: FloatingTileDirection, detail: Bool) -> FloatingTileTarget? {
-        Self.neighbour(of: target, direction, in: targetFrames(detail: detail))
+    func neighbour(of target: FloatingTileTarget, _ direction: FloatingTileDirection, open: StatKind?) -> FloatingTileTarget? {
+        Self.neighbour(of: target, direction, in: targetFrames(open: open))
     }
 
     /// Candidates lie wholly beyond the source edge in `direction`; the nearest wins, with

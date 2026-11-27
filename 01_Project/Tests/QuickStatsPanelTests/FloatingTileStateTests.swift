@@ -1,7 +1,8 @@
 import XCTest
 
 #if DEBUG
-/// The floating-tile interaction loop: summon, select, switch, return, staged Escape, dismiss.
+/// The floating-tile interaction loop (D-044): summon, open a primary's detail (others hide),
+/// return via the same primary or Escape, a second Escape dismisses. There is no switcher.
 final class FloatingTileStateTests: XCTestCase {
 
     private let plan = FloatingTilePlan.make(kinds: [.cpu, .network],
@@ -17,28 +18,53 @@ final class FloatingTileStateTests: XCTestCase {
         XCTAssertEqual(s.entryTarget(kinds: plan.kinds), .tile(.cpu), "keyboard entry starts at the first tile")
     }
 
-    func testOpenSwitchReturnAndDismissJourney() {
+    func testOpenReturnAndDismissJourney() {
         var s = FloatingTileState()
         _ = s.summon()
-        XCTAssertEqual(s.select(.cpu, from: .tile(.cpu), plan: plan), .showDetail(.cpu, focus: .tile(.cpu)),
-                       "focus stays on the tile; the overview stays")
+        XCTAssertEqual(s.visiblePrimaries(in: plan.kinds), [.cpu, .network])
+        XCTAssertEqual(s.select(.cpu, from: .tile(.cpu), plan: plan),
+                       .showDetail(.cpu, hiding: [.network], focus: .tile(.cpu)),
+                       "the other primaries hide; focus stays on the clicked primary")
         XCTAssertEqual(s.mode, .detail(.cpu))
+        XCTAssertEqual(s.visiblePrimaries(in: plan.kinds), [.cpu], "only the clicked primary remains")
         XCTAssertEqual(s.entryTarget(kinds: plan.kinds), .tile(.cpu))
-        XCTAssertEqual(s.select(.cpu, from: .switcher(.cpu), plan: plan), .none, "the current switcher item is inert")
-        XCTAssertEqual(s.select(.network, from: .switcher(.network), plan: plan), .showDetail(.network, focus: .switcher(.network)))
-        XCTAssertEqual(s.returnToOverview(), .showOverview(focus: .tile(.network)), "focus returns to the selected tile")
+        XCTAssertEqual(s.returnToOverview(), .showOverview(focus: .tile(.cpu)), "focus returns to the primary")
         XCTAssertEqual(s.mode, .overview)
+        XCTAssertEqual(s.visiblePrimaries(in: plan.kinds), [.cpu, .network], "all primaries return")
         XCTAssertEqual(s.dismiss(), .dismiss)
         XCTAssertEqual(s.mode, .hidden)
+        XCTAssertEqual(s.visiblePrimaries(in: plan.kinds), [])
         XCTAssertEqual(s.dismiss(), .none, "redundant dismissal is a no-op")
+    }
+
+    func testHidingListsEveryOtherPrimaryInSavedOrder() {
+        let wide = FloatingTilePlan.make(kinds: [.disk, .cpu, .gpu, .memory], detailSizes: [:],
+                                         available: CGSize(width: 1400, height: 860))
+        var s = FloatingTileState()
+        _ = s.summon()
+        XCTAssertEqual(s.select(.gpu, from: .tile(.gpu), plan: wide),
+                       .showDetail(.gpu, hiding: [.disk, .cpu, .memory], focus: .tile(.gpu)))
+    }
+
+    func testChangingStatRequiresReturningFirst() {
+        var s = FloatingTileState()
+        _ = s.summon()
+        _ = s.select(.cpu, from: .tile(.cpu), plan: plan)
+        XCTAssertEqual(s.select(.network, from: .tile(.network), plan: plan), .none,
+                       "a hidden primary cannot switch the detail (no switcher)")
+        XCTAssertEqual(s.mode, .detail(.cpu))
+        XCTAssertEqual(s.escape(), .showOverview(focus: .tile(.cpu)))
+        XCTAssertEqual(s.select(.network, from: .tile(.network), plan: plan),
+                       .showDetail(.network, hiding: [.cpu], focus: .tile(.network)))
     }
 
     func testEscapeIsStaged() {
         var s = FloatingTileState()
         _ = s.summon()
         _ = s.select(.network, from: .tile(.network), plan: plan)
-        XCTAssertEqual(s.escape(), .showOverview(focus: .tile(.network)))
-        XCTAssertEqual(s.escape(), .dismiss)
+        XCTAssertEqual(s.escape(), .showOverview(focus: .tile(.network)), "first Escape: all primaries return")
+        XCTAssertEqual(s.visiblePrimaries(in: plan.kinds), [.cpu, .network])
+        XCTAssertEqual(s.escape(), .dismiss, "second Escape dismisses")
         XCTAssertEqual(s.escape(), .none)
     }
 
@@ -70,15 +96,20 @@ final class FloatingTileStateTests: XCTestCase {
         XCTAssertNil(s.moveFocus(.left, plan: plan), "edge keeps focus")
         XCTAssertEqual(s.focus, .tile(.cpu))
         _ = s.select(.cpu, from: .tile(.cpu), plan: plan)
-        XCTAssertEqual(s.moveFocus(.right, plan: plan), .tile(.network), "tiles stay navigable with a card open")
+        XCTAssertNotEqual(s.moveFocus(.right, plan: plan), .tile(.network), "hidden primaries are not focus targets")
+        s.focus(.tile(.cpu))
+        XCTAssertNil(s.moveFocus(.left, plan: plan))
+        XCTAssertNil(s.moveFocus(.down, plan: plan))
     }
 
-    func testSelectingTheOpenTileAgainClosesItsCard() {
+    func testSelectingTheOpenPrimaryAgainReturnsThenEscapeDismisses() {
         var s = FloatingTileState()
         _ = s.summon()
         _ = s.select(.network, from: .tile(.network), plan: plan)
         XCTAssertEqual(s.select(.network, from: .tile(.network), plan: plan), .showOverview(focus: .tile(.network)))
         XCTAssertEqual(s.mode, .overview)
+        XCTAssertEqual(s.visiblePrimaries(in: plan.kinds), [.cpu, .network])
+        XCTAssertEqual(s.escape(), .dismiss)
     }
 
     func testFocusIsIgnoredWhileHidden() {

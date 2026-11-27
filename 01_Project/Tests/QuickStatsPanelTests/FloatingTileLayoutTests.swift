@@ -1,9 +1,10 @@
 import XCTest
 
 #if DEBUG
-/// Frozen floating-tile geometry: packing, a fixed core (bar, overview, switcher column), detail
-/// cards beside the core on the side nearest their tile, column reduction and visual-neighbour
-/// navigation. Core-relative frames use `c(_:_:)` because cards to the left/top shift the core.
+/// Frozen floating-tile geometry: packing, a fixed core (bar, overview), details opening sideways
+/// from their primary toward the larger part of the old overview (D-044), column reduction and
+/// visual-neighbour navigation. Core-relative frames use `c(_:_:)` because details to the
+/// left/top shift the core inside the host.
 final class FloatingTileLayoutTests: XCTestCase {
 
     private let roomy = CGSize(width: 1400, height: 860)
@@ -26,7 +27,7 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertEqual(p.metrics.columnWidth, 111)
         XCTAssertEqual(c(p, p.tileFrames[.cpu]), CGRect(x: 0, y: 40, width: 234, height: 212))
         XCTAssertEqual(c(p, p.tileFrames[.network]), CGRect(x: 246, y: 40, width: 234, height: 100))
-        XCTAssertEqual(p.coreFrame.width, 480 + 12 + 106, "the 480-point overview plus the reserved switcher column")
+        XCTAssertEqual(p.coreFrame.width, 480, "just the overview: no switcher column (D-044)")
         XCTAssertTrue(p.fits)
     }
 
@@ -41,27 +42,24 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertEqual(p.tileFrames[.network]?.size, CGSize(width: 111, height: 100), "the rest are 1×1")
     }
 
-    func testSwitcherSitsRightOfTheOverviewAndNoCardOverlapsTheCore() {
+    func testBarSitsAboveTheOverviewsRightEdgeAndNoDetailCoversItOrItsPrimary() {
         let p = plan()
-        XCTAssertEqual(p.switcherFrame.maxX, p.coreFrame.maxX)
-        XCTAssertEqual(p.switcherFrame.minX, p.contentOrigin.x + 480 + 12)
-        XCTAssertEqual(p.switcherFrame.width, 106)
         XCTAssertEqual(p.barFrame.maxX, p.contentOrigin.x + 480, "the bar sits above the overview's right edge")
+        XCTAssertEqual(p.barFrame.width, 106)
+        XCTAssertEqual(p.overviewFrame, CGRect(origin: p.contentOrigin, size: CGSize(width: 480, height: 212)))
         for kind in p.kinds {
             let detail = try! XCTUnwrap(p.detailFrames[kind])
-            XCTAssertFalse(detail.intersects(p.coreFrame.insetBy(dx: -11, dy: -11)), "\(kind) card keeps the gap to the core")
+            XCTAssertFalse(detail.intersects(p.barFrame.insetBy(dx: -11, dy: -11)), "\(kind) detail keeps clear of the bar")
+            XCTAssertFalse(detail.intersects(try! XCTUnwrap(p.tileFrames[kind]).insetBy(dx: -11, dy: 0)),
+                           "\(kind) detail sits beside its primary, with the gap")
             XCTAssertTrue(CGRect(origin: .zero, size: p.size).contains(detail))
-        }
-        for (target, frame) in p.switcherItemFrames {
-            XCTAssertTrue(p.switcherFrame.contains(frame), "\(target) inside the switcher")
         }
     }
 
     func testWideDetailNeverResizesTheCore() {
         let p = plan(details: [.cpu: CGSize(width: 244, height: 300), .network: CGSize(width: 400, height: 300)])
-        XCTAssertEqual(p.coreFrame.width, 480 + 12 + 106)
+        XCTAssertEqual(p.coreFrame.width, 480)
         XCTAssertEqual(p.detailFrames[.network]?.width, 400)
-        XCTAssertEqual(c(p, p.switcherFrame)?.minX, 480 + 12, "one switcher position for every detail")
     }
 
     func testOversizedDetailIsHeightLimitedAndOnlyItScrolls() {
@@ -83,7 +81,7 @@ final class FloatingTileLayoutTests: XCTestCase {
     }
 
     func testTooNarrowForTheMinimumIsReported() {
-        let p = plan(available: CGSize(width: 300, height: 900))
+        let p = plan(available: CGSize(width: 200, height: 900))
         XCTAssertFalse(p.fits, "the stop condition is visible, not silently clipped")
         XCTAssertEqual(p.columns, 2)
     }
@@ -94,31 +92,31 @@ final class FloatingTileLayoutTests: XCTestCase {
 
     func testOverviewArrowsFollowVisualNeighbours() {
         let p = plan()
-        XCTAssertEqual(p.neighbour(of: .tile(.cpu), .right, detail: false), .tile(.network))
-        XCTAssertEqual(p.neighbour(of: .tile(.network), .left, detail: false), .tile(.cpu))
-        XCTAssertNil(p.neighbour(of: .tile(.cpu), .left, detail: false))
-        XCTAssertNil(p.neighbour(of: .tile(.cpu), .down, detail: false))
-        if case .tile = p.neighbour(of: .tile(.network), .up, detail: false) { XCTFail("nothing above but the bar") }
-        XCTAssertNotNil(p.neighbour(of: .tile(.network), .up, detail: false), "the group bar is above Network")
+        XCTAssertEqual(p.neighbour(of: .tile(.cpu), .right, open: nil), .tile(.network))
+        XCTAssertEqual(p.neighbour(of: .tile(.network), .left, open: nil), .tile(.cpu))
+        XCTAssertNil(p.neighbour(of: .tile(.cpu), .left, open: nil))
+        XCTAssertNil(p.neighbour(of: .tile(.cpu), .down, open: nil))
+        if case .tile = p.neighbour(of: .tile(.network), .up, open: nil) { XCTFail("nothing above but the bar") }
+        XCTAssertNotNil(p.neighbour(of: .tile(.network), .up, open: nil), "the group bar is above Network")
     }
 
-    func testSwitcherArrowsFollowItsTwoColumnGrid() {
-        let p = plan()
-        XCTAssertEqual(p.neighbour(of: .switcher(.cpu), .right, detail: true), .switcher(.network))
-        XCTAssertEqual(p.neighbour(of: .switcher(.network), .left, detail: true), .switcher(.cpu))
-        XCTAssertEqual(p.neighbour(of: .switcher(.cpu), .down, detail: true), .allStatistics)
-        XCTAssertEqual(p.neighbour(of: .switcher(.network), .down, detail: true), .allStatistics)
-        XCTAssertEqual(p.neighbour(of: .tile(.cpu), .right, detail: true), .tile(.network),
-                       "the overview stays reachable while a card is open")
+    func testOpenDetailLeavesOnlyItsPrimaryAndTheBarAsTargets() {
+        let p = plan(StatKind.allCases, details: details)
+        XCTAssertEqual(Set(p.targetFrames(open: .network).keys), [.tile(.network), .handle, .settings, .quit],
+                       "the other primaries are hidden, and there is no switcher")
+        XCTAssertEqual(Set(p.targetFrames(open: nil).keys).count, 11 + 3, "every primary plus the bar in the overview")
+        XCTAssertNotEqual(p.neighbour(of: .tile(.cpu), .right, open: .cpu), .tile(.memory), "hidden primaries are skipped")
+        let up = p.neighbour(of: .tile(.memory), .up, open: .memory)
+        XCTAssertTrue([FloatingTileTarget.handle, .settings, .quit].contains(up), "the bar stays reachable")
     }
 
     func testElevenStatOverviewNeighboursAreGeometric() {
         let p = plan(StatKind.allCases, details: [:])
         // Row 0: CPU (0-1, 2 rows), Memory (2-3). Row 1: Disk (2-3). Row 2: Network, Battery, GPU, Fans.
-        XCTAssertEqual(p.neighbour(of: .tile(.memory), .down, detail: false), .tile(.disk))
-        XCTAssertEqual(p.neighbour(of: .tile(.cpu), .right, detail: false), .tile(.memory))
-        XCTAssertEqual(p.neighbour(of: .tile(.network), .up, detail: false), .tile(.cpu))
-        XCTAssertEqual(p.neighbour(of: .tile(.gpu), .up, detail: false), .tile(.disk))
+        XCTAssertEqual(p.neighbour(of: .tile(.memory), .down, open: nil), .tile(.disk))
+        XCTAssertEqual(p.neighbour(of: .tile(.cpu), .right, open: nil), .tile(.memory))
+        XCTAssertEqual(p.neighbour(of: .tile(.network), .up, open: nil), .tile(.cpu))
+        XCTAssertEqual(p.neighbour(of: .tile(.gpu), .up, open: nil), .tile(.disk))
     }
 
     // MARK: Task 2.1 — hierarchy, identity counts and frozen constants
@@ -129,11 +127,11 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertEqual(m.columns, 4)
         XCTAssertEqual(m.rowHeight, 100)
         XCTAssertEqual(m.gap, 12)
-        XCTAssertEqual(m.switcherWidth, 106)
+        XCTAssertEqual(m.barWidth, 106)
         XCTAssertEqual(m.minimumColumns, 2)
     }
 
-    func testSavedOrderDrivesHierarchyAndSwitcher() {
+    func testSavedOrderDrivesHierarchy() {
         let order: [StatKind] = [.uptime, .gpu, .memory, .cpu, .fan]
         let p = plan(order, details: [:])
         XCTAssertEqual(p.tileFrames[.uptime]?.size, CGSize(width: 234, height: 212), "first is the large tile")
@@ -142,13 +140,6 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertEqual(p.tileFrames[.cpu]?.size, CGSize(width: 111, height: 100), "the rest are 1×1")
         XCTAssertEqual(p.tileFrames[.cpu]?.origin.y, p.tileFrames[.fan]?.origin.y)
         XCTAssertLessThan(try! XCTUnwrap(p.tileFrames[.cpu]).minX, try! XCTUnwrap(p.tileFrames[.fan]).minX)
-        // The switcher lists the same saved order, two per row, row-major.
-        let items = order.map { try! XCTUnwrap(p.switcherItemFrames[.switcher($0)]) }
-        XCTAssertEqual(items[0].minY, items[1].minY)
-        XCTAssertLessThan(items[0].minX, items[1].minX)
-        XCTAssertEqual(items[2].minY, items[3].minY)
-        XCTAssertGreaterThan(items[2].minY, items[0].minY)
-        XCTAssertGreaterThan(items[4].minY, items[2].minY)
     }
 
     func testReorderingChangesTheLargeTileButNothingElseDependsOnReadings() {
@@ -162,22 +153,21 @@ final class FloatingTileLayoutTests: XCTestCase {
     func testElevenStatFootprintFitsAComfortableDisplayAndStaysInsideItself() {
         let p = plan(StatKind.allCases, details: [:], available: CGSize(width: 1400, height: 860))
         XCTAssertTrue(p.fits)
-        let all = Array(p.tileFrames.values) + [p.switcherFrame, p.barFrame]
+        let all = Array(p.tileFrames.values) + [p.barFrame] + Array(p.detailFrames.values)
         let bounds = CGRect(origin: .zero, size: p.size)
         for frame in all { XCTAssertTrue(bounds.contains(frame), "\(frame) inside \(bounds)") }
         for kind in StatKind.allCases {
-            XCTAssertNotNil(p.switcherItemFrames[.switcher(kind)], "\(kind) reachable in the switcher")
             XCTAssertNotNil(p.tileFrames[kind], "\(kind) has a tile")
+            XCTAssertNotNil(p.detailFrames[kind], "\(kind) has a frozen detail frame")
         }
         XCTAssertNil(p.emptyStateFrame)
     }
 
-    func testOneStatKeepsTheLargeTileAndTheSwitcher() {
+    func testOneStatKeepsTheLargeTileAndOpensRight() {
         let p = plan([.memory], details: [:])
         XCTAssertEqual(p.tileFrames[.memory]?.size, CGSize(width: 234, height: 212))
         XCTAssertEqual(p.tileFrames.count, 1)
-        XCTAssertNotNil(p.switcherItemFrames[.switcher(.memory)])
-        XCTAssertNotNil(p.switcherItemFrames[.allStatistics])
+        XCTAssertEqual(p.detailSides[.memory], .right, "left half of the overview opens right")
         XCTAssertTrue(p.fits)
     }
 
@@ -222,9 +212,8 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertEqual(viewport.origin, p.contentOrigin)
         XCTAssertEqual(viewport.height, 600 - 40)
         XCTAssertLessThanOrEqual(p.size.height, available.height)
-        XCTAssertLessThanOrEqual(viewport.maxX + 12, p.switcherFrame.minX, "the switcher never overlaps the overview")
-        XCTAssertTrue(p.fits, "navigation (bar and switcher) still fits")
-        XCTAssertTrue(CGRect(origin: .zero, size: p.size).contains(p.switcherFrame))
+        XCTAssertTrue(p.fits, "navigation (the bar) still fits")
+        XCTAssertFalse(viewport.intersects(p.barFrame), "the bar stays outside the scrolling overview")
         XCTAssertEqual(p.tileFrames[.cpu]?.size, CGSize(width: 234, height: 212), "type and tile sizes never shrink")
     }
 
@@ -236,19 +225,18 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertEqual(overlay.detailFrames[.network]?.width, 284)
         XCTAssertEqual(legacy.detailFrames[.network]?.width, 284 + 15, "the scrolling card gets the scroll bar's width")
         XCTAssertEqual(legacy.detailFrames[.cpu]?.width, 244, "a card that fits keeps its measured width")
-        XCTAssertEqual(legacy.switcherFrame.maxX, legacy.coreFrame.maxX, "one switcher position, chosen at summon")
-        XCTAssertFalse(try! XCTUnwrap(legacy.detailFrames[.network]).intersects(legacy.coreFrame))
+        XCTAssertFalse(try! XCTUnwrap(legacy.detailFrames[.network]).intersects(try! XCTUnwrap(legacy.tileFrames[.network])))
         let wide = FloatingTilePlan.make(kinds: [.cpu, .network], detailSizes: [.network: CGSize(width: 400, height: 560)],
                                          available: short, scrollerReserve: 15)
         XCTAssertEqual(wide.detailFrames[.network]?.width, 400 + 15, "the reserve widens only the scrolling card")
-        XCTAssertEqual(wide.coreFrame.width, 480 + 12 + 106, "and never the core")
+        XCTAssertEqual(wide.coreFrame.width, 480, "and never the core")
         XCTAssertEqual(legacy.scrollingDetails, [.network])
         let roomyLegacy = FloatingTilePlan.make(kinds: [.cpu, .network], detailSizes: details, available: roomy,
                                                 scrollerReserve: 15)
         XCTAssertEqual(roomyLegacy, plan().withReserve(15), "nothing scrolls, so nothing is reserved")
     }
 
-    func testShortAndLongCardsShareOneSwitcher() {
+    func testShortAndLongDetailsAreEachContentSized() {
         let p = plan(StatKind.allCases, details: [.cpu: CGSize(width: 244, height: 330),
                                                   .network: CGSize(width: 284, height: 560),
                                                   .uptime: CGSize(width: 200, height: 90)],
@@ -256,7 +244,9 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertEqual(p.scrollingDetails, [.network], "only the oversized card scrolls")
         XCTAssertEqual(p.detailFrames[.uptime]?.height, 90, "a short card stays content-sized")
         for kind in [StatKind.cpu, .network, .uptime] {
-            XCTAssertFalse(try! XCTUnwrap(p.detailFrames[kind]).intersects(p.coreFrame), "\(kind) never covers the core")
+            let detail = try! XCTUnwrap(p.detailFrames[kind])
+            XCTAssertFalse(detail.intersects(try! XCTUnwrap(p.tileFrames[kind])), "\(kind) never covers its primary")
+            XCTAssertFalse(detail.intersects(p.barFrame), "\(kind) never covers the bar")
         }
     }
 
@@ -311,84 +301,115 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertNil(FloatingTilePlacement.reclamp(frame: frame, visibleFrames: []))
     }
 
-    func testDetailArrowsReachBarTilesAndSwitcher() {
-        let p = plan(StatKind.allCases, details: details)
-        let up = p.neighbour(of: .switcher(.cpu), .up, detail: true)
-        XCTAssertTrue([FloatingTileTarget.handle, .settings, .quit].contains(up), "above the switcher is the bar")
-        let targets = p.targetFrames(detail: true).keys
-        for kind in StatKind.allCases {
-            XCTAssertTrue(targets.contains(.tile(kind)), "\(kind) tile stays a target")
-            XCTAssertTrue(targets.contains(.switcher(kind)), "\(kind) switcher item is a target")
-        }
-        XCTAssertFalse(p.targetFrames(detail: false).keys.contains(.switcher(.cpu)), "the switcher is hidden in the overview")
-        XCTAssertEqual(p.neighbour(of: .tile(.fan), .right, detail: true).map { p.switcherFrame.contains(p.targetFrames(detail: true)[$0]!) }, true,
-                       "right of the overview is the switcher")
-    }
-
-    // MARK: Detail beside the overview (E1 case B revision)
+    // MARK: Detail opens inward from a stationary primary (D-044)
 
     private let even: [StatKind: CGSize] = Dictionary(uniqueKeysWithValues: StatKind.allCases.map { ($0, CGSize(width: 250, height: 150)) })
 
-    func testCardOpensOnTheSideNearestItsTile() {
+    // Eleven stats, four columns: CPU 2×2 (cols 0–1, rows 0–1); Memory, Disk 2×1 (cols 2–3, rows
+    // 0, 1); row 2 Network, Battery, GPU, Fans; row 3 Power, Temperature, Load, Uptime.
+
+    func testSideFollowsTheHalfOfTheOverviewThePrimaryIsIn() {
         let p = plan(StatKind.allCases, details: even)
-        XCTAssertEqual(p.detailSides[.cpu], .left)
-        XCTAssertEqual(p.detailSides[.memory], .top)
-        XCTAssertEqual(p.detailSides[.disk], .right)
-        XCTAssertEqual(p.detailSides[.network], .left)
-        XCTAssertEqual(p.detailSides[.fan], .right)
-        XCTAssertEqual(p.detailSides[.temps], .bottom)
-        XCTAssertEqual(p.detailSides[.loadAverage], .bottom)
-        XCTAssertEqual(p.detailSides[.uptime], .right, "a near-tie at a corner opens sideways")
-        for kind in StatKind.allCases {
-            let card = try! XCTUnwrap(p.detailFrames[kind])
-            XCTAssertFalse(card.intersects(p.coreFrame), "\(kind) card is beside, not over, the overview")
+        for kind in [StatKind.cpu, .network, .battery, .power, .temps] {
+            XCTAssertEqual(p.detailSides[kind], .right, "\(kind) is in the left half: opens right")
         }
+        for kind in [StatKind.memory, .disk, .gpu, .fan, .loadAverage, .uptime] {
+            XCTAssertEqual(p.detailSides[kind], .left, "\(kind) is in the right half: opens left")
+        }
+        XCTAssertEqual(FloatingTilePlan.preferredSide(tile: CGRect(x: 0, y: 0, width: 100, height: 10),
+                                                      overview: CGRect(x: 0, y: 0, width: 100, height: 10)),
+                       .right, "a full-width primary opens right")
     }
 
-    func testCardLinesUpWithItsTile() {
+    func testRowEdgeAlignment() {
         let p = plan(StatKind.allCases, details: even)
+        for kind in [StatKind.cpu, .memory, .disk] {
+            XCTAssertEqual(p.detailAlignments[kind], .top)
+            XCTAssertEqual(p.detailFrames[kind]?.minY, p.tileFrames[kind]?.minY, "\(kind): top edges level")
+        }
+        for kind in [StatKind.network, .fan, .power, .uptime] {
+            XCTAssertEqual(p.detailAlignments[kind], .bottom)
+            XCTAssertEqual(p.detailFrames[kind]?.maxY, p.tileFrames[kind]?.maxY, "\(kind): bottom edges level")
+        }
         let cpu = try! XCTUnwrap(p.detailFrames[.cpu]), cpuTile = try! XCTUnwrap(p.tileFrames[.cpu])
-        XCTAssertEqual(cpu.minY, cpuTile.minY, "side card top level with the tile top")
-        XCTAssertEqual(cpu.maxX + 12, p.coreFrame.minX)
+        XCTAssertEqual(cpu.minX, cpuTile.maxX + 12, "opens into the space the other primaries left")
         let memory = try! XCTUnwrap(p.detailFrames[.memory]), memoryTile = try! XCTUnwrap(p.tileFrames[.memory])
-        XCTAssertEqual(memory.minX, memoryTile.minX, "top card left edge level with the tile")
-        XCTAssertEqual(memory.maxY + 12, p.coreFrame.minY)
-        let disk = try! XCTUnwrap(p.detailFrames[.disk])
-        XCTAssertEqual(disk.minX, p.coreFrame.maxX + 12, "right cards open past the switcher column")
+        XCTAssertEqual(memory.maxX + 12, memoryTile.minX)
+        XCTAssertEqual(cpu.height, 150, "height fits the content: no padding to the primary's height")
     }
 
-    func testCardFallsBackToTheOppositeSideWithoutRoom() {
-        // Core pinned to the region's top-left corner: no room left or above.
-        let bounds = CGRect(x: 0, y: 0, width: 1400, height: 860)
+    func testFlipsToTheOppositeSideWithoutRoom() {
+        // Display edge exactly at the overview's right edge: right-opening details do not fit.
+        let bounds = CGRect(x: -900, y: -200, width: 1380, height: 1000)
         let p = FloatingTilePlan.make(kinds: StatKind.allCases, detailSizes: even, available: roomy, bounds: bounds)
-        XCTAssertEqual(p.detailSides[.cpu], .right)
-        XCTAssertEqual(p.detailSides[.memory], .bottom)
+        XCTAssertEqual(p.detailSides[.cpu], .left)
+        XCTAssertEqual(p.detailSides[.battery], .left)
+        XCTAssertEqual(p.detailSides[.memory], .left, "left-opening details are unaffected")
+        let cpu = try! XCTUnwrap(p.detailFrames[.cpu]), cpuTile = try! XCTUnwrap(p.tileFrames[.cpu])
+        XCTAssertEqual(cpu.maxX + 12, cpuTile.minX)
+        XCTAssertEqual(cpu.minY, cpuTile.minY, "alignment is kept after a flip")
         let region = bounds.offsetBy(dx: p.coreFrame.minX, dy: p.coreFrame.minY)
         for kind in StatKind.allCases {
-            XCTAssertTrue(region.contains(try! XCTUnwrap(p.detailFrames[kind])), "\(kind) card stays on the display")
+            XCTAssertTrue(region.contains(try! XCTUnwrap(p.detailFrames[kind])), "\(kind) stays on the display")
         }
-        XCTAssertEqual(p.coreFrame.origin, .zero, "nothing extends left of or above the core")
     }
 
-    func testTallCardIsClampedAndScrollsWithinTheRegion() {
+    func testNeitherSideFitsUsesTheRoomierSideOnTheDisplay() {
+        // A display exactly as wide as the overview.
+        let bounds = CGRect(x: 0, y: -200, width: 480, height: 1000)
+        let p = FloatingTilePlan.make(kinds: StatKind.allCases, detailSizes: even, available: roomy, bounds: bounds)
+        XCTAssertEqual(p.coreFrame.minX, 0, "nothing extends past the display")
+        XCTAssertEqual(p.detailSides[.cpu], .right, "234 points on the right beats none on the left")
+        XCTAssertEqual(p.detailSides[.memory], .left)
+        let region = bounds.offsetBy(dx: p.coreFrame.minX, dy: p.coreFrame.minY)
+        for kind in StatKind.allCases {
+            let detail = try! XCTUnwrap(p.detailFrames[kind])
+            XCTAssertTrue(region.contains(detail), "\(kind) clamped onto the display")
+            XCTAssertEqual(detail.width, 250, "\(kind) keeps its measured width; text never shrinks")
+        }
+    }
+
+    func testTallDetailScrollsWithinTheRegionAndClearsTheBar() {
         let bounds = CGRect(x: -600, y: -300, width: 1800, height: 700)
         let p = FloatingTilePlan.make(kinds: [.cpu, .network], detailSizes: [.cpu: CGSize(width: 244, height: 900)],
                                       available: roomy, bounds: bounds)
         XCTAssertEqual(p.scrollingDetails, [.cpu])
         let region = bounds.offsetBy(dx: p.coreFrame.minX, dy: p.coreFrame.minY)
-        XCTAssertTrue(region.contains(try! XCTUnwrap(p.detailFrames[.cpu])))
-        XCTAssertEqual(p.detailFrames[.cpu]?.height, 700)
+        let cpu = try! XCTUnwrap(p.detailFrames[.cpu])
+        XCTAssertTrue(region.contains(cpu))
+        XCTAssertFalse(cpu.intersects(p.barFrame), "Settings and Quit stay reachable")
+        XCTAssertLessThan(cpu.height, 900)
     }
 
-    func testTheCoreIsTheSameWhereverCardsGo() {
+    func testBottomAlignedTallDetailStartsBelowTheBar() {
+        let p = plan(StatKind.allCases, details: [.network: CGSize(width: 250, height: 400)])
+        let network = try! XCTUnwrap(p.detailFrames[.network])
+        XCTAssertFalse(network.intersects(p.barFrame.insetBy(dx: -11, dy: -11)))
+        XCTAssertEqual(network.minY, p.contentOrigin.y)
+        XCTAssertEqual(network.height, 400, "room below the bar: nothing scrolls")
+        XCTAssertTrue(p.scrollingDetails.isEmpty)
+    }
+
+    func testPrimaryFramesAreTheSameWhereverDetailsGo() {
         let centred = plan(StatKind.allCases, details: even)
         let corner = FloatingTilePlan.make(kinds: StatKind.allCases, detailSizes: even, available: roomy,
                                            bounds: CGRect(x: 0, y: 0, width: 1400, height: 860))
+        let tall = plan(StatKind.allCases, details: [.cpu: CGSize(width: 600, height: 800)])
         for kind in StatKind.allCases {
             XCTAssertEqual(c(centred, centred.tileFrames[kind]), c(corner, corner.tileFrames[kind]))
+            XCTAssertEqual(c(centred, centred.tileFrames[kind]), c(tall, tall.tileFrames[kind]),
+                           "\(kind): opening any detail never moves a primary")
+            XCTAssertFalse(try! XCTUnwrap(centred.detailFrames[kind]).intersects(try! XCTUnwrap(centred.tileFrames[kind])))
         }
-        XCTAssertEqual(c(centred, centred.switcherFrame), c(corner, corner.switcherFrame))
         XCTAssertEqual(c(centred, centred.barFrame), c(corner, corner.barFrame))
+    }
+
+    func testHostCoversTheCoreAndEveryDetail() {
+        let p = plan(StatKind.allCases, details: even)
+        let host = CGRect(origin: .zero, size: p.size)
+        XCTAssertTrue(host.contains(p.coreFrame))
+        for kind in StatKind.allCases { XCTAssertTrue(host.contains(try! XCTUnwrap(p.detailFrames[kind]))) }
+        XCTAssertEqual(p.detailFrames.values.reduce(p.coreFrame) { $0.union($1) }, host, "and no more")
     }
 
     func testBoundsAndHostFrameConvertBetweenScreenAndCore() {
@@ -408,10 +429,11 @@ private extension FloatingTilePlan {
     /// The same plan with only the reserve value changed (frames equal when nothing scrolls).
     func withReserve(_ reserve: CGFloat) -> FloatingTilePlan {
         FloatingTilePlan(kinds: kinds, metrics: metrics, columns: columns, size: size, coreFrame: coreFrame,
-                         barFrame: barFrame, barItemFrames: barItemFrames, tileFrames: tileFrames,
-                         detailFrames: detailFrames, detailSides: detailSides, scrollingDetails: scrollingDetails, overviewViewport: overviewViewport,
-                         scrollerReserve: reserve, emptyStateFrame: emptyStateFrame, switcherFrame: switcherFrame,
-                         switcherItemFrames: switcherItemFrames, fits: fits)
+                         overviewFrame: overviewFrame, barFrame: barFrame, barItemFrames: barItemFrames,
+                         tileFrames: tileFrames, detailFrames: detailFrames, detailSides: detailSides,
+                         detailAlignments: detailAlignments, scrollingDetails: scrollingDetails,
+                         overviewViewport: overviewViewport, scrollerReserve: reserve,
+                         emptyStateFrame: emptyStateFrame, fits: fits)
     }
 }
 #endif
