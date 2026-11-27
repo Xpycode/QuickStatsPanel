@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 #if DEBUG
@@ -7,13 +8,24 @@ import Foundation
 /// disposable transfer-history root (see `FloatingTileFixtures`).
 ///
 ///     --floating-tiles-prototype            required; without it nothing here applies
-///     --floating-tiles-fixture=<name>       cpu-network (default) | network-cpu
+///     --floating-tiles-fixture=<name>       a `FloatingTileFixtureName` (default cpu-network)
+///     --floating-tiles-frame=<W>x<H>        simulated constrained display: the summon plans and
+///                                           places inside a W×H region centred in the real
+///                                           visible frame (never larger than it). A model check
+///                                           only; it is not native multi-display evidence.
+///     --floating-tiles-edge=<corner>        top-left | top-right | bottom-left | bottom-right:
+///                                           aim the footprint past that corner, so placement
+///                                           must clamp it back on screen
 ///
 /// The prototype is mutually exclusive with `--ring-prototype`: when both are given the ring
 /// keeps its existing launch and this returns nil (logged by `current`). An unknown fixture name is
 /// recorded in `warnings` and the default fixture is used instead.
 struct FloatingTilePrototypeOptions: Equatable, Sendable {
     var fixture: FloatingTileFixtureName = .cpuNetwork
+    /// `--floating-tiles-frame=`: a simulated constrained display size, or nil for the real one.
+    var simulatedFrame: CGSize?
+    /// `--floating-tiles-edge=`: aim the summon at a display corner, or nil for the anchor.
+    var edge: FloatingTileEdge?
     /// Unique per launch: names the isolated defaults suite and the temporary history root,
     /// so nothing from an earlier run is ever read back.
     let isolationID: String
@@ -21,6 +33,10 @@ struct FloatingTilePrototypeOptions: Equatable, Sendable {
 
     static let prototypeFlag = "--floating-tiles-prototype"
     static let fixturePrefix = "--floating-tiles-fixture="
+    static let framePrefix = "--floating-tiles-frame="
+    static let edgePrefix = "--floating-tiles-edge="
+    /// Smallest accepted simulated frame side; smaller values are rejected as typos.
+    static let minimumSimulatedSide: CGFloat = 200
     static let historyRootPrefix = "QuickStatsPanel-floating-tiles-"
 
     /// Isolated `UserDefaults` suite for this launch, never the standard domain. An absolute path
@@ -66,8 +82,36 @@ struct FloatingTilePrototypeOptions: Equatable, Sendable {
                 options.warnings.append("Unknown --floating-tiles-fixture '\(raw)'; using \(FloatingTileFixtureName.cpuNetwork.rawValue). Valid: \(valid)")
             }
         }
+        if let raw = value(framePrefix, in: arguments) {
+            let parts = raw.lowercased().split(separator: "x").compactMap { Double($0) }
+            if parts.count == 2, parts.allSatisfy({ $0.isFinite && CGFloat($0) >= minimumSimulatedSide }) {
+                options.simulatedFrame = CGSize(width: parts[0], height: parts[1])
+            } else {
+                options.warnings.append("Ignored --floating-tiles-frame '\(raw)'; expected <width>x<height>, each at least \(Int(minimumSimulatedSide))")
+            }
+        }
+        if let raw = value(edgePrefix, in: arguments) {
+            if let edge = FloatingTileEdge(rawValue: raw) {
+                options.edge = edge
+            } else {
+                let valid = FloatingTileEdge.allCases.map(\.rawValue).joined(separator: ", ")
+                options.warnings.append("Ignored --floating-tiles-edge '\(raw)'. Valid: \(valid)")
+            }
+        }
         return options
     }
+
+    private static func value(_ prefix: String, in arguments: [String]) -> String? {
+        arguments.first { $0.hasPrefix(prefix) }.map { String($0.dropFirst(prefix.count)) }
+    }
+}
+
+/// A display corner the summon can be aimed at (`--floating-tiles-edge=`).
+enum FloatingTileEdge: String, CaseIterable, Sendable {
+    case topLeft = "top-left"
+    case topRight = "top-right"
+    case bottomLeft = "bottom-left"
+    case bottomRight = "bottom-right"
 }
 
 #endif

@@ -68,5 +68,30 @@ final class FloatingTileOptionsTests: XCTestCase {
             XCTAssertEqual(name.statOrder.count, StatKind.allCases.count)
         }
     }
+
+    func testSimulatedFrameAndEdgeAreParsed() throws {
+        let o = try parse(["--floating-tiles-frame=420x500", "--floating-tiles-edge=bottom-right"])
+        XCTAssertEqual(o.simulatedFrame, CGSize(width: 420, height: 500))
+        XCTAssertEqual(o.edge, .bottomRight)
+        XCTAssertTrue(o.warnings.isEmpty)
+        let plain = try parse()
+        XCTAssertNil(plain.simulatedFrame, "the real display unless asked")
+        XCTAssertNil(plain.edge)
+        for edge in FloatingTileEdge.allCases {
+            XCTAssertEqual(try parse(["--floating-tiles-edge=\(edge.rawValue)"]).edge, edge)
+        }
+    }
+
+    func testBadFrameOrEdgeWarnsAndIsIgnored() throws {
+        for bad in ["--floating-tiles-frame=wide", "--floating-tiles-frame=100x500", "--floating-tiles-frame=420x",
+                    "--floating-tiles-edge=middle"] {
+            let o = try parse([bad])
+            XCTAssertNil(o.simulatedFrame, bad)
+            XCTAssertNil(o.edge, bad)
+            XCTAssertEqual(o.warnings.count, 1, bad)
+        }
+        XCTAssertNil(FloatingTilePrototypeOptions.parse(["QuickStatsPanel", "--floating-tiles-frame=420x500"]),
+                     "frame alone never switches the prototype on")
+    }
 }
 #endif

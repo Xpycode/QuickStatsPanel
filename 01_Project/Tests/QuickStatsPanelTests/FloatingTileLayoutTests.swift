@@ -196,5 +196,131 @@ final class FloatingTileLayoutTests: XCTestCase {
             for b in frames[(i + 1)...] { XCTAssertFalse(a.intersects(b)) }
         }
     }
+
+    // MARK: Task 3.1 — constrained displays, scroll bars and placement
+
+    func testFootprintHeightIsBarPlusTallestContent() {
+        let p = plan(StatKind.allCases, details: [:])
+        // Four 100-point rows with three 12-point gaps below the 28-point bar and its gap.
+        XCTAssertEqual(p.size.height, 40 + 436, "no transparent band below the overview")
+        XCTAssertNil(p.overviewViewport, "a comfortable display never scrolls the overview")
+    }
+
+    func testTooShortForTheOverviewScrollsItWithNavigationOutside() {
+        let available = CGSize(width: 420, height: 600)
+        let p = plan(StatKind.allCases, details: details, available: available)
+        XCTAssertEqual(p.columns, 2)
+        let viewport = try! XCTUnwrap(p.overviewViewport, "eleven stats in two columns are taller than 600")
+        XCTAssertEqual(viewport.origin, p.contentOrigin)
+        XCTAssertEqual(viewport.height, 600 - 40)
+        XCTAssertLessThanOrEqual(p.size.height, available.height)
+        XCTAssertLessThanOrEqual(viewport.maxX + 12, p.switcherFrame.minX, "the switcher never overlaps the overview")
+        XCTAssertTrue(p.fits, "navigation (bar and switcher) still fits")
+        XCTAssertTrue(CGRect(origin: .zero, size: p.size).contains(p.switcherFrame))
+        XCTAssertEqual(p.tileFrames[.cpu]?.size, CGSize(width: 234, height: 212), "type and tile sizes never shrink")
+    }
+
+    func testLegacyScrollBarReserveWidensOnlyScrollingContent() {
+        let short = CGSize(width: 1400, height: 500)
+        let overlay = plan(details: details, available: short)
+        let legacy = FloatingTilePlan.make(kinds: [.cpu, .network], detailSizes: details, available: short,
+                                           scrollerReserve: 15)
+        XCTAssertEqual(overlay.detailFrames[.network]?.width, 284)
+        XCTAssertEqual(legacy.detailFrames[.network]?.width, 284 + 15, "the scrolling card gets the scroll bar's width")
+        XCTAssertEqual(legacy.detailFrames[.cpu]?.width, 244, "a card that fits keeps its measured width")
+        XCTAssertEqual(legacy.switcherFrame.maxX, legacy.size.width, "one switcher position, chosen at summon")
+        XCTAssertLessThanOrEqual(try! XCTUnwrap(legacy.detailFrames[.network]).maxX + 12, legacy.switcherFrame.minX)
+        let wide = FloatingTilePlan.make(kinds: [.cpu, .network], detailSizes: [.network: CGSize(width: 400, height: 560)],
+                                         available: short, scrollerReserve: 15)
+        XCTAssertEqual(wide.size.width, 400 + 15 + 12 + 106, "the reserve joins the footprint enlargement once")
+        XCTAssertEqual(legacy.scrollingDetails, [.network])
+        let roomyLegacy = FloatingTilePlan.make(kinds: [.cpu, .network], detailSizes: details, available: roomy,
+                                                scrollerReserve: 15)
+        XCTAssertEqual(roomyLegacy, plan().withReserve(15), "nothing scrolls, so nothing is reserved")
+    }
+
+    func testShortAndLongCardsShareOneSwitcher() {
+        let p = plan(StatKind.allCases, details: [.cpu: CGSize(width: 244, height: 330),
+                                                  .network: CGSize(width: 284, height: 560),
+                                                  .uptime: CGSize(width: 200, height: 90)],
+                     available: CGSize(width: 1400, height: 500))
+        XCTAssertEqual(p.scrollingDetails, [.network], "only the oversized card scrolls")
+        XCTAssertEqual(p.detailFrames[.uptime]?.height, 90, "a short card stays content-sized")
+        for kind in [StatKind.cpu, .network, .uptime] {
+            XCTAssertLessThanOrEqual(try! XCTUnwrap(p.detailFrames[kind]).maxX + 12, p.switcherFrame.minX)
+        }
+    }
+
+    func testRegionIsTheVisibleFrameOrACentredSimulatedOne() {
+        let visible = CGRect(x: 0, y: 25, width: 1440, height: 875)
+        XCTAssertEqual(FloatingTilePlacement.region(visible: visible, simulated: nil), visible)
+        let r = FloatingTilePlacement.region(visible: visible, simulated: CGSize(width: 420, height: 500))
+        XCTAssertEqual(r.size, CGSize(width: 420, height: 500))
+        XCTAssertTrue(visible.contains(r))
+        XCTAssertEqual(r.midX, visible.midX, accuracy: 1)
+        let capped = FloatingTilePlacement.region(visible: visible, simulated: CGSize(width: 5000, height: 5000))
+        XCTAssertEqual(capped, visible, "never larger than the real display")
+        XCTAssertEqual(FloatingTilePlacement.available(in: r), CGSize(width: 404, height: 484))
+    }
+
+    func testCornerPlacementClampsTheWholeFootprintOnScreen() {
+        let visible = CGRect(x: 100, y: 25, width: 1200, height: 800)
+        let size = CGSize(width: 520, height: 600)
+        for edge in FloatingTileEdge.allCases {
+            let o = FloatingTilePlacement.origin(size: size, anchor: .screenCenter, cursor: .zero,
+                                                 visible: visible, edge: edge)
+            let frame = CGRect(origin: o, size: size)
+            XCTAssertTrue(visible.contains(frame), "\(edge): \(frame) inside \(visible)")
+        }
+        let topRight = FloatingTilePlacement.origin(size: size, anchor: .screenCenter, cursor: .zero,
+                                                    visible: visible, edge: .topRight)
+        XCTAssertEqual(topRight, CGPoint(x: visible.maxX - size.width, y: visible.maxY - size.height))
+        let cursorAtCorner = FloatingTilePlacement.origin(size: size, anchor: .cursor,
+                                                          cursor: CGPoint(x: 1299, y: 30), visible: visible)
+        XCTAssertTrue(visible.contains(CGRect(origin: cursorAtCorner, size: size)), "cursor anchor at a corner")
+    }
+
+    func testOversizedFootprintKeepsItsTopLeftOnScreen() {
+        let visible = CGRect(x: 0, y: 0, width: 300, height: 400)
+        let o = FloatingTilePlacement.clamp(origin: CGPoint(x: 50, y: 50), size: CGSize(width: 402, height: 500), in: visible)
+        XCTAssertEqual(o, CGPoint(x: 0, y: 400 - 500), "top-left (bar row) stays visible")
+    }
+
+    func testDisplayChangeReclampsTheGroupAsOneUnit() {
+        let main = CGRect(x: 0, y: 0, width: 1440, height: 875)
+        let side = CGRect(x: 1440, y: 0, width: 1920, height: 1055)
+        // Mostly on the side display, which is then removed: the group moves wholly onto main.
+        let frame = CGRect(x: 1700, y: 300, width: 520, height: 600)
+        let moved = try! XCTUnwrap(FloatingTilePlacement.reclamp(frame: frame, visibleFrames: [main]))
+        XCTAssertTrue(main.contains(CGRect(origin: moved, size: frame.size)))
+        XCTAssertEqual(moved, CGPoint(x: 1440 - 520, y: 275))
+        // Still on its display: unchanged.
+        XCTAssertEqual(FloatingTilePlacement.reclamp(frame: frame, visibleFrames: [main, side]), frame.origin)
+        // The frozen footprint no longer fits the remaining display: the caller dismisses.
+        XCTAssertNil(FloatingTilePlacement.reclamp(frame: CGRect(x: 1500, y: 0, width: 900, height: 1000),
+                                                   visibleFrames: [main]))
+        XCTAssertNil(FloatingTilePlacement.reclamp(frame: frame, visibleFrames: []))
+    }
+
+    func testDetailArrowsReachTheGroupBarAndNeverATile() {
+        let p = plan(StatKind.allCases, details: details)
+        let up = p.neighbour(of: .switcher(.cpu), .up, detail: true)
+        XCTAssertTrue([FloatingTileTarget.handle, .settings, .quit].contains(up), "above the switcher is the bar")
+        for target in p.targetFrames(detail: true).keys {
+            if case .tile = target { XCTFail("tiles are hidden in detail") }
+        }
+        XCTAssertEqual(p.neighbour(of: .settings, .down, detail: true).map { p.switcherFrame.contains(p.targetFrames(detail: true)[$0]!) }, true)
+    }
+}
+
+private extension FloatingTilePlan {
+    /// The same plan with only the reserve value changed (frames equal when nothing scrolls).
+    func withReserve(_ reserve: CGFloat) -> FloatingTilePlan {
+        FloatingTilePlan(kinds: kinds, metrics: metrics, columns: columns, size: size, barFrame: barFrame,
+                         barItemFrames: barItemFrames, tileFrames: tileFrames, detailFrames: detailFrames,
+                         scrollingDetails: scrollingDetails, overviewViewport: overviewViewport,
+                         scrollerReserve: reserve, emptyStateFrame: emptyStateFrame, switcherFrame: switcherFrame,
+                         switcherItemFrames: switcherItemFrames, fits: fits)
+    }
 }
 #endif

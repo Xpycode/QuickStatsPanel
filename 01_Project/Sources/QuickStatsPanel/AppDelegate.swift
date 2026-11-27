@@ -181,6 +181,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard !terminationInFlight else { return .terminateLater }
         terminationInFlight = true
+        #if DEBUG
+        // Floating tiles: every surface and owned observer goes before the flush, whichever
+        // path quit (group bar, context menu, Command-Q). No-op when the tiles are not shown.
+        tilePanel.hide()
+        #endif
         // Schedule the deadline before draining readers; neither a slow reader nor a filesystem
         // flush gets an unbounded wait on the main actor. Repository recovery remains atomic.
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
@@ -314,6 +319,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let store = self.store
         tilePanel.show(kinds: kinds, detailSizes: sizes, anchor: AppSettings.shared.anchor,
                        tile: { kind, large in AnyView(FloatingTileCardView(store: store, kind: kind, isLarge: large)) },
+                       tileValue: { store.floatingTileReading(for: $0).accessibilityValue },
                        detail: { [weak self] kind, size, scrolls in
                            guard let self else { return AnyView(EmptyView()) }
                            return AnyView(self.tileDetailCard(for: kind, scrollsBody: scrolls)

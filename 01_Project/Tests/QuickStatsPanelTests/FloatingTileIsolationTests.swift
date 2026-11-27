@@ -99,6 +99,39 @@ final class FloatingTileIsolationTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: o.historyRoot.path), "root removed after the flush")
     }
 
+    func testFixtureHistoryIsSeededAndScopedResetCompletesOnDisposableData() async throws {
+        let o = try options(.all)
+        let store = FloatingTileFixtures.makeStore(options: o)
+        defer { try? FileManager.default.removeItem(at: o.historyRoot) }
+        store.setTransferDetailVisible(.network)
+        try await waitFor { store.transferPresentations[.network] != nil }
+        store.selectTransferPeriod(.minute, for: .network)
+        try await waitFor { store.transferPresentations[.network]?.cumulativeTotals.first.exactValue != TransferHistoryFormat.exactBytes(0) }
+        let before = try XCTUnwrap(store.transferPresentations[.network])
+        XCTAssertNotEqual(before.cumulativeTotals.first.exactValue, TransferHistoryFormat.exactBytes(0), "seeded activity")
+        XCTAssertNotEqual(before.selectedTotals.first.exactValue, TransferHistoryFormat.exactBytes(0), "the minute has history")
+
+        // Request → confirm → durable completion, all inside the temporary root.
+        try await Task.sleep(nanoseconds: 1_100_000_000) // the existing one-second reset spacing
+        store.requestTransferReset(for: .network)
+        XCTAssertEqual(store.transferDetailStates[.network]?.isConfirmingReset, true)
+        store.confirmTransferReset(for: .network)
+        try await waitFor { store.transferDetailStates[.network]?.isResetPending == false }
+        XCTAssertNil(store.transferDetailStates[.network]?.resetError, "reset confirmed by a durable save")
+        store.selectTransferPeriod(.minute, for: .network)
+        try await waitFor { store.transferPresentations[.network]?.cumulativeTotals.first.exactValue == TransferHistoryFormat.exactBytes(0) }
+        let after = try XCTUnwrap(store.transferPresentations[.network])
+        XCTAssertEqual(after.cumulativeTotals.first.exactValue, TransferHistoryFormat.exactBytes(0), "Network totals reset")
+        XCTAssertNotEqual(after.selectedTotals.first.exactValue, TransferHistoryFormat.exactBytes(0), "history is kept")
+        XCTAssertTrue(o.historyRoot.standardizedFileURL.path.hasPrefix(FileManager.default.temporaryDirectory.standardizedFileURL.path))
+
+        // Scoped: Disk keeps its totals.
+        store.setTransferDetailVisible(.disk)
+        store.selectTransferPeriod(.minute, for: .disk)
+        try await waitFor { store.transferPresentations[.disk]?.cumulativeTotals.first.exactValue != TransferHistoryFormat.exactBytes(0) }
+        XCTAssertNotEqual(store.transferPresentations[.disk]?.cumulativeTotals.first.exactValue, TransferHistoryFormat.exactBytes(0))
+    }
+
     private func waitFor(_ condition: @MainActor () -> Bool, timeout: TimeInterval = 5) async throws {
         let deadline = Date().addingTimeInterval(timeout)
         while !condition(), Date() < deadline { try await Task.sleep(nanoseconds: 20_000_000) }

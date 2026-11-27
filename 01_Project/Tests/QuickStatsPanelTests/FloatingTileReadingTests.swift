@@ -185,5 +185,16 @@ final class FloatingTileReadingTests: XCTestCase {
         XCTAssertTrue(FloatingTileFixtureName.allHot.isHot)
         XCTAssertTrue(FloatingTileFixtureName.all.unavailableKinds.isEmpty)
     }
+
+    // MARK: Task 3.1 — VoiceOver value of a tile control
+
+    func testAccessibilityValueCarriesReadingsAndBasisWithoutRepeatingTheName() {
+        let cpu = reading(.cpu, percent: 91, value: "91%")
+        XCTAssertEqual(cpu.accessibilityValue, "91%, CPU utilization: 91%, high.")
+        XCTAssertFalse(cpu.accessibilityValue.hasPrefix("CPU,"), "the control's label already names the stat")
+        XCTAssertEqual(FloatingTileReading.unavailable(.gpu).accessibilityValue, "Unavailable")
+        let network = reading(.network, percent: nil, value: "1.2 MB/s")
+        XCTAssertTrue(network.accessibilityValue.contains("no status colour"), "neutral basis is stated")
+    }
 }
 #endif

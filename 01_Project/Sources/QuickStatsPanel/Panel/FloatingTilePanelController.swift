@@ -32,19 +32,25 @@ final class FloatingTilePanelController {
     private var panel: FloatingTileHUDPanel?
     private var host: FloatingTileHostView?
     private var buttons: [FloatingTileTarget: FloatingTileButton] = [:]
+    /// Overview surfaces (tiles and empty state, or the scrolling overview that holds them).
     private var tileViews: [NSView] = []
     private var switcherViews: [NSView] = []
+    private var tileValue: ((StatKind) -> String)?
     private var detailHost: NSView?
     private var detailContent: ((StatKind, CGSize, Bool) -> AnyView)?
     private let selection = FloatingTileSelectionModel()
     private var keyObserver: NSObjectProtocol?
     private var activationObserver: NSObjectProtocol?
-    private let edgeMargin: CGFloat = 24
+    private var screenObserver: NSObjectProtocol?
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.sim.QuickStatsPanel",
                                 category: "FloatingTiles")
 
     var isVisible: Bool { panel?.isVisible ?? false }
     var frame: NSRect? { panel?.frame }
+    /// Observers this controller owns while visible (0 once hidden); logged on hide.
+    private var ownedObserverCount: Int {
+        [keyObserver, activationObserver, screenObserver].compactMap { $0 }.count
+    }
 
     // MARK: Show / hide
 
@@ -52,32 +58,46 @@ final class FloatingTilePanelController {
     ///   - detailSizes: every enabled stat's measured detail card, taken once now so the whole
     ///     footprint (and the switcher position) is chosen before any input.
     ///   - tile: overview tile content for a stat (`true` for the large first tile).
+    ///   - tileValue: the tile's live accessibility value (its readings and usage basis).
     ///   - detail: detail card content for a stat at its frozen frame size; `true` when it scrolls.
     func show(kinds: [StatKind], detailSizes: [StatKind: CGSize], anchor: PanelAnchor,
               tile: (StatKind, Bool) -> AnyView,
+              tileValue: @escaping (StatKind) -> String,
               detail: @escaping (StatKind, CGSize, Bool) -> AnyView) {
         guard panel == nil else { return }
+        let options = FloatingTilePrototypeOptions.current
         let cursor = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(cursor) } ?? NSScreen.main
-        let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let available = CGSize(width: visible.width - 16, height: visible.height - 16)
-        let plan = FloatingTilePlan.make(kinds: kinds, detailSizes: detailSizes, available: available)
-        logger.info("summon plan \(Int(plan.size.width))x\(Int(plan.size.height)) columns=\(plan.columns) fits=\(plan.fits) scrolling=\(plan.scrollingDetails.count)")
+        let real = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        // A simulated constrained display (`--floating-tiles-frame=`) is a model check only.
+        let visible = FloatingTilePlacement.region(visible: real, simulated: options?.simulatedFrame)
+        let available = FloatingTilePlacement.available(in: visible)
+        // "Always show scroll bars": scrolling content gets the legacy scroller's width beside it.
+        let reserve = NSScroller.preferredScrollerStyle == .legacy
+            ? NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy) : 0
+        let plan = FloatingTilePlan.make(kinds: kinds, detailSizes: detailSizes, available: available,
+                                         scrollerReserve: reserve)
+        logger.info("summon region \(Int(visible.width))x\(Int(visible.height)) simulated=\(options?.simulatedFrame != nil) plan \(Int(plan.size.width))x\(Int(plan.size.height)) columns=\(plan.columns) fits=\(plan.fits) scrollingDetails=\(plan.scrollingDetails.map(\.displayName).sorted().joined(separator: ","), privacy: .public) overviewScrolls=\(plan.overviewViewport != nil) reserve=\(Int(reserve))")
         if !plan.fits {
             NSLog("Floating tiles: footprint %.0fx%.0f exceeds the available %.0fx%.0f; navigation may clip",
                   plan.size.width, plan.size.height, available.width, available.height)
         }
         self.plan = plan
         detailContent = detail
+        self.tileValue = tileValue
 
         let host = FloatingTileHostView(frame: NSRect(origin: .zero, size: plan.size))
         host.contextMenuProvider = contextMenuProvider
+        host.setAccessibilityElement(true)
+        host.setAccessibilityRole(.group)
+        host.setAccessibilityLabel("Statistics overview")
         build(in: host, plan: plan, tile: tile)
 
         let panel = makePanel(size: plan.size)
         panel.contentView = host
         panel.autorecalculatesKeyViewLoop = true
-        let origin = origin(for: plan.size, anchor: anchor, cursor: cursor, visible: visible)
+        let origin = FloatingTilePlacement.origin(size: plan.size, anchor: anchor, cursor: cursor,
+                                                  visible: visible, edge: options?.edge)
         panel.setFrame(NSRect(origin: origin, size: plan.size), display: true)
         self.panel = panel
         self.host = host
@@ -93,10 +113,20 @@ final class FloatingTilePanelController {
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.panel?.allowKeyboardEntry() }
         }
+        // Display removal or reconfiguration: the group re-clamps as one unit (one window).
+        screenObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.displayChanged() }
+        }
 
         apply(state.summon())
-        // Ordered front without becoming key: summoning never takes keyboard focus or activates.
+        // Ordered front without becoming key: summoning never activates the app or takes
+        // keyboard focus from another app.
         panel.orderFrontRegardless()
+        // When this app is already the active one (another app holds no keyboard focus to take),
+        // keyboard entry starts at once instead of after a first click.
+        if NSApp.isActive { panel.allowKeyboardEntry() }
         logger.info("summoned key=\(panel.isKeyWindow) appActive=\(NSApp.isActive)")
         onVisibilityChanged?(true)
     }
@@ -108,6 +138,9 @@ final class FloatingTilePanelController {
         keyObserver = nil
         if let activationObserver { NotificationCenter.default.removeObserver(activationObserver) }
         activationObserver = nil
+        if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
+        screenObserver = nil
+        logger.info("hidden; owned observers remaining=\(self.ownedObserverCount)")
         panel?.orderOut(nil)
         panel = nil
         host = nil
@@ -116,6 +149,7 @@ final class FloatingTilePanelController {
         switcherViews = []
         detailHost = nil
         detailContent = nil
+        tileValue = nil
         plan = nil
         selection.current = nil
         onDetailChanged?(nil)
@@ -133,18 +167,49 @@ final class FloatingTilePanelController {
         switcherViews = []
         let radius = AppSettings.shared.theme.metrics.cornerRadius
 
+        // Limited space only: the overview scrolls inside its viewport; tile frames shift into the
+        // document's coordinates. The switcher column and group bar stay outside it.
+        let overviewParent: NSView
+        let offset: CGPoint
+        if let viewport = plan.overviewViewport {
+            let documentHeight = (plan.tileFrames.values.map(\.maxY).max() ?? viewport.minY) - viewport.minY
+            let document = FloatingTileOverviewDocumentView(frame: NSRect(
+                x: 0, y: 0, width: viewport.width - plan.scrollerReserve, height: documentHeight))
+            let scroll = NSScrollView(frame: viewport)
+            scroll.drawsBackground = false
+            scroll.contentView.drawsBackground = false
+            scroll.borderType = .noBorder
+            scroll.hasVerticalScroller = true
+            scroll.hasHorizontalScroller = false
+            scroll.autohidesScrollers = true
+            scroll.documentView = document
+            scroll.setAccessibilityLabel("Statistics, scrollable")
+            host.addSubview(scroll)
+            tileViews.append(scroll)
+            overviewParent = document
+            offset = viewport.origin
+        } else {
+            overviewParent = host
+            offset = .zero
+        }
+
         for (index, kind) in plan.kinds.enumerated() {
             guard let frame = plan.tileFrames[kind] else { continue }
-            let button = makeButton(.tile(kind), label: "\(kind.displayName) tile",
-                                    content: tile(kind, index == 0), frame: frame, in: host)
+            let button = makeButton(.tile(kind), label: kind.displayName,
+                                    content: tile(kind, index == 0),
+                                    frame: frame.offsetBy(dx: -offset.x, dy: -offset.y), in: overviewParent)
             button.cornerRadius = radius
             button.toolTip = "Open \(kind.displayName) detail"
-            tileViews.append(button)
+            button.setAccessibilityHelp("Opens the \(kind.displayName) detail.")
+            button.accessibilityValueProvider = { [weak self] in self?.tileValue?(kind) }
+            if plan.overviewViewport == nil { tileViews.append(button) }
         }
 
         if let emptyFrame = plan.emptyStateFrame {
             let empty = FloatingTileDrawingView(rootView: FloatingTileEmptyStateView())
             empty.frame = emptyFrame
+            empty.setAccessibilityElement(true)
+            empty.setAccessibilityRole(.staticText)
             empty.setAccessibilityLabel("No statistics enabled. Choose statistics in Settings.")
             host.addSubview(empty)
             tileViews.append(empty)
@@ -156,15 +221,20 @@ final class FloatingTilePanelController {
         switcherViews.append(switcherBackground)
         for kind in plan.kinds {
             guard let frame = plan.switcherItemFrames[.switcher(kind)] else { continue }
-            let button = makeButton(.switcher(kind), label: "Show \(kind.displayName) detail",
+            let button = makeButton(.switcher(kind), label: kind.displayName,
                                     content: FloatingTileSwitcherItem(kind: kind, selection: selection),
                                     frame: frame, in: host)
+            button.toolTip = "Show \(kind.displayName) detail"
+            button.setAccessibilityHelp("Shows the \(kind.displayName) detail.")
+            button.accessibilitySelectedProvider = { [weak self] in self?.selection.current == kind }
+            button.accessibilityValueProvider = { [weak self] in self?.selection.current == kind ? "Current" : "" }
             switcherViews.append(button)
         }
         if let frame = plan.switcherItemFrames[.allStatistics] {
             let button = makeButton(.allStatistics, label: "All statistics",
                                     content: FloatingTileAllStatisticsView(), frame: frame, in: host)
             button.toolTip = "Return to all statistics (Escape)"
+            button.setAccessibilityHelp("Returns to the statistics overview. Escape does the same.")
             switcherViews.append(button)
         }
 
@@ -181,6 +251,12 @@ final class FloatingTilePanelController {
             let button = makeButton(target, label: label, content: FloatingTileBarItemView(symbol: symbol),
                                     frame: frame, in: host)
             button.toolTip = label
+            switch target {
+            case .handle: button.setAccessibilityHelp("Drag to move all statistics together.")
+            case .settings: button.setAccessibilityHelp("Opens Settings and closes the statistics.")
+            case .quit: button.setAccessibilityHelp("Quits QuickStatsPanel.")
+            default: break
+            }
             if target == .handle {
                 button.onDragStart = { [weak self] _ in
                     guard let panel = self?.panel else { return }
@@ -210,7 +286,10 @@ final class FloatingTilePanelController {
         case .tile(let kind), .switcher(let kind): apply(state.select(kind, plan: plan))
         case .allStatistics: apply(state.returnToOverview())
         case .settings: onOpenSettings?()
-        case .quit: onQuit?()
+        case .quit:
+            // Every surface and owned observer goes before the termination flush starts.
+            hide()
+            onQuit?()
         case .handle: break
         }
     }
@@ -244,6 +323,7 @@ final class FloatingTilePanelController {
             selection.current = nil
             tileViews.forEach { $0.isHidden = false }
             switcherViews.forEach { $0.isHidden = true }
+            host?.setAccessibilityLabel("Statistics overview")
             onDetailChanged?(nil)
             if let focus, panel?.isKeyWindow == true { focusButton(focus) }
         case .showDetail(let kind, let focus):
@@ -257,11 +337,13 @@ final class FloatingTilePanelController {
             host.addSubview(card)
             detailHost = card
             selection.current = kind
-            for k in plan.kinds {
-                buttons[.switcher(k)]?.setAccessibilityLabel(k == kind ? "\(k.displayName), current" : "Show \(k.displayName) detail")
-            }
+            card.setAccessibilityLabel("\(kind.displayName) detail")
             tileViews.forEach { $0.isHidden = true }
             switcherViews.forEach { $0.isHidden = false }
+            host.setAccessibilityLabel("\(kind.displayName) detail and statistics switcher")
+            for k in plan.kinds {
+                if let item = buttons[.switcher(k)] { NSAccessibility.post(element: item, notification: .valueChanged) }
+            }
             onDetailChanged?(kind)
             if panel?.isKeyWindow == true { focusButton(focus) }
         case .dismiss:
@@ -292,18 +374,18 @@ final class FloatingTilePanelController {
         return panel
     }
 
-    private func origin(for size: CGSize, anchor: PanelAnchor, cursor: NSPoint, visible: NSRect) -> NSPoint {
-        var origin: NSPoint
-        switch anchor {
-        case .cursor: origin = NSPoint(x: cursor.x - size.width / 2, y: cursor.y - size.height - 18)
-        case .screenCenter: origin = NSPoint(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2)
-        case .topCenter: origin = NSPoint(x: visible.midX - size.width / 2, y: visible.maxY - size.height - edgeMargin)
-        case .bottomCenter: origin = NSPoint(x: visible.midX - size.width / 2, y: visible.minY + edgeMargin)
+    /// Re-clamps the whole group after a display change; dismisses when the frozen footprint no
+    /// longer fits any display, so navigation can never be stranded off screen.
+    private func displayChanged() {
+        guard let panel else { return }
+        let frames = NSScreen.screens.map(\.visibleFrame)
+        if let origin = FloatingTilePlacement.reclamp(frame: panel.frame, visibleFrames: frames) {
+            if origin != panel.frame.origin { panel.setFrameOrigin(origin) }
+            logger.info("display change: group re-clamped to \(Int(origin.x)),\(Int(origin.y))")
+        } else {
+            logger.info("display change: footprint no longer fits; dismissing")
+            hide()
         }
-        origin.x = size.width <= visible.width ? min(max(origin.x, visible.minX), visible.maxX - size.width) : visible.minX
-        origin.y = size.height <= visible.height ? min(max(origin.y, visible.minY), visible.maxY - size.height)
-                                                 : visible.maxY - size.height
-        return origin
     }
 }
 #endif

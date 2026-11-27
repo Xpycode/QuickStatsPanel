@@ -4,8 +4,8 @@
 
 ## Active plan
 
-[Floating-tile prototype](IMPLEMENTATION_PLAN-floating-tiles.md) — executing, 2/4 tasks across four
-serial waves. 1.1 and 2.1 complete 2026-11-27; next ready task 3.1. Provisional defaults are evaluated at tile E1; no production rollout.
+[Floating-tile prototype](IMPLEMENTATION_PLAN-floating-tiles.md) — executing, 3/4 tasks across four
+serial waves. 1.1, 2.1 and 3.1 complete 2026-11-27; next ready task 4.1. Provisional defaults are evaluated at tile E1; no production rollout.
 
 ## Parked plan
 
@@ -134,7 +134,10 @@ graphs shipped 2026-07-27 (D-025). Retained transfers shipped in v1.2.0 on 2026-
 ## Inbox
 - [ ] **First tile hotkey press after launch sometimes ignored (2026-11-27).** In the Atlas helper the first press after launch did nothing; a second press 1–2 s later worked (seen twice in tile Wave 2). Cause unknown; may be helper-specific.
 - [ ] **Ring fixture test leaves TMPDIR folders (2026-11-27).** A hostless Ring test leaves `QuickStatsPanel-ring-fixture-*` folders in `$TMPDIR` (seen during tile Wave 1). Not changed.
-- [ ] **Tile keyboard entry when app already active (2026-11-27).** If QuickStatsPanel is already active at summon (e.g. just after closing Settings), the tile HUD needs a click before keys work. Belongs to tile 3.1 keyboard work.
+- [ ] **Tile transfer controls outside Tab loop (2026-11-27, tile 3.1).** Period/reset controls in tile detail cards work by mouse and VoiceOver but `refusesFirstResponder` keeps them out of Tab traversal (existing behaviour). Decide at tile E1.
+- [ ] **Overlay scroller overlaps card values while scrolling (2026-11-27, tile 3.1).** In scrolling tile detail cards the overlay scroller briefly covers right-hand values; legacy scroll bars are fine.
+- [ ] **CPU tile detail card taller than content (2026-11-27, tile 3.1).** Reserved process rows inflate the measured height.
+- [ ] **Forced-kill leaves isolated defaults plist in helper TMPDIR (2026-11-27, tile 3.1).** `atlas close`/cleanup kills skip graceful teardown, leaving the prototype's temp `-defaults.plist`; graceful Quit leaves nothing.
 - [ ] **Fixture transfer-card labels disappear during period changes** — November 16 screenshots; did not recur after verified real-data launch. Cause unconfirmed; distinct from the diagnosed fixture history-query stall.
 - [ ] **Text orientation setting (owner request, 2026-11-14).** As in MousePlus (`LabelOrientation`:
       upright / radial / tangential, auto-flipped). Conflicts with the spec's horizontal-text rule

@@ -39,6 +39,8 @@ struct StatDetailView: View {
 
     /// Ring and floating tiles lay out in a reserved frame; only they may fall through to scrolling.
     private var usesReservedFrame: Bool { onClose != nil || presentation == .floatingTile }
+    /// Floating tiles only: a scrolling card whose width is fixed inside its ScrollView.
+    private var floatingScroll: Bool { presentation == .floatingTile && scrollsBody }
 
     /// Card graph geometry. Wide enough for roughly a minute of 2pt bars — the
     /// same buffer the 34pt strip slot shows only the tail of.
@@ -71,7 +73,16 @@ struct StatDetailView: View {
             }
         }
         Group {
-            if usesReservedFrame {
+            if presentation == .floatingTile && scrollsBody {
+                // Floating tiles: the plan widened this frame by the legacy scroll bar's width, so
+                // the card keeps its measured width inside the ScrollView and the scroll bar sits
+                // beside it rather than over the card's right-hand values.
+                let fixedCard = card.frame(width: transferStat == nil ? nil : Self.transferWidth, alignment: .leading)
+                ViewThatFits(in: .vertical) {
+                    fixedCard
+                    ScrollView(.vertical) { fixedCard.frame(maxWidth: .infinity, alignment: .leading) }
+                }
+            } else if usesReservedFrame {
                 // Ring and floating tiles: a card that fits is laid out exactly as measured, with no ScrollView at
                 // all: a ScrollView under the "Always show scroll bars" setting reserves a legacy
                 // scroller's width, which wraps text the measurement never wrapped. Only a card
@@ -88,7 +99,7 @@ struct StatDetailView: View {
                 card
             }
         }
-        .frame(width: transferStat == nil ? nil : Self.transferWidth, alignment: .leading)
+        .frame(width: transferStat == nil || floatingScroll ? nil : Self.transferWidth, alignment: .leading)
         .padding(12)
         .frame(minWidth: 200)
         .background(

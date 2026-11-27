@@ -84,12 +84,15 @@ enum FloatingTileFixtures {
     @MainActor
     static func makeStore(options: FloatingTilePrototypeOptions) -> StatsStore {
         let root = options.historyRoot
+        let transfers = FloatingTileFixtureTransfers()
         let store = StatsStore(transferHistoryRoot: root, transferHistoryAutomaticallySchedules: false,
+                               transferBoundaryReset: { stat, id in transfers.reset(stat, requestID: id) },
                                publishesTransferQueriesOnSelection: true)
         store.disposableTransferHistoryRoot = root
         store.seedRingFixture(unavailable: options.fixture.unavailableKinds)
         if options.fixture.isHot { applyHotReadings(to: store) }
         store.startTransferHistory()
+        if let controller = store.transferHistoryController { transfers.attach(controller) }
         if options.fixture.drifts { FloatingTileFixtureDrift.start(store) }
         return store
     }
@@ -108,6 +111,82 @@ enum FloatingTileFixtures {
         store.disk.freeBytes = store.disk.totalBytes - store.disk.usedBytes
         if store.gpu.isAvailable { store.gpu.utilizationPercent = 50 }
         if store.battery.isPresent { store.battery.percent = 12 }
+    }
+}
+
+/// Disposable transfer history for the fixture store: one fixture generation per stat, a seeded
+/// minute of observed activity (so totals, graph and "Since reset" are non-empty), and a
+/// boundary-reset hook standing in for the samplers the fixture never starts. Everything goes
+/// into the store's temporary history root; nothing reads a hardware counter.
+///
+/// `reset` is called on the history controller's queue and only enqueues events, as the real
+/// sampler callback must.
+final class FloatingTileFixtureTransfers: @unchecked Sendable {
+    private struct Stream { let generation: UUID; var sequence: UInt64; var last: TransferTimestamp }
+
+    /// Seeded history: `seedSteps` observations of `seedStep` seconds ending now.
+    static let seedSteps = 12
+    static let seedStep: TimeInterval = 5
+
+    private let lock = NSLock()
+    private let clock: any TransferClock
+    private var controller: TransferHistoryController?
+    private var streams: [TransferStat: Stream] = [:]
+
+    init(clock: any TransferClock = SystemTransferClock()) { self.clock = clock }
+
+    /// Admits one generation per stat and seeds a minute of varied activity. Without a valid boot
+    /// identity the timeline rejects the events and the card simply shows no history.
+    func attach(_ controller: TransferHistoryController) {
+        let now = clock.now()
+        lock.withLock {
+            self.controller = controller
+            for (index, stat) in TransferStat.allCases.enumerated() {
+                let generation = UUID()
+                controller.admitGeneration(generation, for: stat)
+                var stream = Stream(generation: generation, sequence: 0, last: Self.timestamp(now, offset: -Double(Self.seedSteps) * Self.seedStep))
+                for step in 0..<Self.seedSteps {
+                    let end = Self.timestamp(now, offset: -Double(Self.seedSteps - 1 - step) * Self.seedStep)
+                    let scale = UInt64([3, 8, 21, 5, 13, 34, 2, 55, 9, 17, 4, 26][step % 12])
+                    let bytes = TransferBytes(first: scale * 1_400_000 * UInt64(index + 1), second: scale * 260_000)
+                    stream.sequence += 1
+                    controller.ingest(.observation(Self.observation(stat, stream, end: end, bytes: bytes)))
+                    stream.last = end
+                }
+                streams[stat] = stream
+            }
+        }
+    }
+
+    /// The boundary reset the real sampler would perform: an observation up to now, then the
+    /// marker at a higher sequence. Returns false when no fixture stream exists.
+    func reset(_ stat: TransferStat, requestID: UUID) -> Bool {
+        lock.withLock {
+            guard let controller, var stream = streams[stat] else { return false }
+            let now = clock.now()
+            guard now.continuousTime > stream.last.continuousTime else { return false }
+            stream.sequence += 1
+            controller.ingest(.observation(Self.observation(stat, stream, end: now, bytes: .zero)))
+            stream.sequence += 1
+            controller.ingest(.reset(TransferResetMarker(stat: stat, generation: stream.generation,
+                                                         sequence: stream.sequence, timestamp: now, requestID: requestID)))
+            stream.last = now
+            streams[stat] = stream
+            return true
+        }
+    }
+
+    private static func observation(_ stat: TransferStat, _ stream: Stream, end: TransferTimestamp,
+                                    bytes: TransferBytes) -> TransferObservation {
+        TransferObservation(generation: stream.generation, sequence: stream.sequence, timestamp: end,
+                            interval: TransferInterval(start: stream.last.continuousTime, end: end.continuousTime,
+                                                       bytes: bytes, stat: stat, coverage: .complete),
+                            accountingOverflow: false)
+    }
+
+    private static func timestamp(_ now: TransferTimestamp, offset: TimeInterval) -> TransferTimestamp {
+        TransferTimestamp(continuousTime: now.continuousTime + offset, wallTime: now.wallTime.addingTimeInterval(offset),
+                          bootID: now.bootID)
     }
 }
 

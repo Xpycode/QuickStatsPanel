@@ -155,7 +155,7 @@ struct FloatingTileSwitcherItemView: View {
         VStack(spacing: 2) {
             Image(systemName: kind.settingsSymbol)
                 .font(.system(size: 13, weight: isCurrent ? .bold : .regular))
-            Text(kind.displayName)
+            Text(Self.shortName(kind))
                 .font(.system(size: 10, weight: isCurrent ? .semibold : .regular))
                 .lineLimit(1)
         }
@@ -170,6 +170,19 @@ struct FloatingTileSwitcherItemView: View {
             if isCurrent {
                 Circle().fill(theme.colors.primaryText).frame(width: 5, height: 5).padding(4)
             }
+        }
+    }
+}
+
+extension FloatingTileSwitcherItemView {
+    /// Switcher items are 44 points wide at a fixed 10-point type, so the two names that do not
+    /// fit are abbreviated rather than truncated or shrunk. The control's tooltip and VoiceOver
+    /// label keep the full name.
+    static func shortName(_ kind: StatKind) -> String {
+        switch kind {
+        case .temps: return "Temp"
+        case .loadAverage: return "Load"
+        default: return kind.displayName
         }
     }
 }

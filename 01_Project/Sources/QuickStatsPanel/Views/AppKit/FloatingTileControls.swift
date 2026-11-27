@@ -66,6 +66,10 @@ final class FloatingTileButton: NSButton {
     /// Handle only: mouse-down starts a group drag instead of a click.
     var onDragStart: ((NSEvent) -> Void)?
     var cornerRadius: CGFloat = 6
+    /// Live accessibility value (a tile's readings, a switcher item's "current" state).
+    var accessibilityValueProvider: (() -> String?)?
+    /// Live selected state for VoiceOver (the switcher's current stat).
+    var accessibilitySelectedProvider: (() -> Bool)?
 
     init<Content: View>(target: FloatingTileTarget, label: String, content: Content) {
         tileTarget = target
@@ -94,11 +98,18 @@ final class FloatingTileButton: NSButton {
 
     override var acceptsFirstResponder: Bool { true }
     override var canBecomeKeyView: Bool { !isHiddenOrHasHiddenAncestor }
+
+    override func accessibilityValue() -> Any? { accessibilityValueProvider?() ?? super.accessibilityValue() }
+    override func isAccessibilitySelected() -> Bool { accessibilitySelectedProvider?() ?? super.isAccessibilitySelected() }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()
-        if accepted { onFocus?(tileTarget) }
+        if accepted {
+            onFocus?(tileTarget)
+            // Inside a scrolling overview, keyboard focus brings its tile into view.
+            if enclosingScrollView != nil { scrollToVisible(bounds) }
+        }
         return accepted
     }
 
@@ -125,6 +136,13 @@ final class FloatingTileButton: NSButton {
     }
 
     @objc private func clicked(_ sender: Any?) { onActivate?(tileTarget) }
+}
+
+/// Transparent, flipped document view of a scrolling overview (limited space only). Like the
+/// host view it draws nothing, so its gaps stay click-through.
+final class FloatingTileOverviewDocumentView: NSView {
+    override var isFlipped: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
 /// Calm surface background shared by tiles, the switcher and the group bar.

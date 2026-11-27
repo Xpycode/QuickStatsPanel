@@ -123,6 +123,13 @@ struct FloatingTileReading: Equatable, Sendable {
         return parts.joined(separator: ", ")
     }
 
+    /// Accessibility value of the tile control (its label already names the stat): the shown
+    /// readings, then the basis and band.
+    var accessibilityValue: String {
+        guard isAvailable else { return "Unavailable" }
+        return ([primary] + (secondary.map { [$0] } ?? []) + [explanation]).joined(separator: ", ")
+    }
+
     private func percentText(suffix: String) -> String {
         guard let usagePercent else { return "Not measured" }
         return "\(Self.truncatedPercent(usagePercent))% \(suffix)"
