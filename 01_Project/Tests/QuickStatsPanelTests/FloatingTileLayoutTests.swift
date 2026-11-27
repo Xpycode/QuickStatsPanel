@@ -3,8 +3,8 @@ import XCTest
 #if DEBUG
 /// Frozen floating-tile geometry: packing, a fixed core (bar, overview), a host envelope sized at
 /// summon, details placed when opened from their measured size, sideways from their primary
-/// toward the larger part of the old overview (D-044), all sharing the overview's top edge with a
-/// 6-point gap (D-045), column reduction and visual-neighbour navigation. Core-relative frames use
+/// toward the larger part of the old overview (D-044) with a 6-point gap (D-045), vertically beside
+/// their tile (D-046), column reduction and visual-neighbour navigation. Core-relative frames use
 /// `c(_:_:)` because the envelope to the left shifts the core inside the host.
 final class FloatingTileLayoutTests: XCTestCase {
 
@@ -306,7 +306,7 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertNil(FloatingTilePlacement.reclamp(frame: frame, visibleFrames: []))
     }
 
-    // MARK: Detail opens inward from a stationary primary (D-044), one top line, 6-point gap (D-045)
+    // MARK: Detail opens inward from a stationary primary (D-044), 6-point gap (D-045)
 
     // Eleven stats, four columns: CPU 2×2 (cols 0–1, rows 0–1); Memory, Disk 2×1 (cols 2–3, rows
     // 0, 1); row 2 Network, Battery, GPU, Fans; row 3 Power, Temperature, Load, Uptime.
@@ -323,11 +323,8 @@ final class FloatingTileLayoutTests: XCTestCase {
                                                       overview: CGRect(x: 0, y: 0, width: 100, height: 10)),
                        .right, "a full-width primary opens right")
     }
-    func testEveryDetailSharesTheOverviewTopWithASixPointGap() {
+    func testDetailsSitBesideTheirPrimaryWithASixPointGap() {
         let p = plan(StatKind.allCases)
-        for kind in StatKind.allCases {
-            XCTAssertEqual(open(p, kind).frame.minY, p.overviewFrame.minY, "\(kind): top = overview top (D-045)")
-        }
         let cpu = open(p, .cpu).frame, cpuTile = try! XCTUnwrap(p.tileFrames[.cpu])
         XCTAssertEqual(cpu.minX, cpuTile.maxX + 6, "opens into the space the other primaries left, 6 points away")
         let memory = open(p, .memory).frame, memoryTile = try! XCTUnwrap(p.tileFrames[.memory])
@@ -337,17 +334,102 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertEqual(battery.minX - network.maxX, 12, "gaps between primaries stay 12 points")
     }
 
-    func testBottomRowPrimariesAlsoTopAlign() {
+    // MARK: Vertical placement beside the tile (D-046)
+
+    func testTopRowDetailsAlignTopsAndGrowDown() {
+        let p = plan(StatKind.allCases)
+        for kind in [StatKind.cpu, .memory] {
+            let tile = try! XCTUnwrap(p.tileFrames[kind])
+            XCTAssertEqual(tile.minY, p.overviewFrame.minY, "\(kind) is in the top row")
+            for height in [CGFloat(80), 150, 400] {
+                let detail = open(p, kind, CGSize(width: 250, height: height))
+                XCTAssertEqual(detail.frame.minY, tile.minY, "\(kind) \(height): top = primary top")
+                XCTAssertEqual(detail.frame.height, height)
+                XCTAssertFalse(detail.scrolls)
+            }
+        }
+    }
+    func testBottomRowDetailsAlignBottomsAndGrowUp() {
         let p = plan(StatKind.allCases)
         // Row 3 (the bottom row): Power, Temperature, Load, Uptime.
         for kind in [StatKind.power, .temps, .loadAverage, .uptime] {
             let tile = try! XCTUnwrap(p.tileFrames[kind])
             XCTAssertEqual(tile.maxY, p.overviewFrame.maxY, "\(kind) is in the bottom row")
-            let detail = open(p, kind, CGSize(width: 250, height: 400)).frame
-            XCTAssertEqual(detail.minY, p.overviewFrame.minY, "\(kind): top edge at the overview's top, not the tile's")
-            XCTAssertNotEqual(detail.maxY, tile.maxY, "no bottom alignment")
-            XCTAssertEqual(detail.height, 400, "room below: nothing scrolls")
+            for height in [CGFloat(60), 150, 400] {
+                let detail = open(p, kind, CGSize(width: 250, height: height)).frame
+                XCTAssertEqual(detail.maxY, tile.maxY, "\(kind) \(height): bottom = primary bottom")
+                XCTAssertEqual(detail.height, height, "room above: nothing scrolls")
+            }
         }
+    }
+    func testBottomRowDetailTallerThanTheOverviewStopsAtTheBarAndGrowsDown() {
+        let p = plan(StatKind.allCases)
+        let tile = try! XCTUnwrap(p.tileFrames[.power])
+        // Taller than the bar's bottom to the tile's bottom (436), shorter than the display allows.
+        let detail = open(p, .power, CGSize(width: 250, height: 500))
+        XCTAssertEqual(detail.frame.minY, p.overviewFrame.minY, "never above the group bar's bottom")
+        XCTAssertGreaterThan(detail.frame.maxY, tile.maxY, "the rest extends below the tile")
+        XCTAssertEqual(detail.frame.height, 500)
+        XCTAssertFalse(detail.scrolls)
+        XCTAssertFalse(detail.frame.intersects(p.barFrame))
+    }
+    func testMiddleRowDetailsStartAtTheirTopAndShiftUpOnlyToFit() {
+        let p = plan(StatKind.allCases)
+        let region = p.detailRegion
+        // Row 2 (a middle row): Network, Battery, GPU, Fans; Disk is row 1 (also middle).
+        for kind in [StatKind.disk, .network, .battery, .gpu, .fan] {
+            let tile = try! XCTUnwrap(p.tileFrames[kind])
+            XCTAssertGreaterThan(tile.minY, p.overviewFrame.minY)
+            XCTAssertLessThan(tile.maxY, p.overviewFrame.maxY, "\(kind) is in a middle row")
+            XCTAssertEqual(open(p, kind, CGSize(width: 250, height: 150)).frame.minY, tile.minY,
+                           "\(kind): fits below its top, so it starts there")
+            // Too tall to start at the tile's top: shifted up just enough to end at the display's bottom.
+            let tall = region.maxY - tile.minY + 30
+            let shifted = open(p, kind, CGSize(width: 250, height: tall))
+            XCTAssertEqual(shifted.frame.maxY, region.maxY, "\(kind)")
+            XCTAssertEqual(shifted.frame.minY, tile.minY - 30, "\(kind): shifted up only as far as needed")
+            XCTAssertFalse(shifted.scrolls)
+        }
+    }
+    func testDisplayBottomAboveATallDetailShiftsItUpToTheBarThenScrolls() {
+        let p = plan(StatKind.allCases)
+        let span = p.detailRegion.maxY - p.overviewFrame.minY
+        for kind in StatKind.allCases {
+            let exact = open(p, kind, CGSize(width: 250, height: span))
+            XCTAssertEqual(exact.frame.minY, p.overviewFrame.minY, "\(kind)")
+            XCTAssertFalse(exact.scrolls, "\(kind): exactly fitting does not scroll")
+            let tall = open(p, kind, CGSize(width: 250, height: span + 200))
+            XCTAssertEqual(tall.frame.minY, p.overviewFrame.minY, "\(kind): never above the group bar")
+            XCTAssertEqual(tall.frame.maxY, p.detailRegion.maxY, "\(kind)")
+            XCTAssertTrue(tall.scrolls, "\(kind): still too tall scrolls")
+        }
+    }
+    func testNoDetailLeavesTheDisplayOrRisesAboveTheBar() {
+        let bounds = CGRect(x: -600, y: -120, width: 1800, height: 120 + 476 + 60)
+        let p = plan(StatKind.allCases, bounds: bounds)
+        let region = bounds.offsetBy(dx: p.coreFrame.minX, dy: p.coreFrame.minY)
+        for kind in StatKind.allCases {
+            for height in [CGFloat(60), 200, 400, 560, 900] {
+                let detail = open(p, kind, CGSize(width: 250, height: height))
+                XCTAssertTrue(region.contains(detail.frame), "\(kind) \(height) stays on the display")
+                XCTAssertGreaterThanOrEqual(detail.frame.minY, p.overviewFrame.minY, "\(kind) \(height)")
+                XCTAssertFalse(detail.frame.intersects(p.barFrame), "\(kind) \(height)")
+                XCTAssertEqual(detail.scrolls, height > region.maxY - p.overviewFrame.minY, "\(kind) \(height)")
+            }
+        }
+    }
+    func testAPrimaryInBothTheTopAndBottomRowTopAligns() {
+        // CPU 2×2 (rows 0–1), Network row 0, Memory row 1: two rows, CPU spans both.
+        let p = plan([.cpu, .network, .memory])
+        let cpuTile = try! XCTUnwrap(p.tileFrames[.cpu]), memoryTile = try! XCTUnwrap(p.tileFrames[.memory])
+        XCTAssertEqual(cpuTile.maxY, memoryTile.maxY, "CPU reaches the bottom row too")
+        XCTAssertEqual(open(p, .cpu, CGSize(width: 250, height: 80)).frame.minY, cpuTile.minY, "top alignment wins")
+        let memory = open(p, .memory, CGSize(width: 250, height: 80)).frame
+        XCTAssertEqual(memory.maxY, memoryTile.maxY, "Memory is bottom row only")
+        let single = plan([.cpu])
+        let tile = try! XCTUnwrap(single.tileFrames[.cpu])
+        XCTAssertEqual(open(single, .cpu, CGSize(width: 250, height: 80)).frame.minY, tile.minY,
+                       "a single row uses top alignment")
     }
     func testFlipsToTheOppositeSideWithoutRoom() {
         // Display edge exactly at the overview's right edge: right-opening details do not fit.
@@ -358,7 +440,7 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertEqual(open(p, .memory).side, .left, "left-opening details are unaffected")
         let cpu = open(p, .cpu).frame, cpuTile = try! XCTUnwrap(p.tileFrames[.cpu])
         XCTAssertEqual(cpu.maxX + 6, cpuTile.minX)
-        XCTAssertEqual(cpu.minY, p.overviewFrame.minY, "the top line is kept after a flip")
+        XCTAssertEqual(cpu.minY, cpuTile.minY, "top-row alignment is kept after a flip")
         let region = bounds.offsetBy(dx: p.coreFrame.minX, dy: p.coreFrame.minY)
         for kind in StatKind.allCases {
             XCTAssertTrue(region.contains(open(p, kind).frame), "\(kind) stays on the display")
@@ -390,7 +472,7 @@ final class FloatingTileLayoutTests: XCTestCase {
         XCTAssertEqual(cpu.frame.minY, p.overviewFrame.minY)
         XCTAssertEqual(cpu.frame.maxY, region.maxY, "runs to the display's bottom, then scrolls")
     }
-    func testTooTallFromTheTopLineScrollsEvenForABottomRowPrimary() {
+    func testTooTallForABottomRowPrimaryRisesToTheBarThenScrolls() {
         // The display ends 100 points below the overview's bottom.
         let p0 = plan(StatKind.allCases)
         let overviewBottom = c(p0, p0.overviewFrame)!.maxY
@@ -398,7 +480,7 @@ final class FloatingTileLayoutTests: XCTestCase {
         let p = plan(StatKind.allCases, bounds: bounds)
         let uptime = open(p, .uptime, CGSize(width: 250, height: 700))
         XCTAssertEqual(uptime.frame.minY, p.overviewFrame.minY)
-        XCTAssertEqual(uptime.frame.height, p.overviewFrame.height + 100, "from the top line to the display's bottom")
+        XCTAssertEqual(uptime.frame.height, p.overviewFrame.height + 100, "from the bar's bottom to the display's bottom")
         XCTAssertTrue(uptime.scrolls)
         XCTAssertFalse(open(p, .uptime, CGSize(width: 250, height: p.overviewFrame.height + 100)).scrolls,
                        "exactly fitting does not scroll")

@@ -46,10 +46,15 @@ struct StatDetailView: View {
     /// keep their reserved slots so their once-measured cards never grow.
     private var trimsToContent: Bool { presentation == .floatingTile }
 
-    /// Card graph geometry. Wide enough for roughly a minute of 2pt bars — the
-    /// same buffer the 34pt strip slot shows only the tail of.
+    /// Card graph geometry (Ring and Strip cards): 73 bar slots that the whole history buffer
+    /// (5 min, D-046) is averaged into — the same buffer the 34pt strip slot shows only the tail of.
     private static let graphWidth: CGFloat = 220
     private static let graphHeight: CGFloat = 44
+    /// Floating-tile cards (D-046): a taller graph spanning the card's content width. The ideal
+    /// width matches the Disk/Network cards' content width; wider rows stretch it further. Both are
+    /// constants, so the card measured at open never depends on the sample count.
+    static let floatingGraphWidth: CGFloat = transferWidth
+    static let floatingGraphHeight: CGFloat = 72
     private static let transferWidth: CGFloat = 260
     /// Fill-basis note width; within `transferWidth`, so Disk's card keeps its width.
     static let basisNoteWidth: CGFloat = 220
@@ -149,9 +154,18 @@ struct StatDetailView: View {
                 transferContent(for: transferStat, theme: theme)
                 Divider().padding(.vertical, 2)
             } else if let graph = descriptor.graph {
-                ActivityGraphView(data: graph,
-                                  width: Self.graphWidth,
-                                  height: Self.graphHeight)
+                if presentation == .floatingTile {
+                    ActivityGraphView(data: graph,
+                                      width: Self.floatingGraphWidth,
+                                      height: Self.floatingGraphHeight,
+                                      fit: .wholeHistory,
+                                      fillsWidth: true)
+                } else {
+                    ActivityGraphView(data: graph,
+                                      width: Self.graphWidth,
+                                      height: Self.graphHeight,
+                                      fit: .wholeHistory)
+                }
                 ActivityGraphLegend(data: graph)
                 Divider().padding(.vertical, 2)
             }

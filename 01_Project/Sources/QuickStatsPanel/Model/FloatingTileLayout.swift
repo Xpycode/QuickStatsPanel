@@ -147,7 +147,7 @@ struct FloatingTilePlan: Equatable, Sendable {
                                                width: available.width, height: available.height)
 
         // The detail envelope: beside the core on both sides and from the core's top down to the
-        // display's bottom (every detail's top is the overview's top, D-045), clamped to the
+        // display's bottom (no detail rises above the overview's top, D-046), clamped to the
         // display but never smaller than the core itself.
         let reach = m.detailGap + m.detailEnvelopeWidth + reserve
         let hostMinX = min(core.minX, max(bounds.minX, core.minX - reach))
@@ -177,7 +177,8 @@ struct FloatingTilePlan: Equatable, Sendable {
         tile.midX <= overview.midX + 0.5 ? .right : .left
     }
 
-    /// The frame for `kind`'s detail, from the size measured now (when it is opened, D-045).
+    /// The frame for `kind`'s detail, from the size measured now (when it is opened, D-045), beside
+    /// its primary (D-046).
     /// - Parameter display: the current display region in host coordinates (the group may have
     ///   been dragged since summon); nil uses the region planned at summon. Always limited to the
     ///   host, which never resizes.
@@ -186,12 +187,15 @@ struct FloatingTilePlan: Equatable, Sendable {
         var region = (display ?? detailRegion).intersection(host)
         if region.isNull || region.isEmpty { region = host }
         let tile = tileFrames[kind] ?? overviewFrame
+        // The bottom of the last row (unscrolled footprint coordinates, like the tile frames).
+        let rowsBottom = tileFrames.values.map(\.maxY).max() ?? overviewFrame.maxY
         var placed = Self.placeDetail(size: measured, tile: tile, overview: overviewFrame, bounds: region,
-                                      gap: metrics.detailGap)
+                                      gap: metrics.detailGap, rowsBottom: rowsBottom)
         // A scrolling detail gets a legacy scroll bar's width beside its measured content.
         if placed.scrolls, scrollerReserve > 0 {
             placed = Self.placeDetail(size: CGSize(width: measured.width + scrollerReserve, height: measured.height),
-                                      tile: tile, overview: overviewFrame, bounds: region, gap: metrics.detailGap)
+                                      tile: tile, overview: overviewFrame, bounds: region, gap: metrics.detailGap,
+                                      rowsBottom: rowsBottom)
         }
         return placed
     }
@@ -200,10 +204,14 @@ struct FloatingTilePlan: Equatable, Sendable {
     /// - side: the preferred side (`preferredSide`) if the detail fits the region there, else the
     ///   opposite side; if neither fits, the side with more room, clamped into `bounds` (only on
     ///   displays too narrow for the detail — the measured width never shrinks, so text does not);
-    /// - vertical: the top edge is the overview's top (one line for every detail, D-045); the
-    ///   height is limited to the region's bottom, and a limited detail scrolls.
+    /// - vertical, beside the tile (D-046): a top-row primary (also a single row) aligns the
+    ///   detail's top with its own and grows down; a bottom-row primary aligns the bottoms and grows
+    ///   up; a middle-row primary starts at its top. Every detail then shifts up only as far as it
+    ///   must to end inside `bounds`, never above the overview's top (the group bar's bottom); the
+    ///   height is limited to that span, and a limited detail scrolls.
+    /// - Parameter rowsBottom: the last row's bottom edge; nil uses `overview.maxY`.
     static func placeDetail(size: CGSize, tile: CGRect, overview: CGRect, bounds: CGRect,
-                            gap: CGFloat) -> FloatingTileDetailPlacement {
+                            gap: CGFloat, rowsBottom: CGFloat? = nil) -> FloatingTileDetailPlacement {
         let width = min(size.width, bounds.width)
         func x(_ side: FloatingTileSide) -> CGFloat { side == .right ? tile.maxX + gap : tile.minX - gap - width }
         func room(_ side: FloatingTileSide) -> CGFloat {
@@ -221,8 +229,13 @@ struct FloatingTilePlan: Equatable, Sendable {
         }
         fx = fx.rounded()
 
-        let fy = max(overview.minY, bounds.minY)
-        let height = min(size.height, max(0, bounds.maxY - fy))
+        let ceiling = max(overview.minY, bounds.minY)
+        let floor = max(ceiling, bounds.maxY)
+        let height = min(size.height, floor - ceiling)
+        let topRow = tile.minY <= overview.minY + 0.5
+        let bottomRow = tile.maxY >= (rowsBottom ?? overview.maxY) - 0.5
+        var fy = topRow || !bottomRow ? tile.minY : tile.maxY - height
+        fy = max(min(fy, floor - height), ceiling)
         return FloatingTileDetailPlacement(frame: CGRect(x: fx, y: fy, width: width, height: height), side: side,
                                            scrolls: size.height > height + 0.5)
     }

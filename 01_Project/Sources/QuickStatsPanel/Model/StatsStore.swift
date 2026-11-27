@@ -181,14 +181,15 @@ final class StatsStore {
 
     // MARK: - History (D-025)
 
-    /// How much past to keep for the activity graphs.
-    static let historyDuration: TimeInterval = 60
+    /// How much past to keep for the activity graphs: five minutes (D-046). Detail-card graphs
+    /// average the whole buffer into their bar slots; the strip's small graph shows only its tail.
+    static let historyDuration: TimeInterval = 300
 
     /// Retained sample count — **derived from the duration and the user's refresh
-    /// interval, never a fixed number**. At 0.5 s the buffer holds 120 samples for
-    /// the same minute of history; at 5 s it holds 12. A hardcoded count would
-    /// silently mean "two minutes" or "five seconds" depending on the slider.
-    private static func historyCapacity(interval: TimeInterval) -> Int {
+    /// interval, never a fixed number**. At 0.5 s the buffer holds 600 samples for
+    /// the same five minutes of history; at 1 s 300; at 5 s 60. A hardcoded count would
+    /// silently mean "ten minutes" or "one minute" depending on the slider.
+    static func historyCapacity(interval: TimeInterval) -> Int {
         Int((historyDuration / max(interval, 0.1)).rounded(.up))
     }
 

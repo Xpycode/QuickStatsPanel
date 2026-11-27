@@ -10,8 +10,9 @@ import SwiftUI
 /// self-drawn surfaces — and `DiskVerdict`'s `TrendChart.swift` is 437 lines for
 /// an analytics window, an order of magnitude past what a 34pt strip slot needs.
 ///
-/// **Fixed geometry.** Both call sites pass an explicit width and height, and the
-/// bar count is derived from that width — never from the sample count. The strip
+/// **Fixed geometry.** Every call site passes an explicit width and height (floating-tile
+/// cards pass the ideal width and stretch to the card's content width, D-046), and the
+/// bar count is derived from the drawn width — never from the sample count. The strip
 /// depends on this for D-008 (a tile that resizes as history accumulates would
 /// shift every tile beside it), and the detail card depends on it because
 /// `DetailPanelController` measures the card exactly once when it opens.
@@ -24,13 +25,26 @@ struct ActivityGraphView: View {
     /// bars so a 34pt slot still shows a readable stretch of history.
     var barWidth: CGFloat = 2
     var barGap: CGFloat = 1
+    /// Defaults to the strip's tail (its look is unchanged); detail cards pass `.wholeHistory`.
+    var fit: GraphFit = .recentTail
+    /// Floating-tile cards (D-046): `width` is the graph's ideal (and minimum) width and the
+    /// graph stretches to the card's content width. The ideal is a constant, so the card's
+    /// once-at-open measurement never depends on the sample count.
+    var fillsWidth = false
 
     var body: some View {
         let theme = AppSettings.shared.theme
-        Canvas { context, size in
+        let canvas = Canvas { context, size in
             draw(in: &context, size: size, theme: theme)
         }
-        .frame(width: width, height: height)
+        Group {
+            if fillsWidth {
+                canvas.frame(minWidth: width, idealWidth: width, maxWidth: .infinity,
+                             minHeight: height, idealHeight: height, maxHeight: height)
+            } else {
+                canvas.frame(width: width, height: height)
+            }
+        }
         // The graph is decorative detail beside a value that is already announced;
         // VoiceOver reading a bar series adds noise, not information.
         .accessibilityHidden(true)
@@ -39,9 +53,6 @@ struct ActivityGraphView: View {
     // MARK: - Drawing
 
     private func draw(in context: inout GraphicsContext, size: CGSize, theme: Theme) {
-        let slot = barWidth + barGap
-        let slots = max(1, Int(size.width / slot))
-
         // Mirrored: baseline down the middle, each half gets half the height.
         // Single: baseline on the floor, the series owns the full height.
         let baselineY = data.isMirrored ? size.height / 2 : size.height
@@ -49,14 +60,14 @@ struct ActivityGraphView: View {
 
         drawBaseline(in: &context, size: size, y: baselineY, theme: theme)
 
-        drawBars(in: &context, series: data.upper, slots: slots, slot: slot,
+        drawBars(in: &context, series: data.upper, width: size.width,
                  baselineY: baselineY, maxHeight: halfHeight, upward: true,
-                 color: theme.colors.graphPrimary, width: size.width)
+                 color: theme.colors.graphPrimary)
 
         if let lower = data.lower {
-            drawBars(in: &context, series: lower, slots: slots, slot: slot,
+            drawBars(in: &context, series: lower, width: size.width,
                      baselineY: baselineY, maxHeight: halfHeight, upward: false,
-                     color: theme.colors.graphSecondary, width: size.width)
+                     color: theme.colors.graphSecondary)
         }
     }
 
@@ -71,33 +82,22 @@ struct ActivityGraphView: View {
                        style: StrokeStyle(lineWidth: 1, dash: [1, 2]))
     }
 
-    /// One series of bars, right-aligned so the newest sample sits at the right
-    /// edge and history scrolls leftward — the direction every comparable macOS
-    /// monitor uses, and the reason a partly-filled buffer must pad on the *left*.
+    /// One series of bars, newest at the right edge and history running leftward — the
+    /// direction every comparable macOS monitor uses. Slot assignment is `GraphBarLayout`.
     private func drawBars(in context: inout GraphicsContext,
-                          series: GraphSeries,
-                          slots: Int, slot: CGFloat,
+                          series: GraphSeries, width: CGFloat,
                           baselineY: CGFloat, maxHeight: CGFloat,
-                          upward: Bool, color: Color, width: CGFloat) {
-        // Show the most recent `slots` samples. The buffer may hold more (the card
-        // is wider than the strip) or fewer (freshly started) — both are fine.
-        let visible = series.values.suffix(slots)
-        guard !visible.isEmpty else { return }
-
-        // Anchor the newest bar to the right edge, so a half-full buffer grows
-        // leftward from "now" instead of drifting rightward as it fills.
-        let firstSlot = slots - visible.count
-
-        for (offset, value) in visible.enumerated() {
-            let fraction = min(max(value / series.peak, 0), 1)
+                          upward: Bool, color: Color) {
+        for bar in GraphBarLayout.bars(for: series.values, width: width, barWidth: barWidth,
+                                       barGap: barGap, fit: fit) {
+            let fraction = min(max(bar.value / series.peak, 0), 1)
             guard fraction > 0 else { continue }
             // Sub-pixel bars vanish entirely; a floor keeps light activity visible
             // rather than silently rounding it away to nothing.
             let barHeight = max(fraction * maxHeight, 1)
-            let x = CGFloat(firstSlot + offset) * slot
-            let rect = CGRect(x: x,
+            let rect = CGRect(x: bar.x,
                               y: upward ? baselineY - barHeight : baselineY,
-                              width: barWidth,
+                              width: bar.width,
                               height: barHeight)
             context.fill(Path(rect), with: .color(color))
         }

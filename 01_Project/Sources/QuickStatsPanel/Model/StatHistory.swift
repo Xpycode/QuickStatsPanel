@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// Fixed-capacity history of recent samples, oldest → newest.
@@ -5,9 +6,10 @@ import Foundation
 /// **Whole samples, not extracted numbers.** Storing `NetworkSample` rather than
 /// `[Double]` of download rates means switching a tile's value mode (Down → Up →
 /// both) re-plots the history it already has instead of blanking the graph and
-/// making the user wait a minute for it to refill.
+/// making the user wait minutes for it to refill.
 ///
-/// Cost is trivial: 60 samples × 5 stats × a few dozen bytes ≈ 30 KB, and the
+/// Cost is small: five minutes at 1 s is 300 samples × 5 stats × a few dozen bytes
+/// ≈ 150 KB (600 samples, ≈ 300 KB, at the fastest 0.5 s interval), and the
 /// samplers producing them already run continuously (`StatsStore.start`), so
 /// there is no extra CPU — only the retention of values that were previously
 /// computed and thrown away.
@@ -98,6 +100,72 @@ struct GraphData {
     let lower: GraphSeries?
 
     var isMirrored: Bool { lower != nil }
+}
+
+// MARK: - Bar layout
+
+/// How a history buffer maps onto a graph's bar slots (D-046).
+enum GraphFit: Sendable {
+    /// The strip's small in-tile graph: only the most recent samples that fit, one per slot,
+    /// newest at the right edge, a partly filled buffer leaving the left blank.
+    case recentTail
+    /// Detail cards: the whole buffer. Fewer samples than slots spread across the full width
+    /// (wider slots); more are averaged into the slots (bucketed mean), so all history fits.
+    case wholeHistory
+}
+
+/// Pure bar geometry for `ActivityGraphView`, kept in the model so the fit rules are testable
+/// without a view.
+enum GraphBarLayout {
+    /// One drawn bar: its left edge and width along the graph, and the value it plots.
+    struct Bar: Equatable {
+        let x: CGFloat
+        let width: CGFloat
+        let value: Double
+    }
+
+    /// Bar slots for a graph `width` wide with the given bar geometry; never fewer than one.
+    static func slotCount(width: CGFloat, barWidth: CGFloat, barGap: CGFloat) -> Int {
+        max(1, Int(width / (barWidth + barGap)))
+    }
+
+    /// Lays `values` (oldest → newest) out as bars.
+    /// - `.recentTail`: the newest `slots` samples, one per fixed slot, right-aligned.
+    /// - `.wholeHistory`: every sample. Up to `slots` samples share the full width equally (bars
+    ///   widen, keeping the bar:gap ratio); more are grouped oldest → newest into `slots`
+    ///   near-equal buckets, each drawn as its mean, across the full width.
+    static func bars(for values: [Double], width: CGFloat, barWidth: CGFloat, barGap: CGFloat,
+                     fit: GraphFit) -> [Bar] {
+        guard !values.isEmpty, width > 0 else { return [] }
+        let slot = barWidth + barGap
+        let slots = slotCount(width: width, barWidth: barWidth, barGap: barGap)
+        switch fit {
+        case .recentTail:
+            // Anchor the newest bar to the right edge, so a half-full buffer grows
+            // leftward from "now" instead of drifting rightward as it fills.
+            let visible = values.suffix(slots)
+            let firstSlot = slots - visible.count
+            return visible.enumerated().map { offset, value in
+                Bar(x: CGFloat(firstSlot + offset) * slot, width: barWidth, value: value)
+            }
+        case .wholeHistory:
+            let plotted: [Double]
+            if values.count <= slots {
+                plotted = values
+            } else {
+                let n = values.count
+                plotted = (0..<slots).map { i in
+                    let bucket = values[(i * n / slots)..<((i + 1) * n / slots)]
+                    return bucket.reduce(0, +) / Double(bucket.count)
+                }
+            }
+            let stretched = width / CGFloat(plotted.count)
+            let stretchedBar = stretched * barWidth / slot
+            return plotted.enumerated().map { index, value in
+                Bar(x: CGFloat(index) * stretched, width: stretchedBar, value: value)
+            }
+        }
+    }
 }
 
 // MARK: - Peak resolution
