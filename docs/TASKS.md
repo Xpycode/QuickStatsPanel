@@ -4,8 +4,8 @@
 
 ## Active plan
 
-[Floating-tile prototype](IMPLEMENTATION_PLAN-floating-tiles.md) — executing, 1/4 tasks across four
-serial waves. 1.1 complete 2026-11-27; next ready task 2.1. Provisional defaults are evaluated at tile E1; no production rollout.
+[Floating-tile prototype](IMPLEMENTATION_PLAN-floating-tiles.md) — executing, 2/4 tasks across four
+serial waves. 1.1 and 2.1 complete 2026-11-27; next ready task 3.1. Provisional defaults are evaluated at tile E1; no production rollout.
 
 ## Parked plan
 

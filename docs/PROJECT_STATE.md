@@ -12,16 +12,17 @@
 ## Now
 - **Funnel:** build · **Phase:** Floating tiles — prototype executing <!-- Phase changed: 2026-11-27 -->
 - **Focus:** bounded native floating-tile prototype; [spec defaults](../specs/floating-tiles.md) remain provisional until owner review. Circle review remains parked (D-040).
-- **Blockers:** 2.1 dark-appearance check unverified (Atlas helper is light-only) — needs a chosen method before 2.1 can close. Tile E1 and parked ring E1 open. Separate release gates: Strongbox backup, remaining updater controls and real upgrade acceptance.
-- **Execution:** [Floating-tile prototype plan](IMPLEMENTATION_PLAN-floating-tiles.md) — 1/4 complete; Wave 2 (2.1) implemented, awaiting dark-appearance check; 3.1 waits on it. Tile E1 open. [Ring plan](../IMPLEMENTATION_PLAN.md) remains 12/12 implemented, E1 open and parked.
+- **Blockers:** none for 3.1. Tile E1 and parked ring E1 open. Separate release gates: Strongbox backup, remaining updater controls and real upgrade acceptance.
+- **Execution:** [Floating-tile prototype plan](IMPLEMENTATION_PLAN-floating-tiles.md) — 2/4 complete; 2.1 dark check passed (helper System Settings → Dark); 3.1 ready. Tile E1 open. [Ring plan](../IMPLEMENTATION_PLAN.md) remains 12/12 implemented, E1 open and parked.
 - **Feature definition:** [Floating tiles](../specs/floating-tiles.md), with provisional native defaults. [Earlier layouts/ring spec](../specs/panel-layouts-and-appearance.md) and remaining ring E1 decisions stay parked.
-- **Current handoff:** [Pre-clear after tile Wave 2](sessions/2026-11-27.md#resume--pre-clear-after-tile-wave-2) — five local commits unpushed; next: dark check, then `/execute` 3.1.
+- **Current handoff:** [Pre-clear after tile Wave 2](sessions/2026-11-27.md#resume--pre-clear-after-tile-wave-2) — commits pushed; dark check since passed; next: `/execute` 3.1.
 - **Validation:** W2: Debug/Release build, focused hostless 55/0, Release exclusion, signatures and Atlas eleven-stat/Mono/journey/no-movement/unavailable/empty checks pass; dark not run ([execution log](IMPLEMENTATION_PLAN-floating-tiles.md#execution-log)). Full suite not re-run on this Mac (last 394/0 on the other Mac).
-- **Next:** choose a dark-appearance check method for 2.1 (helper system dark, or a Debug-only appearance override), then `/execute` 3.1.
+- **Next:** `/execute` Wave 3 (3.1) — all details, edge/narrow displays, keyboard and group lifecycle. Deep model, high reasoning.
 - **Release:** public v1.2.0; prepared v1.2.1 remains unpublished and separate from prototype work. [Release preparation](evidence/release-1.2.1.md).
 - **Last updated:** 2026-11-27
 
 ## Recent
+- **2026-11-27** — Pushed; 2.1 dark check passed via helper System Settings → Dark (a global `defaults write` does not work there). Tile plan 2/4; 3.1 ready.
 - **2026-11-27** — Tile Wave 2 implemented: all eleven stats in saved-order hierarchy with readings and usage colours; checks pass except dark mode, which the helper can't show yet.
 - **2026-11-27** — Tile Wave 1 done on M4 Pro: isolated CPU/Network prototype (`--floating-tiles-prototype`) passes open/switch/return/dismiss, focus and click-through in Atlas. Xcode 26.3 type-check fix committed separately.
 - **2026-11-22** — Floating mockup explored: separate tiles, content-sized detail, stationary switcher and usage colours. Spec and four-task prototype plan prepared; defaults provisional, execution not started; circle parked. All Nov 15–22 work committed and pushed.
