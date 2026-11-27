@@ -10,23 +10,23 @@
 - **Started:** 2026-06-04 · **Target:** macOS 15+ · **License:** PolyForm Noncommercial 1.0.0 (public repo)
 
 ## Now
-- **Funnel:** build · **Phase:** Floating tiles — prototype executing <!-- Phase changed: 2026-11-27 -->
+- **Funnel:** build · **Phase:** Floating tiles — prototype implemented, owner review (E1) <!-- Phase changed: 2026-11-27 -->
 - **Focus:** bounded native floating-tile prototype; [spec defaults](../specs/floating-tiles.md) remain provisional until owner review. Circle review remains parked (D-040).
-- **Blockers:** none for 4.1. Tile E1 and parked ring E1 open. Separate release gates: Strongbox backup, remaining updater controls and real upgrade acceptance.
-- **Execution:** [Floating-tile prototype plan](IMPLEMENTATION_PLAN-floating-tiles.md) — 3/4 complete; 3.1 done (details, constrained displays, keyboard, group lifecycle); 4.1 ready. Tile E1 open. [Ring plan](../IMPLEMENTATION_PLAN.md) remains 12/12 implemented, E1 open and parked.
+- **Blockers:** tile E1 needs the owner. Parked ring E1 open. Separate release gates: Strongbox backup, remaining updater controls and real upgrade acceptance.
+- **Execution:** [Floating-tile prototype plan](IMPLEMENTATION_PLAN-floating-tiles.md) — 4/4 complete; awaiting owner review E1 ([review packet](evidence/floating-tiles-prototype.md#e1-owner-review-packet)). [Ring plan](../IMPLEMENTATION_PLAN.md) remains 12/12 implemented, E1 open and parked.
 - **Feature definition:** [Floating tiles](../specs/floating-tiles.md), with provisional native defaults. [Earlier layouts/ring spec](../specs/panel-layouts-and-appearance.md) and remaining ring E1 decisions stay parked.
-- **Current handoff:** [Pre-clear after tile Wave 3](sessions/2026-11-27.md#resume--pre-clear-after-tile-wave-3) — 2 local commits unpushed; next: `/execute` 4.1.
-- **Validation:** W3: Debug/Release build, focused hostless 86/0, Release exclusion, signatures and Atlas keyboard/detail/edge/scroll/drag/pin/quit matrix pass; Reduce Motion by inspection (no animations), live VoiceOver and native multi-display pending E1 ([execution log](IMPLEMENTATION_PLAN-floating-tiles.md#execution-log)). Full suite not re-run on this Mac (last 394/0 on the other Mac) — 4.1 runs it.
-- **Next:** `/execute` Wave 4 (4.1) — full regression suite, Release exclusion, owner review packet for E1.
+- **Current handoff:** [Pre-clear after tile Wave 4](sessions/2026-11-27.md#resume--pre-clear-after-tile-wave-4) — unpushed commits; next: owner E1.
+- **Validation:** W4: full hostless suite 462/0 (0 skipped), Debug/Release build, codesign, Release exclusion clean; Atlas Release Strip launch and Ring render pass. Ad-hoc Release cannot launch on the M4 Pro (hardened runtime vs Sparkle) — use a Developer ID local build. [Evidence](evidence/floating-tiles-prototype.md).
+- **Next:** owner runs the E1 packet (cases A–F) on the Debug artifact and records results.
 - **Release:** public v1.2.0; prepared v1.2.1 remains unpublished and separate from prototype work. [Release preparation](evidence/release-1.2.1.md).
 - **Last updated:** 2026-11-27
 
 ## Recent
+- **2026-11-27** — Tile 4.1 done: full suite 462/0, Release exclusion clean, Strip/Ring smoke in the helper, E1 review packet written. Tile plan 4/4; E1 open.
 - **2026-11-27** — Tile 3.1 done: all detail cards, constrained/edge displays, keyboard (incl. already-active summon), group drag/dismiss/quit, VoiceOver tree; 86/0 focused. Tile plan 3/4; 4.1 ready.
 - **2026-11-27** — Pushed; 2.1 dark check passed via helper System Settings → Dark (a global `defaults write` does not work there). Tile plan 2/4; 3.1 ready.
 - **2026-11-27** — Tile Wave 2 implemented: all eleven stats in saved-order hierarchy with readings and usage colours; checks pass except dark mode, which the helper can't show yet.
 - **2026-11-27** — Tile Wave 1 done on M4 Pro: isolated CPU/Network prototype (`--floating-tiles-prototype`) passes open/switch/return/dismiss, focus and click-through in Atlas. Xcode 26.3 type-check fix committed separately.
-- **2026-11-22** — Floating mockup explored: separate tiles, content-sized detail, stationary switcher and usage colours. Spec and four-task prototype plan prepared; defaults provisional, execution not started; circle parked. All Nov 15–22 work committed and pushed.
 
 ## What we're building
 Press a global hotkey → a **thin** wide strip appears near the cursor showing live stats as compact
